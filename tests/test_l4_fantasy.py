@@ -154,6 +154,28 @@ def test_slot_aggregate_skips_team_with_no_matched_member_in_matrix():
     assert "T1" not in agg
 
 
+def test_slot_aggregate_excludes_missing_item_from_denominator_not_zero_fills():
+    """【Important】当槽位命中的 2 名成员中一人在 matrix 里缺某个 item 时，
+    该 item 的分母必须只算实际持有该 item 的成员数——不能把缺失方按 0.0
+    计入总和后仍除以全部成员数（那样会把该队该项的分数静默腰斩）。
+
+    Core 槽（1、3 号位）：11 号位两项都有（kills/gpm），13 号位只有 kills、
+    没有 gpm（比如该项样本量为 0 被上游 fit_rate_model 过滤掉，但另一项
+    样本量足够）。修复前：gpm = (500.0 + 0.0) / 2 == 250.0（错误地把 13
+    号位的缺失当成 0 分计入）。修复后：gpm 应该只由持有该项的 11 号位
+    单独决定，即 500.0。"""
+    matrix = {
+        11: {"kills": 9.0, "gpm": 500.0},   # 1 号位：kills 和 gpm 都有
+        13: {"kills": 5.0},                  # 3 号位：只有 kills，没有 gpm
+    }
+    agg = slot_aggregate(matrix, ROSTER, POS, slot="core")
+    assert agg["T1"]["kills"] == pytest.approx((9.0 + 5.0) / 2), "两人都有的 item 应正常取平均"
+    assert agg["T1"]["gpm"] == pytest.approx(500.0), (
+        "只有 11 号位有 gpm，分母应该是 1（只算持有该 item 的成员），"
+        "不能把没有 gpm 的 13 号位当成 0.0 计入分母，导致该项分数被静默腰斩一半"
+    )
+
+
 def test_expected_slot_score_branch_a_uses_total_series_across_both_stages():
     """分支 A"全程只取最好的一个系列赛"：应该是把 group+playoff 的系列赛数
     合并后一起抽最大值，而不是只看其中一段。用一个几乎必赢的场景验证：

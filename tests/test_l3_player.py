@@ -4,7 +4,14 @@ import pytest
 from model.l3_player import shrink, fit_rate_model, MIN_N_FOR_OWN_GAME_VAR
 
 
-# ---- brief 给定的 5 条测试（Step 1，原样使用，不可削弱） ----
+# ---- brief 给定的 7 条测试（Step 1，原样使用，不可削弱） ----
+#
+# 测试条数订正：task-6-brief.md 自相矛盾——Step 1 写了 7 个测试函数
+# （下面这 7 条：5 条 shrink() + 2 条 fit_rate_model()），Step 4 却写
+# "Expected: 5 passed"。这里以实际函数数为准：本节 7 条 + 下方"补充测试：
+# 锁定对 brief Step 3 参考实现的三处修正"一节 5 条 = 12 条，是 task-6
+# 阶段测试的完整计数（不含后续 fix-a-variance-report.md 那一轮又新增的
+# "修复【Critical】..."测试）。
 #
 # fix-a-variance-report.md（Critical 缺陷修复）：`shrink()` 新增必填参数
 # `game_var`（该选手该项的实测局内方差），取代内部原来悄悄假设的
@@ -307,3 +314,89 @@ def test_fit_rate_model_handles_zero_variance_player_without_crashing():
     out = fit_rate_model(df, "kills", positions={1: 1})
     assert np.isfinite(out[1]["se"]) and out[1]["se"] >= 0.0
     assert np.isfinite(out[1]["rate"])
+
+
+# ---- 补充测试：修复【Important】prior_var 地板静默生效，无标记 ----
+#
+# fit_rate_model 里 `prior_var = max(between - within, prior_mean * 0.05)`
+# 这条地板在 `between <= within` 时完全主导先验方差（例如单选手分组，
+# between 恒为 0），但原实现没有任何字段说明地板被触发——下游拿到的
+# rate/se 看起来和"正常估出的先验方差"没有区别，其实是一个从未针对小
+# 分组验证过的经验常数（prior_mean*0.05）在起作用。当前真实数据（16 人/
+# 位置）不会触发，但若后续按赛区/版本再细分（分组变小）会静默退化。
+# 修法：fit_rate_model 的返回值里每条选手记录新增 `prior_var_floored: bool`。
+
+def test_fit_rate_model_flags_when_prior_var_floor_is_active():
+    """单选手分组：between（组内选手间方差）在只有 1 名选手时恒为 0，
+    `0 - within` 必然 <= 地板（prior_mean*0.05 恒 >= 0），地板必然生效，
+    必须能在返回值里看到 prior_var_floored=True——而不是像原实现一样
+    完全不留痕迹。"""
+    rows = [{"account_id": 1, "match_id": g, "position": 1, "kills": 9}
+            for g in range(20)]
+    df = pd.DataFrame(rows)
+    out = fit_rate_model(df, "kills", positions={1: 1})
+    assert out[1]["prior_var_floored"] is True, "单选手分组地板必然生效，必须被标记"
+
+
+def test_fit_rate_model_does_not_flag_floor_when_between_player_variance_dominates():
+    """组内选手水平差异（2.0 vs 20.0 vs 60.0 三档 Poisson 均值）明显大于
+    地板 prior_mean*0.05 时，不应该被标记为地板生效——避免"实现偷懒把
+    prior_var_floored 恒设成 True"这种没有区分度、糊弄过关的写法。
+    三名选手同号位，prior_var 只按位置算一次，三人共享同一个
+    prior_var_floored 取值，断言全部为 False。"""
+    rng = np.random.default_rng(11)
+    rows = []
+    for acct, lam in [(1, 2.0), (2, 20.0), (3, 60.0)]:
+        for g in range(200):
+            rows.append({"account_id": acct, "match_id": f"{acct}-{g}",
+                         "position": 1, "kills": rng.poisson(lam)})
+    df = pd.DataFrame(rows)
+    out = fit_rate_model(df, "kills", positions={1: 1, 2: 1, 3: 1})
+    assert out[1]["prior_var_floored"] is False
+    assert out[2]["prior_var_floored"] is False
+    assert out[3]["prior_var_floored"] is False
+
+
+# ---- 补充测试：修复【Minor】within 用 .size()（含 NaN 行）而非非空计数 ----
+#
+# fit_rate_model 算 `within`（号位内局内方差的估计项，用来从总方差里减掉
+# 局内噪声得到 between-player 方差）时，原来用
+# `sub.groupby("account_id").size().mean()` 当分母——这会把 NaN 行也计入
+# 样本量。跟同一函数里算 n_games/raw_rate 时明确排除 NaN（`.dropna()`）的
+# 口径不一致：teamfight_participation/stuns 在真实数据里各有 54/49762 行
+# NaN，会让 within 的分母被"注水"，导致 prior_var 被系统性带偏。
+# 改成非空计数（`sub.groupby("account_id")["_value"].count()`），与
+# n_games 用同一个口径。
+
+def test_fit_rate_model_within_term_ignores_nan_rows_in_denominator():
+    """不携带任何信息的额外 NaN 行不应该改变 rate/se 的计算结果——如果
+    within 的分母用了含 NaN 的原始行数，插入更多 NaN 行会让分母变大、
+    within 变小、prior_var 变大，从而悄悄改变 rate/se（即使这些 NaN 行
+    本身什么信息都不携带）。"""
+    rng = np.random.default_rng(3)
+    rows = []
+    for acct, lam in [(1, 6.0), (2, 9.0)]:
+        for g in range(120):
+            rows.append({"account_id": acct, "match_id": f"{acct}-{g}",
+                         "position": 1, "stuns": float(rng.poisson(lam))})
+    df_clean = pd.DataFrame(rows)
+    out_clean = fit_rate_model(df_clean, "stuns", positions={1: 1, 2: 1})
+
+    # 追加一批不携带任何信息的全 NaN 行（同样两名选手，全新的 match_id）
+    nan_rows = [{"account_id": acct, "match_id": f"{acct}-nan-{g}",
+                 "position": 1, "stuns": np.nan}
+                for acct in (1, 2) for g in range(80)]
+    df_with_nan = pd.concat([df_clean, pd.DataFrame(nan_rows)], ignore_index=True)
+    out_with_nan = fit_rate_model(df_with_nan, "stuns", positions={1: 1, 2: 1})
+
+    for acct in (1, 2):
+        assert out_with_nan[acct]["n_games"] == out_clean[acct]["n_games"], (
+            "NaN 行不能被计入 n_games"
+        )
+        assert out_with_nan[acct]["rate"] == pytest.approx(out_clean[acct]["rate"], rel=1e-9), (
+            "插入不携带信息的 NaN 行不应该改变 rate——如果 within 用含 NaN 的"
+            "行数当分母，prior_var 会被悄悄改变，进而污染 rate"
+        )
+        assert out_with_nan[acct]["se"] == pytest.approx(out_clean[acct]["se"], rel=1e-9), (
+            "同上，NaN 行不应该改变 se"
+        )

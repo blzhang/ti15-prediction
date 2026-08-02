@@ -52,6 +52,24 @@ DPC_FIRST_BLOOD_COEF = 4.0
 BLUE_POOL_GAP_NOTE = "蓝池 6 项中 Watcher/Lotus 取不到，Support 槽预测结构性偏弱"
 
 
+def _pool_coverage_from_scoring_items(items=SCORING_ITEMS):
+    """【Minor 缺陷修复】按 SCORING_ITEMS 动态算每个徽记池（pool）的
+    「可得/总数」覆盖率字符串，取代原来手写的常量
+    `{"red": "5(+1 代理 madstone)/6", "blue": "4/6", "green": "6/6"}`——
+    那份常量跟 SCORING_ITEMS 完全没有挂钩，SCORING_ITEMS 以后增删项
+    这里不会跟着自动更新。madstone「只有代理量、不算真值」这层细节
+    已经在 `build_report()` 的 notes 列表里专门说明，这里只出精简的
+    「n/total」计数，不重复携带那段前缀文字。
+    """
+    pools = sorted({i["pool"] for i in items})
+    out = {}
+    for pool in pools:
+        pool_items = [i for i in items if i["pool"] == pool]
+        n_avail = sum(1 for i in pool_items if i["available"])
+        out[pool] = "%d/%d" % (n_avail, len(pool_items))
+    return out
+
+
 def dpc_proxy_score(item_rates):
     """{item_key: 每局期望} → 一个单一的"类 fantasy 综合评分"代理值。
 
@@ -179,7 +197,7 @@ def build_report(csv_path=DEFAULT_CSV, blob_path=DEFAULT_BLOB, l2_path=DEFAULT_L
         "coverage": {
             "available_items": item_keys,
             "missing_items": missing_items,
-            "pool_coverage": {"red": "5(+1 代理 madstone)/6", "blue": "4/6", "green": "6/6"},
+            "pool_coverage": _pool_coverage_from_scoring_items(),
             "n_players_with_rates": len(matrix),
         },
         "slot_positions": {k: list(v) for k, v in SLOT_POSITIONS.items()},

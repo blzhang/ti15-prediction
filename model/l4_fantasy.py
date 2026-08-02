@@ -43,6 +43,14 @@ def slot_aggregate(matrix, rosters, positions, slot):
     某队在该槽位对应号位上没有任何选手出现在 matrix 里（比如样本量为 0
     被上游 fit_rate_model 过滤掉）时，该队从结果里跳过，不产出除以 0
     的假平均。
+
+    【Important 缺陷修复】槽位命中的成员里，若只有部分人在 matrix 里有
+    某个具体 item（例如该队 2 名核心里，一人该项样本量为 0 被上游过滤掉，
+    另一人正常），该 item 的分母必须只算实际持有它的成员数，不能把缺失
+    的一方按 0.0 计入总和后仍除以全部成员数——那样会把该队该项的分数
+    静默腰斩一半（`sum([500.0, 0.0]) / 2 == 250.0`，而正确答案应该是只由
+    真正持有该 item 的成员决定，见
+    test_slot_aggregate_excludes_missing_item_from_denominator_not_zero_fills）。
     """
     if slot not in SLOT_POSITIONS:
         raise ValueError("未知槽位 %r" % slot)
@@ -54,8 +62,11 @@ def slot_aggregate(matrix, rosters, positions, slot):
         if not members:
             continue
         items = set().union(*(matrix[a].keys() for a in members))
-        out[team] = {it: sum(matrix[a].get(it, 0.0) for a in members) / len(members)
-                     for it in items}
+        team_scores = {}
+        for it in items:
+            contributing = [matrix[a][it] for a in members if it in matrix[a]]
+            team_scores[it] = sum(contributing) / len(contributing)
+        out[team] = team_scores
     return out
 
 

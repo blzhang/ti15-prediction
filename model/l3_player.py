@@ -34,10 +34,16 @@ repro 记录与理由，均已用新增测试锁定，不是"默默改"）：
      全部不同（例如 gpm→gold_per_min、tower_kills→towers_killed、
      roshan→roshans_killed），Creep Score 更是要 last_hits+denies
      逐局求和。不解析的话，下游若直接用 SCORING_ITEMS 的 key 调用，
-     15 个可得项里有 9 个会直接 KeyError。新增 `_resolve_item_values()`
-     做这层解析：先认 df 里的原始列名（向后兼容 kills 这种字面重合的
-     调用方式），找不到再查 SCORING_ITEMS 按 key 解析（单列改名或
-     多列求和），两边都找不到才 KeyError。
+     对 `available_items()` 全部 15 个 key 逐一实测：有 11 个会直接
+     KeyError（除 kills/deaths/camps_stacked/stuns 外的全部可用项）。
+     新增 `_resolve_item_values()` 做这层解析：先认 df 里的原始列名
+     （向后兼容 kills 这种字面重合的调用方式），找不到再查 SCORING_ITEMS
+     按 key 解析（单列改名或多列求和）。这层解析真正解决的是 11 个里的
+     8 个（creep_score/gpm/tower_kills/roshan/teamfight/wards/runes/
+     first_blood）；剩下 3 个（smokes/tormentor/courier）在 SCORING_ITEMS
+     里 column=None——需要另外解 OpenDota JSON blob 左连接（见
+     model/l4_fantasy_report.py::load_blob_joined_df），不在本模块范围内，
+     两边都解析不到，修复前后都正确报 KeyError，不是本函数要补的缺口。
 
   3) 真实数据里 teamfight_participation / stuns 在目标选手 + 时间窗下
      各有 54 行是 NaN（fantasy_stats.load_player_games 的 fillna 列表
@@ -208,7 +214,28 @@ def fit_rate_model(df, item_key, positions):
     的原始列，也可以是 SCORING_ITEMS 声明的 key）。
     positions: {account_id: 1..5}
 
-    返回 {account_id: {"rate", "se", "n_games", "position", "raw_rate"}}。
+    返回 {account_id: {"rate", "se", "n_games", "position", "raw_rate",
+    "prior_var_floored"}}。
+
+    `prior_var_floored`（【Important 缺陷修复】）：`prior_var` 的下限
+    `prior_mean * 0.05` 在 `between <= within` 时会完全主导先验方差，且
+    原实现没有任何字段说明地板被触发——触发条件包括单选手分组、或组内
+    选手水平非常接近。
+
+    **这不是一个只在未来小分组场景下才会发生的假设性问题**：本次加上
+    这个标记后，在当前真实数据（80 名花名册选手，2024-01-01 起，16 人/
+    位置）上实测跑了一遍全部 15 个可得计分项 × 5 个号位 = 75 个分组，
+    结果是 **37/75（约一半）已经被地板主导**——`roshan`/`teamfight`/
+    `first_blood`/`tormentor` 四项在全部 5 个号位都被地板主导，
+    `kills`/`deaths`/`courier` 在 4 个号位、`smokes`/`tower_kills` 在 2 个、
+    `wards` 在 1 个（2 号位）；只有 `creep_score`/`gpm`/`camps_stacked`/
+    `runes`/`stuns` 五项在全部号位都没有触发。用「同一份数据、只把
+    `within` 的分母从 `.size()` 换成 `.count()`」核对过：37/75 这个集合在
+    两种 `within` 算法下逐项逐位置完全一致，说明这是本任务 Minor 3 修复
+    之前就已经存在的既有现象，不是这次改动引入或放大的副作用——纯粹是
+    此前从未有代码把它暴露出来。这个布尔字段按位置分组算一次，同一位置
+    组内所有选手共享同一个值，让下游能够察觉"这组的先验方差其实是地板值，
+    不是真的从数据估出来的"。
     """
     values = _resolve_item_values(df, item_key)
     work = df[["account_id"]].copy()
@@ -221,13 +248,25 @@ def fit_rate_model(df, item_key, positions):
         if sub.empty:
             continue
         prior_mean = float(sub["_value"].mean())
-        # 号位内的选手间方差 = 总方差 - 局内方差（泊松部分）——这条本次
-        # 修复刻意不动（只替换 obs_var，见模块 docstring【Critical 缺陷
-        # 修复】一节末尾），within 项同样隐含泊松假定，留作后续可选项。
+        # 号位内的选手间方差 = 总方差 - 局内方差（泊松部分）——between-within
+        # 的估计方式本次修复刻意不动（只替换 obs_var，见模块 docstring
+        # 【Critical 缺陷修复】一节末尾），within 项同样隐含泊松假定，
+        # 留作后续可选项。
+        #
+        # 【Minor 缺陷修复】within 的分母改用非空观测数（.count()），不再用
+        # 含 NaN 行的原始行数（.size()）——与 n_games/raw_rate 排除 NaN 的
+        # 口径保持一致。teamfight_participation/stuns 在真实数据里各有
+        # 54/49762 行 NaN，用 .size() 会把这些 NaN 行也算进 within 的分母，
+        # 让 within 被系统性拉低、prior_var 被拉高，见
+        # test_fit_rate_model_within_term_ignores_nan_rows_in_denominator。
         per_player = sub.groupby("account_id")["_value"].mean()
         between = float(per_player.var(ddof=1)) if len(per_player) > 1 else 0.0
-        within = prior_mean / max(sub.groupby("account_id").size().mean(), 1.0)
-        prior_var = max(between - within, prior_mean * 0.05)
+        n_nonnull_mean = sub.groupby("account_id")["_value"].count().mean()
+        within = prior_mean / max(n_nonnull_mean, 1.0)
+        floor = prior_mean * 0.05
+        raw_prior_var = between - within
+        prior_var = max(raw_prior_var, floor)
+        prior_var_floored = bool(raw_prior_var <= floor)
 
         per_player_var, pooled_game_var = _position_game_var(sub)
 
@@ -244,5 +283,6 @@ def fit_rate_model(df, item_key, positions):
                 game_var = pooled_game_var   # 样本太小或自身方差退化为 0，回退池化方差
             rate, se = shrink(raw, n, prior_mean, prior_var, game_var)
             out[a] = {"rate": rate, "se": se, "n_games": int(n),
-                      "position": pos, "raw_rate": raw}
+                      "position": pos, "raw_rate": raw,
+                      "prior_var_floored": prior_var_floored}
     return out

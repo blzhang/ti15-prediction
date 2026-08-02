@@ -168,3 +168,36 @@ def test_who_leads_does_not_degenerate_for_overdispersed_item():
     poisson_like_pool = rng.normal(0.0, poisson_sd, size=20000)
     out_poisson = who_leads({1: rate_a, 2: rate_b}, games, poisson_like_pool, n_sim=20000, seed=1)
     assert out_poisson[1] > out_real[1] + 0.05, "泊松低估方差会让结果比真实弥散度下明显更极端"
+
+
+# ---- who_leads 的两个防御分支：补测试锁定（Minor 缺陷修复） ----
+#
+# 这两个分支此前零测试覆盖：一是全部选手预计参赛局数都是 0（比如整批
+# 预测都提前出局/数据缺失），二是 residual_pool 为空数组（调用方传参
+# 出错）。两者都已经在实现里有清晰的 ValueError 防护，这里只是补上
+# 回归测试锁定这个行为，不是修复新发现的 bug。
+
+def test_who_leads_raises_when_all_players_have_zero_games():
+    """防御分支之一：n_games_by_player 里所有选手的局数都是 0 时，
+    `any_games` 恒为 False，应该清晰地报错，而不是静默返回一个
+    全 -inf/无意义的结果。"""
+    rates = {1: 9.0, 2: 7.0}
+    residual_pool = np.array([0.0, 1.0, -1.0])
+    with pytest.raises(ValueError):
+        who_leads(rates, {1: 0, 2: 0}, residual_pool, n_sim=100, seed=0)
+
+
+def test_who_leads_raises_when_residual_pool_is_empty():
+    """防御分支之二：residual_pool 是空数组时，`_residual_pool_for` 应该
+    清晰报错，而不是让 rng.choice 在空数组上抛一个更难懂的底层异常，
+    或者静默产出 NaN。
+
+    必须用 `match=` 锁定消息里的 "residual_pool"：numpy 的
+    `Generator.choice` 对空数组自己也会抛 ValueError（消息是"a cannot be
+    empty unless no samples are taken"），如果只断言异常类型是
+    ValueError、不看消息内容，这条测试在 `_residual_pool_for` 的显式
+    检查被删掉之后仍然会「误通过」——因为调用链后面 `rng.choice(pools[a],
+    ...)` 恰好也会抛同一个异常类型，测不出我们自己这层防护是否存在。"""
+    rates = {1: 9.0}
+    with pytest.raises(ValueError, match="residual_pool"):
+        who_leads(rates, {1: 20}, residual_pool=np.array([]), n_sim=100, seed=0)

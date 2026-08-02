@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 import pytest
 from model.fantasy_stats import SCORING_ITEMS, available_items, load_player_games
 
@@ -114,6 +112,34 @@ def test_available_items_can_exclude_blob_derived():
     assert {i["key"] for i in all_available} - {i["key"] for i in direct_only} == {
         "smokes", "tormentor", "courier",
     }
+
+
+def test_load_player_games_casts_gold_per_min_and_fills_missing_with_zero(tmp_path):
+    """【Minor 缺陷修复】gold_per_min 是整数型的每分钟经济，源数据缺失时
+    应该 fillna(0) 再转 int64，跟 kills/deaths 等其他计数列同一个待遇——
+    之前的白名单漏了这一列，缺失时会保留 NaN（float64）而不是置 0。
+
+    注意 teamfight_participation/stuns 是小数计分项，不能同样转 int64，
+    这条测试顺带确认它们没有被误加进白名单。"""
+    csv = tmp_path / "pm.csv"
+    csv.write_text(
+        "match_id,account_id,player_slot,hero_id,kills,deaths,assists,gold_per_min,"
+        "xp_per_min,net_worth,last_hits,denies,level,hero_damage,tower_damage,"
+        "hero_healing,teamfight_participation,lane,lane_role,is_roaming,obs_placed,"
+        "sen_placed,camps_stacked,rune_pickups,towers_killed,roshans_killed,"
+        "firstblood_claimed,stuns,gold_spent,leaver_status,leagueid,start_time\n"
+        "1,100,0,5,10,2,8,600,700,20000,300,20,25,40000,3000,0,0.5,2,1,,3,2,4,9,1,0,1,3.5,18000,0,99,1700000000\n"
+        "2,100,1,5,4,4,4,,550,15000,200,10,22,30000,1000,0,0.45,2,1,,2,1,3,5,0,1,0,2.0,14000,0,99,1700000000\n"
+    )
+    df = load_player_games(str(csv), account_ids={100}, since_ts=1650000000)
+    assert df["gold_per_min"].dtype.kind in "iu", "gold_per_min 应该是整数类型"
+    assert df["gold_per_min"].isna().sum() == 0, "缺失的 gold_per_min 应该 fillna(0)，不能留 NaN"
+    row2 = df.loc[df["match_id"] == 2, "gold_per_min"].iloc[0]
+    assert int(row2) == 0, "缺失值 fillna 后应该是 0"
+    assert df["teamfight_participation"].dtype.kind == "f", (
+        "teamfight_participation 是小数计分项，不能被误转成 int64"
+    )
+    assert df["stuns"].dtype.kind == "f", "stuns 同理是小数计分项，不能被误转成 int64"
 
 
 def test_creep_score_pulls_in_denies_not_just_last_hits(tmp_path):

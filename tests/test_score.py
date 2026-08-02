@@ -219,11 +219,22 @@ def test_score_report_tolerates_whitespace_in_result_column(tmp_path):
     assert out["n_scored"] == 1
 
 
-def test_score_report_includes_documented_healthy_range():
+def test_score_report_includes_documented_healthy_range(tmp_path):
     """§5 健全性护栏的区间必须作为可程序访问的字段出现在返回值里，
-    而不是只存在于代码注释——下游（比如赛后复盘脚本）需要读它来判定。"""
+    而不是只存在于代码注释——下游（比如赛后复盘脚本）需要读它来判定。
+
+    之前这条测试只检查了模块常量等于它自己的字面量（`HEALTHY_BRIER_LO ==
+    0.21`），从未调用 `score_report()`，也从未看过 `out["healthy_range"]`——
+    对 `score_report` 返回字典里删掉 `"healthy_range"` 整行做变异测试，
+    旧断言照样通过，零保护力。现在真正调用 `score_report()` 并断言返回值
+    本身携带这个字段、取值与文档常量一致。"""
     assert HEALTHY_BRIER_LO == 0.21
     assert HEALTHY_BRIER_HI == 0.24
+    p = tmp_path / "matches.csv"
+    _write_csv(str(p), [_row("pending", "A", "B", "0.6", "")])
+    out = score_report(str(p))
+    assert "healthy_range" in out, "score_report 的返回值必须包含 healthy_range 字段"
+    assert out["healthy_range"] == [HEALTHY_BRIER_LO, HEALTHY_BRIER_HI]
 
 
 def test_score_report_verdict_matches_classify_brier(tmp_path):

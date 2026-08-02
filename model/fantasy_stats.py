@@ -98,7 +98,11 @@ def load_player_games(csv_path, account_ids, since_ts):
         df["is_roaming"] = df["is_roaming"].astype("boolean").fillna(False).astype(bool)
     for c in ("kills", "deaths", "assists", "last_hits", "denies", "obs_placed", "sen_placed",
               "camps_stacked", "rune_pickups", "towers_killed", "roshans_killed",
-              "firstblood_claimed"):
+              "firstblood_claimed", "gold_per_min"):
+        # gold_per_min 是整数型的每分钟经济，源数据缺失时应 fillna(0) 而不是
+        # 留着 NaN——teamfight_participation/stuns 是小数计分项，不能同样
+        # 转 int64，因此不在这个白名单里（见
+        # test_load_player_games_casts_gold_per_min_and_fills_missing_with_zero）。
         if c in df.columns:
             df[c] = df[c].fillna(0).astype("int64")
     return df.reset_index(drop=True)
