@@ -117,5 +117,71 @@
   "1": 0.19408,
   "4": 0.224735
  },
+ "series_dist": {
+  "Aurora Gaming": {
+   "group": 5.63995,
+   "playoff": 2.522135
+  },
+  "BoomBoys": {
+   "group": 5.664065,
+   "playoff": 2.336925
+  },
+  "Iron Wing": {
+   "group": 5.66112,
+   "playoff": 2.366675
+  },
+  "Team Falcons": {
+   "group": 5.601025,
+   "playoff": 2.8147
+  },
+  "Team Liquid": {
+   "group": 5.67582,
+   "playoff": 2.224895
+  },
+  "Team Yandex": {
+   "group": 5.631685,
+   "playoff": 2.572465
+  },
+  "Xtreme Gaming": {
+   "group": 5.69197,
+   "playoff": 1.378315
+  },
+  "Team Spirit": {
+   "group": 5.6366,
+   "playoff": 2.554145
+  },
+  "TEAM VISION": {
+   "group": 5.55152,
+   "playoff": 3.07645
+  },
+  "Nigma Galaxy": {
+   "group": 5.624155,
+   "playoff": 0.82798
+  },
+  "HULIGANI": {
+   "group": 5.499875,
+   "playoff": 0.495715
+  },
+  "Team Resilience": {
+   "group": 5.60461,
+   "playoff": 0.800335
+  },
+  "Vici Gaming": {
+   "group": 5.69347,
+   "playoff": 1.41637
+  },
+  "OG": {
+   "group": 5.62585,
+   "playoff": 0.8716
+  },
+  "GamerLegion": {
+   "group": 5.50954,
+   "playoff": 0.476775
+  },
+  "LGD Gaming": {
+   "group": 5.688745,
+   "playoff": 1.26452
+  }
+ },
  "n_sim": 200000
 }

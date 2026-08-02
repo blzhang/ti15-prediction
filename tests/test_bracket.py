@@ -40,6 +40,42 @@ def test_loser_games_prob_matches_bo3_conditional_algebra():
     assert loser_games_prob(p) == pytest.approx(expected)
 
 
+def test_series_count_is_recorded_per_team_when_requested():
+    """task-7-brief.md Step 5 需要"每队主赛事系列赛数"，喂给 L4 的
+    `expected_slot_score`。名次不能反推系列赛数（见 bracket.py 新增
+    docstring 里的 place=3 双路径反例），所以 run_playoffs 必须在模拟
+    过程中实时计数，这里锁住三条数学不变量：
+
+    1. 不传 series_count 时行为完全不变（向后兼容，已有三条测试都是
+       `place = run_playoffs(...)` 这种只接一个返回值的写法，不应因为
+       新增功能被迫改写）。
+    2. 8 支队伍的系列赛计数总和恒为 28 —— 主赛事固定 14 场系列赛
+       （UB 7 + LB 6 + 决赛 1，01-ti15-facts.md §1.2），每场系列赛
+       让两支队伍各 +1，14×2=28，与具体谁赢谁输、种子如何都无关。
+    3. place==7（负 LB R1）的队伍系列赛数恒为 2、place==5（负 LB R2）
+       恒为 3、place==4（负 LB SF）恒为 4 —— 这三档只有唯一路径能到达，
+       可以直接钉死；place∈{1,2,3} 有多条路径（见上），只钉住范围
+       [4,6]，不钉单一数值。
+    """
+    p3, p5 = _matrix([2, 1.5, 1, .5, 0, -.5, -1, -1.5])
+    for seed in range(20):
+        rng = np.random.default_rng(seed)
+        sc = {}
+        place = run_playoffs(list(range(8)), p3, p5, rng, series_count=sc)
+        assert sorted(place.keys()) == list(range(8)), "series_count 是可选参数，不应改变返回值本身"
+        assert sorted(sc.keys()) == list(range(8))
+        assert sum(sc.values()) == 28, "14 场系列赛 × 每场 2 支队伍 = 28，与具体结果无关的恒等式"
+        for t, p in place.items():
+            if p == 7:
+                assert sc[t] == 2
+            elif p == 5:
+                assert sc[t] == 3
+            elif p == 4:
+                assert sc[t] == 4
+            else:
+                assert 4 <= sc[t] <= 6, "place in {1,2,3} 至少打过 UB QF+SF+UBF 或等价的 3 场，至多打满双败全程 6 场"
+
+
 def test_seeding_matters_for_champion_odds():
     """⚠️ 这条断言在数学上**近乎必过，测不出任何真实排种敏感度**。别被它误导。
 

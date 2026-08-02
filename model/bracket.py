@@ -20,11 +20,30 @@ def loser_games_prob(p_game):
     return 2 * (1 - p) / (3 - 2 * p)
 
 
-def run_playoffs(seeds, p3, p5, rng):
-    """seeds 为长度 8 的队伍索引列表，seeds[0] 为 1 号种子。返回 {队伍索引: 名次}。"""
+def run_playoffs(seeds, p3, p5, rng, series_count=None):
+    """seeds 为长度 8 的队伍索引列表，seeds[0] 为 1 号种子。返回 {队伍索引: 名次}。
+
+    series_count（可选）：调用方可传入一个 dict，函数会原地把它更新成
+    {队伍索引: 本次模拟在主赛事阶段实际打了几个系列赛}（task-7-brief.md
+    Step 5 需要"每队主赛事系列赛数"）。不通过返回值暴露是为了不破坏已有
+    调用方 `place = run_playoffs(...)` 的解包方式——不传该参数时行为与
+    之前完全一致，`place` 仍是唯一返回值（tests/test_bracket.py 现有三条
+    测试都是这种调用方式，不应因为新增功能被迫改写）。
+
+    名次本身不能反推系列赛数：同为 place=3（负 LBF），既可能是 UBF 负者
+    直落 LBF（4 场：QF+SF+UBF+LBF），也可能是从败者组一路血战上来的队
+    （5 场：QF+SF(负)+LB2+LBSF+LBF）——两条路径系列赛数不同但名次相同，
+    所以必须在模拟过程中实时计数，不能事后从 place 反推。
+    """
     place = {}
+    sc = series_count if series_count is not None else {}
+
+    def bump(*teams):
+        for t in teams:
+            sc[t] = sc.get(t, 0) + 1
 
     def m3(a, b):
+        bump(a, b)
         return a if rng.random() < p3[a, b] else b
 
     # UB QF：1v8 4v5 2v7 3v6
@@ -63,6 +82,7 @@ def run_playoffs(seeds, p3, p5, rng):
     lbf_w = m3(lbsf_w, ubf_l)
     place[ubf_l if lbf_w == lbsf_w else lbsf_w] = 3
 
+    bump(ubf_w, lbf_w)      # 决赛 BO5 不走 m3（m3 固定按 p3 判定），单独计数
     champ = ubf_w if rng.random() < p5[ubf_w, lbf_w] else lbf_w   # 无 bracket reset
     place[champ] = 1
     place[lbf_w if champ == ubf_w else ubf_w] = 2
