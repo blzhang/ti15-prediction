@@ -1,21 +1,21 @@
 {
  "champion_blended": {
-  "Aurora Gaming": 0.10611500000000001,
-  "BoomBoys": 0.08137500000000002,
-  "Iron Wing": 0.10461079383456102,
-  "Team Falcons": 0.10320832299583454,
-  "Team Liquid": 0.07142000000000001,
-  "Team Yandex": 0.12651410464713558,
-  "Xtreme Gaming": 0.020765000000000002,
-  "Team Spirit": 0.14182270511033146,
-  "TEAM VISION": 0.1827590734121375,
-  "Nigma Galaxy": 0.005660000000000001,
-  "HULIGANI": 0.0021300000000000004,
-  "Team Resilience": 0.006020000000000001,
-  "Vici Gaming": 0.022575000000000005,
-  "OG": 0.007010000000000001,
-  "GamerLegion": 0.0015000000000000002,
-  "LGD Gaming": 0.016515000000000002
+  "Aurora Gaming": 0.106115,
+  "BoomBoys": 0.081375,
+  "Iron Wing": 0.104611,
+  "Team Falcons": 0.103208,
+  "Team Liquid": 0.07142,
+  "Team Yandex": 0.126514,
+  "Xtreme Gaming": 0.020765,
+  "Team Spirit": 0.141823,
+  "TEAM VISION": 0.182759,
+  "Nigma Galaxy": 0.00566,
+  "HULIGANI": 0.00213,
+  "Team Resilience": 0.00602,
+  "Vici Gaming": 0.022575,
+  "OG": 0.00701,
+  "GamerLegion": 0.0015,
+  "LGD Gaming": 0.016515
  },
  "w_market": 0.7
 }

@@ -1,5 +1,5 @@
 {
-  "source": "bookmaker composite, 01-ti15-facts.md §5",
+  "source": "bookmaker composite, 01-ti15-facts.md §4.2",
   "captured_utc": "2026-08-01",
   "note": "仅 5 队有盘口，其余为 null。null 项在融合时退回纯模型概率。",
   "decimal_odds": {

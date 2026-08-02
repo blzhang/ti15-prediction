@@ -52,6 +52,11 @@ def blend_partial(model_p, decimal_odds, w_market=W_MARKET_DEFAULT):
     if not priced:
         return dict(model_p)
     mass = sum(model_p[k] for k in priced)
+    if mass <= 0:
+        raise ValueError(
+            "有盘口的 %d 支队在模型里的总概率质量 mass=%r（<=0），"
+            "无法计算条件份额 model_p[k]/mass" % (len(priced), mass)
+        )
     cond_model = {k: model_p[k] / mass for k in priced}
     cond_market = devig(priced)
     blended = blend_logodds(cond_model, cond_market, w_market)
@@ -60,3 +65,16 @@ def blend_partial(model_p, decimal_odds, w_market=W_MARKET_DEFAULT):
         out[k] = blended[k] * mass
     s = sum(out.values())
     return {k: v / s for k, v in out.items()}
+
+
+def round_probs(probs, ndigits=6):
+    """把概率 dict 四舍五入到 ndigits 位小数，用于 JSON 输出。
+
+    Global Constraints：概率输出 JSON 一律 float，保 6 位小数。这个函数只做
+    四舍五入，不重新归一化——归一化会把小数位又变长，抵消四舍五入的目的。
+    n 个值各自四舍五入后，和与 1 的偏差上界约为 n * 0.5 * 10**-ndigits
+    （例如 n=16, ndigits=6 时约 8e-6）；调用方应自行校验
+    `abs(sum(out.values()) - 1.0) < tolerance`（推荐 tolerance=1e-5），
+    不要在四舍五入之后再做归一化修正。
+    """
+    return {k: round(v, ndigits) for k, v in probs.items()}

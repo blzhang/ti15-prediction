@@ -1,7 +1,7 @@
 {
  "label": "v2-blended",
- "frozen_at_utc": "2026-08-02T16:18:53Z",
- "sha256": "2e57118932ed8cb10336e071e41d973cba3286146d2555fc474c4411664aa31a",
+ "frozen_at_utc": "2026-08-02T17:07:20Z",
+ "sha256": "8263d38ff5dc86012c19487e2c72676de8766f2c047fb055cd319a9f4d19715d",
  "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l2_blended.json",
  "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v2-blended.json",
  "src_rel": "../model/l2_blended.json",
