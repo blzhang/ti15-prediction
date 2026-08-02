@@ -28,24 +28,47 @@ repro 记录与理由，已用 tests/test_l4_players.py 的新增测试锁定，
   而 `_interval` 本身不掌握"调用者传的是哪个 item"这个信息，不能不分
   青红皂白地给全部项都加上界=1 的截断。这是已知限制，不是漏改——
   task-8-report.md 会明确记录。
+
+【Important 缺陷修复】（详见 .superpowers/sdd/fix-a-variance-report.md）：
+上面这条"已知限制"补上了防护——`_interval`/`rank_players`/
+`predict_player_stats` 都新增可选参数 `hi_cap`（`predict_player_stats`
+是按 item 的 `hi_caps` 映射），默认 `None` = 不截断，向后兼容原有调用
+方式。`_interval` 本身依然不掌握"这是哪个 item"，所以截断值必须由调用方
+显式传入，不能在这里悄悄给全部项都夹上界——真正知道"哪些 item 概念上
+<=1"的是 `model/l4_players_report.py`（item-aware 的报告层，已有
+`ITEM_LABEL`/`NOT_A_STRENGTH_RANKING` 这类按 item 分派的先例），由它对
+`teamfight`/`first_blood` 传 `hi_cap=1.0`。当前真实数据未触发（实测这两项
+最大 hi 分别为 0.741206 / 0.178298，见 fix-a-variance-report.md），这是为未来样本量变化、se 变大时
+预留的防护，不是"没问题所以不用管"。
 """
 Z95 = 1.959964   # 双侧 95% 正态临界值
 
 
-def _interval(rate, se):
+def _interval(rate, se, hi_cap=None):
     """`rate ± Z95·se` 的正态近似区间，下界在 0 处截断。
 
     上游 L3（`model/l3_player.py::shrink`）产出的后验本身就是高斯共轭
     近似，这里直接复用同一个分布族出对称区间，不重新建模。但可得的
-    15 个计分项全部是计数或计数类比例，不可能为负，下界因此必须 >= 0；
-    上界不做类似处理（原因见模块 docstring）。
+    15 个计分项全部是计数或计数类比例，不可能为负，下界因此必须 >= 0。
+
+    `hi_cap`：可选的上界上限（例如 teamfight_participation/first_blood
+    概念上 <=1，传 `hi_cap=1.0`），默认 `None` 不截断——`_interval` 本身
+    不知道调用者传的是哪个 item，只有拿到显式的 `hi_cap` 才会截断，不会
+    替调用者猜。`hi_cap` 是"上限"（`min(hi, hi_cap)`），不是"替换值"：
+    朴素上界本来就低于 `hi_cap` 时不受影响。注意：如果 `rate` 本身因数据
+    质量噪声就已经超过 `hi_cap`（真实数据里 teamfight_participation 有
+    0.064% 的行 >1，见 `model/l4_extremes_report.py` 的已知数据质量注记），
+    截断后的 `hi` 可能小于 `rate`——这是上游数据噪声的连带展示，不是本次
+    修正要处理的范围，`rate`/`lo` 都不做任何调整。
     """
     lo = rate - Z95 * se
     hi = rate + Z95 * se
+    if hi_cap is not None:
+        hi = min(hi, hi_cap)
     return max(0.0, lo), hi
 
 
-def rank_players(rates, meta, by_position=True):
+def rank_players(rates, meta, by_position=True, hi_cap=None):
     """把 L3 单个计分项的 `{account_id: {"rate","se","position",...}}`
     输出，转成带排名和 95% 区间的行列表。
 
@@ -55,11 +78,13 @@ def rank_players(rates, meta, by_position=True):
         "80 名参赛选手分位置排序"（00-DESIGN.md §2.2 P3）的字面要求，
         不同位置的同一计分项分布形状本来就不是一回事，直接混排没有意义。
     by_position=False：忽略位置，出一张全局总榜。
+    hi_cap：透传给 `_interval` 的可选上界上限，默认 None 不截断——
+        调用方（例如按 item 知道"这是 teamfight"的报告层）负责传入。
     """
     rows = []
     for acct, v in rates.items():
         name, team = meta.get(acct, (str(acct), "?"))
-        lo, hi = _interval(v["rate"], v["se"])
+        lo, hi = _interval(v["rate"], v["se"], hi_cap=hi_cap)
         rows.append({"account_id": acct, "name": name, "team": team,
                      "position": v["position"], "rate": v["rate"],
                      "se": v["se"], "lo": lo, "hi": hi,
@@ -80,7 +105,7 @@ def rank_players(rates, meta, by_position=True):
     return rows
 
 
-def predict_player_stats(rates_by_item, items):
+def predict_player_stats(rates_by_item, items, hi_caps=None):
     """{item: L3 该项输出} × items 列表 → {account_id: {item: (均值, lo, hi)}}。
 
     单纯的读出+区间打包，不做跨 item 的任何合成或加权——每个 item 各自
@@ -88,10 +113,16 @@ def predict_player_stats(rates_by_item, items):
     不存在（例如样本量为 0 被上游过滤掉）时，该 (account, item) 组合
     静默跳过，不产出占位值，也不报错（跟 `model/l4_fantasy.py::player_matrix`
     对同类缺失的处理方式一致）。
+
+    hi_caps：可选的 {item_key: 上界上限} 映射，默认 None（等价空字典，
+    全部 item 都不截断）——按 item 分派，只有映射里点名的 item 会截断，
+    没被点名的 item（例如 kills/gpm 这类没有 <=1 上界的计数）不受影响。
     """
+    hi_caps = hi_caps or {}
     out = {}
     for item in items:
+        cap = hi_caps.get(item)
         for acct, v in rates_by_item[item].items():
-            lo, hi = _interval(v["rate"], v["se"])
+            lo, hi = _interval(v["rate"], v["se"], hi_cap=cap)
             out.setdefault(acct, {})[item] = (v["rate"], lo, hi)
     return out

@@ -47,6 +47,51 @@ repro 记录与理由，均已用新增测试锁定，不是"默默改"）：
      shrink，会把这些 NaN 行也算进样本量，obs_var 因此被低估、se 被
      人为拉低。改为按该 item 的非空观测数计 n_games，raw 也只用非空值
      求均值。
+
+【Critical 缺陷修复】（详见 .superpowers/sdd/fix-a-variance-report.md 的完整
+repro，护栏测试见 tests/test_l3_player.py 新增的"修复【Critical】..."一节）：
+
+  `shrink()` 原来用 `obs_var = raw_rate/n` 估观测方差——这是裸泊松假定
+  （Var(单局)=均值）。15 个计分项里只有 kills/deaths 勉强算计数过程；
+  实测「按选手自己去均值后的局内残差」算出的局内 sd / 泊松假定 sd：
+  last_hits≈7.72x、stuns≈6.08x、gold_per_min≈4.24x、kills≈1.56x、
+  deaths≈1.33x，teamfight_participation 反而只有≈0.20x（当前区间偏宽
+  约 5 倍）——跟本仓库已有的独立复算（`model/l4_extremes.py::dispersion_ratio`、
+  `reports/p2_variance_check.json`，Task 9 的 `--variance-check`）量级一致，
+  不是新发现，是同一个问题在 L3 这一层第一次被真正修掉（Task 9 当时只在
+  L4-P2 的 `who_leads` 绕开了这个假设，L3 的 `shrink()` 本身一直没改，
+  见 `model/l4_extremes_report.py` 模块 docstring 的历史记录）。
+
+  修法：`shrink()` 新增必填参数 `game_var`（该选手该项的实测局内方差，
+  由调用方提供），`obs_var` 改为 `max(game_var, 1e-6) / n`，取代内部原来
+  隐式的 `max(raw_rate, 1e-6) / n`。`post_var` 的结算公式同步简化为
+  `1/(1/eff_prior_var + 1/obs_var)`——这在数学上与原公式
+  `1/(1/eff_prior_var + n/max(raw_rate,1e-6))` 在 `obs_var=raw_rate/n` 时
+  完全等价，只是不再把这个等价关系硬编码在公式里。**tail_heavy 收缩的
+  数学形式（z2、eff_prior_var 的放大公式、w、post 的加权平均）一个字都
+  没有改，只有 obs_var 的来源变了**——两条锁定重尾行为的护栏测试
+  （2 局离群值必须被显著收缩、后验随样本量单调上升）因此换了参考数值
+  但保留的是同样的性质，见 fix-a-variance-report.md 的新旧对照。
+
+  `fit_rate_model` 里新增 `_position_game_var()`：优先用选手自己的局内
+  方差（`n >= MIN_N_FOR_OWN_GAME_VAR` 时，样本方差的相对标准误
+  ≈sqrt(2/(n-1))，n=20 时约 32%，勉强可信）；样本太小或自身方差恰好
+  退化为 0（例如样本内取值巧合全同）时，回退到同号位的池化方差——
+  每行减去它所属选手自己的均值、再对全体残差算方差，跟
+  `model/l4_extremes.py::empirical_residuals`+`dispersion_ratio` 同一个
+  "按选手自己中心化，不能用全局均值（会把选手间的强弱差异错当成局内
+  噪声）"的思路，只是这里没有直接 import 那个模块（L3 不应该反向依赖
+  L4），在本文件里独立实现同一个思路。整个号位都测不出方差（真实数据
+  几乎不可能触发——本项目当前 since=2024-01-01 窗口下每名选手 n_games
+  最少 250，见 fix-a-variance-report.md）时，再兜底退回 `max(prior_mean, 1e-6)`
+  这个类泊松假定，避免 NaN 或 0 传播到下游的 `1/obs_var`。
+
+  **本次修复只替换 obs_var 的估计方式，`fit_rate_model` 里 `prior_var` 的
+  between-within 估计（`within = prior_mean / mean(n)`，同样隐含泊松假定）
+  刻意不动**——评审给出的 Yatoro 三项新区间就是在这个约束下算出来的
+  （只替换 obs_var，其余收缩逻辑不动）。这个 `within` 项本身很可能也有
+  同一类偏差，但不在这次修复范围内，已在 fix-a-variance-report.md 里
+  记成后续可选项，不在这里顺手改掉。
 """
 import os
 import sys
@@ -58,12 +103,23 @@ from fantasy_stats import SCORING_ITEMS
 
 TAIL_HEAVY_DF = 4.0     # t 先验自由度，越小尾越重
 
+MIN_N_FOR_OWN_GAME_VAR = 20   # 选手自身局内方差估计的最低样本量门槛：
+                              # 样本方差的相对标准误 ≈ sqrt(2/(n-1))，n=20
+                              # 时约 32%——低于这个门槛的选手改用同号位
+                              # 池化方差（见 _position_game_var），不让
+                              # 一两局的巧合方差冒充"真"方差喂进收缩。
 
-def shrink(raw_rate, n, prior_mean, prior_var, tail_heavy=True):
+
+def shrink(raw_rate, n, prior_mean, prior_var, game_var, tail_heavy=True):
     """经验贝叶斯收缩。返回 (后验均值, 后验标准误)。
 
-    高斯共轭：w = eff_prior_var / (eff_prior_var + obs_var)，obs_var = lambda/n。
-    tail_heavy=False 时 eff_prior_var 就是 prior_var 本身，退化为标准共轭更新。
+    高斯共轭：w = eff_prior_var / (eff_prior_var + obs_var)，
+    obs_var = max(game_var, 1e-6) / n——`game_var` 是调用方提供的、该选手
+    该项**实测的局内方差**（不是本函数内部猜的）。见模块 docstring
+    【Critical 缺陷修复】一节：早期实现在这里悄悄假设
+    `game_var ≈ raw_rate`（泊松：Var=均值），对 last_hits/gpm/stuns 这类
+    计分项实测偏差达 4-8 倍。tail_heavy=False 时 eff_prior_var 就是
+    prior_var 本身，退化为标准共轭更新。
 
     重尾修正的正确做法是**放大有效先验方差**（t 先验的尾更厚，
     极端观测因此没那么"意外"），而不是直接抬高观测权重。
@@ -80,15 +136,42 @@ def shrink(raw_rate, n, prior_mean, prior_var, tail_heavy=True):
     n = max(int(n), 0)
     if n == 0:
         return float(prior_mean), float(np.sqrt(prior_var))
-    obs_var = max(raw_rate, 1e-6) / n          # 泊松：Var(mean) ≈ lambda/n
+    obs_var = max(float(game_var), 1e-6) / n   # 实测局内方差 / n = Var(选手自己的样本均值)
     eff_prior_var = max(prior_var, 1e-9)
     if tail_heavy:
         z2 = (raw_rate - prior_mean) ** 2 / (eff_prior_var + obs_var)
         eff_prior_var = eff_prior_var * (1.0 + z2 / TAIL_HEAVY_DF)
     w = eff_prior_var / (eff_prior_var + obs_var)
     post = w * raw_rate + (1.0 - w) * prior_mean
-    post_var = 1.0 / (1.0 / eff_prior_var + n / max(raw_rate, 1e-6))
+    post_var = 1.0 / (1.0 / eff_prior_var + 1.0 / obs_var)
     return float(post), float(np.sqrt(post_var))
+
+
+def _position_game_var(sub):
+    """给同一号位分组的 df（列 account_id、_value）算两样东西：
+
+      1) 每名选手自己的局内方差（`groupby(...).var(ddof=1)`，样本数<2 时
+         是 NaN，`.var()`/`.mean()` 默认 skipna=True，自动跳过 NaN 观测，
+         口径与 n_games/raw_rate 的计算一致）；
+      2) 该号位的池化方差——每行减去它所属选手自己的均值，再对全体残差
+         算方差（跟 `model/l4_extremes.py::empirical_residuals` +
+         `dispersion_ratio` 同一个思路：按选手自己中心化，不能用全局
+         均值/全局方差——那会把选手之间的真实强弱差异错当成局内噪声，
+         系统性高估到 12.0x/7.8x 这类虚高数字，见模块 docstring）。
+         供个人样本量太小或自身方差退化为 0 时回退。
+
+    返回 (per_player_var: pandas Series[account_id->var], pooled_var: float)。
+    """
+    per_player_var = sub.groupby("account_id")["_value"].var(ddof=1)
+    resid = sub["_value"] - sub.groupby("account_id")["_value"].transform("mean")
+    pooled_var = float(resid.var(ddof=1))
+    if not np.isfinite(pooled_var) or pooled_var <= 0:
+        # 兜底：整个号位都测不出方差——真实数据几乎不可能触发（本项目
+        # 当前 since=2024-01-01 窗口下每名选手 n_games 最少 250），只有
+        # 极端合成 fixture（例如单一选手、且取值恒定）才会撞见。退回
+        # 类泊松假定而不是让 NaN/0 传播到下游的 1/obs_var。
+        pooled_var = max(float(sub["_value"].mean()), 1e-6)
+    return per_player_var, pooled_var
 
 
 def _resolve_item_values(df, item_key):
@@ -138,11 +221,15 @@ def fit_rate_model(df, item_key, positions):
         if sub.empty:
             continue
         prior_mean = float(sub["_value"].mean())
-        # 号位内的选手间方差 = 总方差 - 局内方差（泊松部分）
+        # 号位内的选手间方差 = 总方差 - 局内方差（泊松部分）——这条本次
+        # 修复刻意不动（只替换 obs_var，见模块 docstring【Critical 缺陷
+        # 修复】一节末尾），within 项同样隐含泊松假定，留作后续可选项。
         per_player = sub.groupby("account_id")["_value"].mean()
         between = float(per_player.var(ddof=1)) if len(per_player) > 1 else 0.0
         within = prior_mean / max(sub.groupby("account_id").size().mean(), 1.0)
         prior_var = max(between - within, prior_mean * 0.05)
+
+        per_player_var, pooled_game_var = _position_game_var(sub)
 
         for a in accts:
             g = sub.loc[sub["account_id"] == a, "_value"].dropna()
@@ -150,7 +237,12 @@ def fit_rate_model(df, item_key, positions):
                 continue
             raw = float(g.mean())
             n = len(g)
-            rate, se = shrink(raw, n, prior_mean, prior_var)
+            own_var = per_player_var.get(a, float("nan"))
+            if n >= MIN_N_FOR_OWN_GAME_VAR and np.isfinite(own_var) and own_var > 0:
+                game_var = own_var          # 样本足够大，信选手自己的实测局内方差
+            else:
+                game_var = pooled_game_var   # 样本太小或自身方差退化为 0，回退池化方差
+            rate, se = shrink(raw, n, prior_mean, prior_var, game_var)
             out[a] = {"rate": rate, "se": se, "n_games": int(n),
                       "position": pos, "raw_rate": raw}
     return out

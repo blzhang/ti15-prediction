@@ -51,6 +51,15 @@ ITEM_LABEL = {
 # 的榜单会传递错误的价值判断，只在 P4 个人数据预测里作为普通预测量出现。
 NOT_A_STRENGTH_RANKING = {"deaths"}
 
+# 【Important 缺陷修复】（fix-a-variance-report.md）：teamfight/first_blood
+# 概念上是 [0,1] 比例，<=1；这里是全模块唯一知道"item_key -> 该项自然
+# 上界"这层信息的地方（model/l4_players.py::_interval 本身故意不掌握这个
+# 信息，见该模块 docstring），所以由本报告层显式传 hi_cap=1.0。当前真实
+# 数据未触发（这两项实测最大 hi 分别为 0.741206 / 0.178298，见
+# fix-a-variance-report.md），是防护性
+# 修正，不是"发现了真实错误数据"。
+HI_CAP = {"teamfight": 1.0, "first_blood": 1.0}
+
 HEADLINE_ITEMS = ("gpm", "kills", "creep_score")     # Step 5 抽查用的头部指标
 BOX_SCORE_ITEMS = ("gpm", "kills", "creep_score", "deaths")  # P4 摘要表用
 
@@ -125,9 +134,10 @@ def huligani_vs_liquid_widths(rankings_by_item, item_keys):
 def build_report(csv_path=DEFAULT_CSV, blob_path=DEFAULT_BLOB, since_ts=SINCE_2024_01_01):
     pos, meta, item_keys, rates_by_item, n_rows_used = build_rates(csv_path, blob_path, since_ts)
 
-    rankings_by_item = {item: rank_players(rates_by_item[item], meta, by_position=True)
+    rankings_by_item = {item: rank_players(rates_by_item[item], meta, by_position=True,
+                                           hi_cap=HI_CAP.get(item))
                         for item in item_keys}
-    predictions = predict_player_stats(rates_by_item, item_keys)
+    predictions = predict_player_stats(rates_by_item, item_keys, hi_caps=HI_CAP)
 
     sanity = {
         "yatoro_position1_headline_rank": yatoro_spot_check(rankings_by_item),
@@ -146,7 +156,10 @@ def build_report(csv_path=DEFAULT_CSV, blob_path=DEFAULT_BLOB, since_ts=SINCE_20
         "区间下界在 0 处截断：全部 15 项在物理意义上都不可能为负（计数或计数类"
         "比例），对称正态区间在均值本身接近 0 且样本量小时下界可能算出负数——"
         "已在 model/l4_players.py::_interval 里修正（详见该模块 docstring 与 "
-        "task-8-report.md）。上界不做类似处理，仍可能出现，是已知限制。",
+        "task-8-report.md）。上界方面：teamfight_participation/first_blood 概念上"
+        "是 [0,1] 比例、<=1，本报告对这两项传 hi_cap=1.0 做截断（见上方 HI_CAP、"
+        "fix-a-variance-report.md）；其余 13 项是无自然上界的计数（kills/gpm 等），"
+        "不做类似处理，仍可能出现更宽的上界，这是已知且合理的限制，不是漏改。",
 
         "数据窗口与 Task 6/7 一致：since=2024-01-01 起、80 名花名册选手、"
         f"过滤后 {n_rows_used} 条选手-比赛行。smokes/tormentor/courier 按 "
@@ -161,18 +174,29 @@ def build_report(csv_path=DEFAULT_CSV, blob_path=DEFAULT_BLOB, since_ts=SINCE_20
         "只要 account_id 本身在窗口内有比赛就计入，转会不影响个人数据统计"
         "（跟 L1 队伍层的 as-of join 是两回事，见 00-PLAN.md Task 6 Step 5 相关讨论）。",
 
-        "重要澄清（task-8-report.md 有完整 repro）：下方检查 2 的 HULIGANI/Team "
-        "Liquid 区间宽度比值实测在 1.17x-1.56x 之间，量级上明显小于 task-8-brief.md "
+        "重要澄清（task-8-report.md 有完整 repro；fix-a-variance-report.md 修复"
+        "obs_var 泊松假定后比值区间从 1.17x-1.56x 变为 1.03x-1.51x，量级结论不变，"
+        "数字随 obs_var 估计方式改变属预期内变化）：下方检查 2 的 HULIGANI/Team "
+        "Liquid 区间宽度比值实测在 1.03x-1.51x 之间，量级上明显小于 task-8-brief.md "
         "引用的'109 场 vs 1041 场'（约 9.5x）——这不是 se 传递出错，是两个不同的"
         "样本量：00-DESIGN.md §9.4 的 109/1041 是 L1 的**队伍级**样本（按 team_id、"
         "经 L0 实体对齐、2022-01-01 起），这里的 n_games 是 L3 的**选手级**样本"
         "（按 account_id、2024-01-01 起，不做实体对齐——account_id 本身跨转会稳定，"
         "不需要对齐；一名选手可能在多支队伍打过球，个人账号历史天然比某一个 "
         "team_id 身份的历史长）。实测 HULIGANI 5 名选手 2024 年以来场次均值 464.6，"
-        "并不小，只是持续小于 Team Liquid 的 769.2；逐位置核验：n_games 差距最小的"
-        "5 号位（659 vs 730）区间宽度差距也最小（2.81 vs 2.70），n_games 差距最大的"
-        "4 号位（304 vs 787）区间宽度差距也最大（4.08 vs 2.52）——se 与 n_games 严格"
-        "同向变化，排除了'se 没被正确传递'这个假设。",
+        "并不小，只是持续小于 Team Liquid 的 769.2；逐位置核验（fix-a-variance-report.md "
+        "修复 obs_var 后数字有变化，见下）：n_games 差距最小的5 号位（659 vs 730）"
+        "区间宽度差距也最小（11.00 vs 10.58，差距 0.42）——这条修复前后都精确成立。"
+        "n_games 差距最大的4 号位（304 vs 787）宽度差距为 6.21，修复后不再是 5 个"
+        "位置里最大的（1 号位 8.19 现在最大，旧数据是 4.08 vs 2.52=1.56，5 个位置里"
+        "确实最大）——这是预期内的变化，不是新 bug：se 现在还会跟着每个位置真实的"
+        "局内方差差异走，不再是 n_games 的纯函数（旧实现 obs_var=raw_rate/n 让 se "
+        "几乎只由 n 决定，5 个位置的排序因此几乎严格跟 n_games 走；修复后两者的"
+        "Spearman 秩相关从 0.9 降到 0.4，方向仍然一致但不再机械对应，这本身就是"
+        "'方差不再被硬编码成 raw_rate 的函数'这个修复生效的旁证）。更全面、覆盖"
+        "全部 15 个可得计分项的证据仍然完整：HULIGANI/Team Liquid 的区间宽度比值"
+        "修复后依然全部 >1（1.03x-1.51x 之间，见上表），这条排除了'se 没被正确"
+        "传递'这个假设，不受这一具体位置排序变化的影响。",
     ]
 
     return {
@@ -222,7 +246,8 @@ def _render_markdown(report):
     lines.append("### 检查 2：HULIGANI（小样本）vs Team Liquid（大样本）区间宽度\n")
     lines.append("HULIGANI 选手的 as-of 样本量小于 Team Liquid，逐项区间宽度均值应明显更宽——"
                  "如果比值接近 1，说明 se 没有正确从 L3 传递到这一层。\n")
-    lines.append("**比值量级说明**：下表比值在 1.17x-1.56x 之间，明显小于 brief 引用的"
+    lines.append("**比值量级说明**：下表比值在 1.03x-1.51x 之间（fix-a-variance-report.md 修复"
+                 "obs_var 泊松假定后从 1.17x-1.56x 变化而来，量级结论不变），明显小于 brief 引用的"
                  "队伍级 109 vs 1041 场（≈9.5x）——这是预期之内的，不是 bug。109/1041 是 "
                  "00-DESIGN.md §9.4 的 **L1 队伍级**样本（按 team_id、经实体对齐、"
                  "2022-01-01 起）；下表是 **L3 选手级**样本（按 account_id、"

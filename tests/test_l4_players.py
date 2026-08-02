@@ -131,3 +131,83 @@ def test_predict_stats_merges_multiple_items_per_account_without_overwriting():
     assert set(got[1]) == {"kills", "deaths"}
     assert got[1]["kills"][0] == pytest.approx(9.0)
     assert got[1]["deaths"][0] == pytest.approx(2.0)
+
+
+# ---- 补充测试：修复【Important】_interval 缺上界保护 ----
+#
+# `_interval` 原来只截下界（`max(0.0, lo)`），没有上界保护。
+# teamfight_participation / first_blood 概念上 <=1（比例类指标），当前真实
+# 数据未触发（实测最大 hi 分别为 0.741206 / 0.178298，见
+# fix-a-variance-report.md），但没有防护。`_interval`/`rank_players`/
+# `predict_player_stats` 都新增可选参数 `hi_cap`（`predict_player_stats`
+# 是按 item 的 `hi_caps` 映射），默认 None=不截断——`_interval` 本身依然
+# 不掌握"调用者传的是哪个 item"这个信息，所以截断必须是调用方显式选择
+# 传入，不能悄悄给全部 15 项都加上界。真正给这两项传 hi_cap=1.0 的是
+# model/l4_players_report.py（item-aware 的报告层，已有 ITEM_LABEL /
+# NOT_A_STRENGTH_RANKING 这类按 item 分派的先例）。
+
+def test_interval_upper_bound_can_be_capped_via_hi_cap():
+    """hi_cap 给定且朴素上界超过它时，必须截断到 hi_cap。"""
+    naive_hi = 0.9 + Z95 * 0.1
+    assert naive_hi > 1.0, "先确认这个输入确实会触发朴素公式算出 >1 的上界"
+    lo, hi = _interval(rate=0.9, se=0.1, hi_cap=1.0)
+    assert hi == 1.0, "hi_cap 给定时，超过上限的朴素上界必须被截断"
+
+
+def test_interval_hi_cap_does_not_raise_a_naturally_lower_hi():
+    """hi_cap 是"上限"，不是"替换值"——朴素上界本来就低于 hi_cap 时，
+    不能被 hi_cap 拔高（min 语义，不是无条件覆盖）。"""
+    lo, hi = _interval(rate=0.1, se=0.01, hi_cap=1.0)
+    naive_hi = 0.1 + Z95 * 0.01
+    assert naive_hi < 1.0
+    assert hi == pytest.approx(naive_hi), "朴素上界本来就低于 hi_cap 时不应被拔高"
+
+
+def test_interval_hi_cap_does_not_affect_lower_bound():
+    """hi_cap 只截上界，不该连带影响下界的地板逻辑。"""
+    lo, hi = _interval(rate=0.05, se=1.0, hi_cap=1.0)
+    assert lo == 0.0
+    assert hi == 1.0
+
+
+def test_interval_hi_cap_defaults_to_none_and_stays_uncapped():
+    """不传 hi_cap 时必须保持原有行为（向后兼容）：默认不截上界。"""
+    lo, hi = _interval(rate=0.9, se=0.5)
+    assert hi == pytest.approx(0.9 + Z95 * 0.5), "不传 hi_cap 时默认行为不能变"
+
+
+def test_rank_players_applies_hi_cap_when_provided():
+    """`rank_players` 要把 hi_cap 一路传给 `_interval`，不能只在
+    `predict_player_stats` 那一侧生效。"""
+    near_one = {1: {"rate": 0.95, "se": 0.2, "position": 1, "n_games": 50}}
+    out = rank_players(near_one, {}, by_position=False, hi_cap=1.0)
+    assert out[0]["hi"] == 1.0
+
+
+def test_rank_players_hi_cap_default_none_is_uncapped():
+    """`rank_players` 不传 hi_cap 时必须保持原有（不截上界）行为。"""
+    near_one = {1: {"rate": 0.95, "se": 0.2, "position": 1, "n_games": 50}}
+    out = rank_players(near_one, {}, by_position=False)
+    assert out[0]["hi"] == pytest.approx(0.95 + Z95 * 0.2)
+
+
+def test_predict_player_stats_applies_per_item_hi_caps_selectively():
+    """`predict_player_stats` 的 `hi_caps` 是按 item 的映射——只有映射里
+    点名的 item 被截断，同一个账号的其它 item 不受影响（kills 没有 <=1
+    的上界，不能被连带截断）。"""
+    teamfight = {1: {"rate": 0.95, "se": 0.2, "position": 1, "n_games": 50}}
+    kills = {1: {"rate": 9.0, "se": 3.0, "position": 1, "n_games": 50}}
+    got = predict_player_stats({"teamfight": teamfight, "kills": kills},
+                               ["teamfight", "kills"], hi_caps={"teamfight": 1.0})
+    _, _, teamfight_hi = got[1]["teamfight"]
+    _, _, kills_hi = got[1]["kills"]
+    assert teamfight_hi == 1.0, "teamfight 有 hi_cap，朴素上界超过 1 时必须截断"
+    assert kills_hi == pytest.approx(9.0 + Z95 * 3.0), "kills 没有 hi_cap，不该被连带截断"
+
+
+def test_predict_player_stats_hi_caps_defaults_to_no_capping():
+    """不传 hi_caps 时（brief 原有调用方式）必须保持原有行为，不截任何上界。"""
+    teamfight = {1: {"rate": 0.95, "se": 0.2, "position": 1, "n_games": 50}}
+    got = predict_player_stats({"teamfight": teamfight}, ["teamfight"])
+    _, _, hi = got[1]["teamfight"]
+    assert hi == pytest.approx(0.95 + Z95 * 0.2)
