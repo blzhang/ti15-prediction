@@ -1,0 +1,7 @@
+{
+ "label": "v1-teamlevel",
+ "frozen_at_utc": "2026-08-02T15:52:12Z",
+ "sha256": "fd9ed1ee640f7653a2c71a949bd526a4fdfe97c427c9d3a5adb4bad97b01a666",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l2_predictions.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v1-teamlevel.json"
+}

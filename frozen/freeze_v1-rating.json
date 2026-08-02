@@ -1,0 +1,7 @@
+{
+ "label": "v1-rating",
+ "frozen_at_utc": "2026-08-02T15:52:12Z",
+ "sha256": "73b98e811ab2d80b0f1d0b130e2f5bd065e6184038a27922fcc50ee79637fd34",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l1_rating.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v1-rating.json"
+}
