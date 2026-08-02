@@ -908,7 +908,13 @@ git add -A && git commit -m "fix: 双败抽成独立模块，让分小局改随�
 - Consumes: `data/pro_player_matches_2020_2026.csv`
 - Produces: `SCORING_ITEMS: List[Dict]` —— 18 项，每项 `{"idx","key","pool","column","available"}`
 - Produces: `load_player_games(csv_path, account_ids, since_ts) -> pandas.DataFrame`
-  列含 `match_id, account_id, position, duration_min` 及全部可得计分项
+  列含 `match_id, account_id` 及**本地 CSV 直接可得的**计分项列。
+  ⚠️ 三点澄清（Task 5 评审确认）：
+  ① smokes / tormentor / courier 虽标 `available=True`，但 `column=None`，**永远不会出现在本函数返回值里**；
+     需由调用方另按 `match_id + account_id` 左连接 `data/pro_blob_stats.csv`。
+  ② **不产出 `position`**：号位来自 `model/rosters.py` 的策展数据（`POSITIONS`），由调用方 `map` 上去，
+     不从单局特征推断。Task 6 Step 5 即如此使用。
+  ③ **不产出 `duration_min`**：全项目无任何代码读取它。
 
 `pro_player_matches_2020_2026.csv` 实际列（已核实）：
 `match_id, account_id, player_slot, hero_id, kills, deaths, assists, gold_per_min, xp_per_min, net_worth, last_hits, denies, level, hero_damage, tower_damage, hero_healing, teamfight_participation, lane, lane_role, is_roaming, obs_placed, sen_placed, camps_stacked, rune_pickups, towers_killed, roshans_killed, firstblood_claimed, stuns, gold_spent, leaver_status, leagueid, start_time`
@@ -1047,7 +1053,7 @@ Expected: `4 passed`
 
 ```bash
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy
-python3 model/od_sql.py --out data/pro_blob_stats.csv --sql "
+python3 od_sql.py --out data/pro_blob_stats.csv --sql "
 SELECT pm.match_id, pm.account_id,
        COALESCE((pm.item_uses->>'smoke_of_deceit')::int, 0) AS smokes,
        COALESCE((pm.killed->>'npc_dota_miniboss')::int, 0)  AS tormentor,
@@ -1202,7 +1208,8 @@ def shrink(raw_rate, n, prior_mean, prior_var, tail_heavy=True):
 def fit_rate_model(df, item_key, positions):
     """按号位分层估计每名选手的「每局速率」。
 
-    df 需含列：account_id, match_id, position, duration_min, <item_key>
+    df 需含列：account_id, match_id, position, <item_key 对应的原始列>
+    （`position` 由调用方从 rosters.POSITIONS map 上去；`duration_min` 无人使用，不需要）
     positions: {account_id: 1..5}
     """
     if item_key not in df.columns:
