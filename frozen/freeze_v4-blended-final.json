@@ -1,0 +1,9 @@
+{
+ "label": "v4-blended-final",
+ "frozen_at_utc": "2026-08-02T23:09:54Z",
+ "sha256": "6920d6484526ebed06bf13745ba3f3959d2ed271820eb2d4653fc519382d3d7e",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l2_blended.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v4-blended-final.json",
+ "src_rel": "../model/l2_blended.json",
+ "frozen_path_rel": "frozen_v4-blended-final.json"
+}
