@@ -15,6 +15,7 @@ import json, os, random, collections, itertools
 import numpy as np
 
 from swiss import SwissState, pair_round, rank_teams
+from bracket import loser_games_prob, run_playoffs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 R = json.load(open(f"{HERE}/l1_rating.json"))
@@ -37,7 +38,8 @@ def run_one(theta, rng):
     for rnd in range(5):
         for a, b in pair_round(s, rnd, rng):
             a_wins = rng.random() < p3[a, b]
-            s.record(a, b, a_wins, 1 if rng.random() < 0.4386 else 0)
+            pg = p1[a, b] if a_wins else p1[b, a]      # 赢方单局胜率，喂给让分小局公式
+            s.record(a, b, a_wins, 1 if rng.random() < loser_games_prob(pg) else 0)
 
     swiss_rank = rank_teams(s, rng)
     rec = [(s.wins[t], s.losses[t]) for t in range(n)]
@@ -63,28 +65,10 @@ def run_one(theta, rng):
     for t in elim_lose:
         place[t] = 9
 
-    # 双败：UB QF 1v8 2v7 3v6 4v5
-    def m3(a, b): return a if rng.random() < p3[a, b] else b
-    qf = [(seeds[0], seeds[7]), (seeds[3], seeds[4]), (seeds[1], seeds[6]), (seeds[2], seeds[5])]
-    ubw, ubl = [], []
-    for a, b in qf:
-        w = m3(a, b); ubw.append(w); ubl.append(a if w == b else b)
-    sfw, sfl = [], []
-    for a, b in ((ubw[0], ubw[1]), (ubw[2], ubw[3])):
-        w = m3(a, b); sfw.append(w); sfl.append(a if w == b else b)
-    ubf_w = m3(sfw[0], sfw[1]); ubf_l = sfw[0] if ubf_w == sfw[1] else sfw[1]
-
-    lb1w = []
-    for a, b in ((ubl[0], ubl[1]), (ubl[2], ubl[3])):
-        w = m3(a, b); lb1w.append(w); place[a if w == b else b] = 7
-    lb2w = []
-    for a, b in ((lb1w[0], sfl[1]), (lb1w[1], sfl[0])):
-        w = m3(a, b); lb2w.append(w); place[a if w == b else b] = 5
-    lbsf_w = m3(lb2w[0], lb2w[1]); place[lb2w[0] if lbsf_w == lb2w[1] else lb2w[1]] = 4
-    lbf_w = m3(lbsf_w, ubf_l); place[lbsf_w if lbf_w == ubf_l else ubf_l] = 3
-    champ = ubf_w if rng.random() < p5[ubf_w, lbf_w] else lbf_w      # 决赛 BO5，无 reset
-    place[champ] = 1
-    place[lbf_w if champ == ubf_w else ubf_w] = 2
+    # 双败：UB QF 1v8 2v7 3v6 4v5，决赛 BO5 无 reset（抽成独立模块 model/bracket.py）
+    bracket_place = run_playoffs(seeds, p3, p5, rng)
+    for t, p in bracket_place.items():
+        place[t] = p
     return rec, swiss_rank, place, set(direct) | set(elim_win)
 
 
