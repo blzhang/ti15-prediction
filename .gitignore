@@ -1,0 +1,28 @@
+# 数据集：350MB+，可用 fetch_pro_all.py 重新拉取
+data/
+
+# 调研过程中抓取的原始响应（体积大、可重取）
+html_*.json
+raw_*.json
+lp_*.html
+lp_*.json
+lp_*.txt
+d2v_*.txt
+d2v_tree.json
+gh_tree.json
+opendota_pros.json
+esc.html
+fx_all.txt
+fcraft.txt
+pm.json
+rd.json
+rs.json
+ti2026.json
+
+# Python
+*.pyc
+__pycache__/
+.pytest_cache/
+
+# SDD 脚手架（任务简报、review 包）
+.superpowers/

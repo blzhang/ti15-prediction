@@ -1,0 +1,741 @@
+[
+ {
+  "team": "Aurora Gaming",
+  "label": "Invited",
+  "qual": [],
+  "members": [
+   {
+    "country": "Russia",
+    "page": "Nightfall",
+    "name": "Nightfall",
+    "role": "1"
+   },
+   {
+    "country": "Indonesia",
+    "page": "Mikoto",
+    "name": "Mikoto",
+    "role": "2"
+   },
+   {
+    "country": "Malaysia",
+    "page": "Ws",
+    "name": "Ws",
+    "role": "3"
+   },
+   {
+    "country": "Ukraine",
+    "page": "Mira",
+    "name": "Mira",
+    "role": "4"
+   },
+   {
+    "country": "Ukraine",
+    "page": "Kaori",
+    "name": "kaori",
+    "role": "5"
+   },
+   {
+    "country": "Australia",
+    "page": "Kpii",
+    "name": "kpii",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Kiritych~",
+  "label": "Invited",
+  "qual": [],
+  "members": [
+   {
+    "country": "Russia",
+    "page": "Kiritych",
+    "name": "Kiritych~",
+    "role": "1"
+   },
+   {
+    "country": "Russia",
+    "page": "Gpk",
+    "name": "gpk~",
+    "role": "2"
+   },
+   {
+    "country": "Russia",
+    "page": "MieRo",
+    "name": "MieRo",
+    "role": "3"
+   },
+   {
+    "country": "Moldova",
+    "page": "Save-",
+    "name": "Save-",
+    "role": "4"
+   },
+   {
+    "country": "Russia",
+    "page": "Kataomi",
+    "name": "Kataomi",
+    "role": "5"
+   },
+   {
+    "country": "Russia",
+    "page": "Boolk",
+    "name": "boolk",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Pure",
+  "label": "Invited",
+  "qual": [],
+  "members": [
+   {
+    "country": "Russia",
+    "page": "Pure_(Russian_player)",
+    "name": "Pure",
+    "role": "1"
+   },
+   {
+    "country": "Bulgaria",
+    "page": "Bzm",
+    "name": "bzm",
+    "role": "2"
+   },
+   {
+    "country": "Israel",
+    "page": "33",
+    "name": "33",
+    "role": "3"
+   },
+   {
+    "country": "United Kingdom",
+    "page": "Ari",
+    "name": "Ari",
+    "role": "4"
+   },
+   {
+    "country": "Indonesia",
+    "page": "Whitemon",
+    "name": "Whitemon",
+    "role": "5"
+   },
+   {
+    "country": "Canada",
+    "page": "MoonMeander",
+    "name": "MoonMeander",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Team Falcons",
+  "label": "Invited",
+  "qual": [],
+  "members": [
+   {
+    "country": "Slovakia",
+    "page": "Skiter",
+    "name": "skiter",
+    "role": "1"
+   },
+   {
+    "country": "Russia",
+    "page": "Malr1ne",
+    "name": "Malr1ne",
+    "role": "2"
+   },
+   {
+    "country": "Jordan",
+    "page": "ATF",
+    "name": "ATF",
+    "role": "3"
+   },
+   {
+    "country": "Denmark",
+    "page": "Cr1t-",
+    "name": "Cr1t-",
+    "role": "4"
+   },
+   {
+    "country": "United States",
+    "page": "Sneyking",
+    "name": "Sneyking",
+    "role": "5"
+   },
+   {
+    "country": "Canada",
+    "page": "Aui_2000",
+    "name": "Aui_2000",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Team Liquid",
+  "label": "Invited",
+  "qual": [],
+  "members": [
+   {
+    "country": "Sweden",
+    "page": "MiCKe",
+    "name": "m1CKe",
+    "role": "1"
+   },
+   {
+    "country": "Poland",
+    "page": "Nisha",
+    "name": "Nisha",
+    "role": "2"
+   },
+   {
+    "country": "Denmark",
+    "page": "Ace",
+    "name": "Ace",
+    "role": "3"
+   },
+   {
+    "country": "Sweden",
+    "page": "Boxi",
+    "name": "Boxi",
+    "role": "4"
+   },
+   {
+    "country": "Germany",
+    "page": "TOfu",
+    "name": "tOfu",
+    "role": "5"
+   },
+   {
+    "country": "United States",
+    "page": "Blitz",
+    "name": "Blitz",
+    "role": "Coach"
+   },
+   {
+    "country": "Germany",
+    "page": "Jabbz",
+    "name": "Jabbz",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Team Yandex",
+  "label": "Invited",
+  "qual": [],
+  "members": [
+   {
+    "country": "Kazakhstan",
+    "page": "Watson",
+    "name": "watson",
+    "role": "1"
+   },
+   {
+    "country": "Russia",
+    "page": "CHIRA_JUNIOR",
+    "name": "CHIRA_JUNIOR",
+    "role": "2"
+   },
+   {
+    "country": "Russia",
+    "page": "DM",
+    "name": "DM",
+    "role": "3"
+   },
+   {
+    "country": "North Macedonia",
+    "page": "Saksa",
+    "name": "Saksa",
+    "role": "4"
+   },
+   {
+    "country": "Kazakhstan",
+    "page": "Malady",
+    "name": "Malady",
+    "role": "5"
+   },
+   {
+    "country": "Russia",
+    "page": "Accell",
+    "name": "Accell",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Xtreme Gaming",
+  "label": "Invited",
+  "qual": [],
+  "members": [
+   {
+    "country": "China",
+    "page": "Ame",
+    "name": "Ame",
+    "role": "1"
+   },
+   {
+    "country": "Malaysia",
+    "page": "NothingToSay",
+    "name": "NothingToSay",
+    "role": "2"
+   },
+   {
+    "country": "China",
+    "page": "Xxs",
+    "name": "Xxs",
+    "role": "3"
+   },
+   {
+    "country": "China",
+    "page": "Fy",
+    "name": "fy",
+    "role": "4"
+   },
+   {
+    "country": "Malaysia",
+    "page": "XNova",
+    "name": "xNova",
+    "role": "5"
+   },
+   {
+    "country": "China",
+    "page": "LaNm",
+    "name": "LaNm",
+    "role": "Head Coach"
+   },
+   {
+    "country": "China",
+    "page": "Maps",
+    "name": "Maps",
+    "role": "Assistant Coach"
+   }
+  ]
+ },
+ {
+  "team": "Team Spirit",
+  "label": "Qualified",
+  "qual": [
+   "Europe",
+   "Europe"
+  ],
+  "members": [
+   {
+    "country": "Ukraine",
+    "page": "Yatoro",
+    "name": "Yatoro",
+    "role": "1"
+   },
+   {
+    "country": "Russia",
+    "page": "Larl",
+    "name": "Larl",
+    "role": "2"
+   },
+   {
+    "country": "Russia",
+    "page": "Collapse",
+    "name": "Collapse",
+    "role": "3"
+   },
+   {
+    "country": "Russia",
+    "page": "Not_me",
+    "name": "not me",
+    "role": "4"
+   },
+   {
+    "country": "Russia",
+    "page": "Rue",
+    "name": "rue",
+    "role": "5"
+   },
+   {
+    "country": "Russia",
+    "page": "Miposhka",
+    "name": "Miposhka",
+    "role": "Coach"
+   },
+   {
+    "country": "Bosnia and Herzegovina",
+    "page": "MiLAN",
+    "name": "MiLAN",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Satanic",
+  "label": "Qualified",
+  "qual": [
+   "Europe",
+   "Europe"
+  ],
+  "members": [
+   {
+    "country": "Russia",
+    "page": "Satanic_(Russian_player)",
+    "name": "Satanic",
+    "role": "1"
+   },
+   {
+    "country": "Ukraine",
+    "page": "Noone",
+    "name": "No[o]ne-",
+    "role": "2"
+   },
+   {
+    "country": "Russia",
+    "page": "Noticed",
+    "name": "Noticed",
+    "role": "3"
+   },
+   {
+    "country": "Russia",
+    "page": "9Class",
+    "name": "9Class",
+    "role": "4"
+   },
+   {
+    "country": "Russia",
+    "page": "Dukalis",
+    "name": "Dukalis",
+    "role": "5"
+   },
+   {
+    "country": "Estonia",
+    "page": "Puppey",
+    "name": "Puppey",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Nigma Galaxy",
+  "label": "Qualified",
+  "qual": [
+   "Europe",
+   "Europe"
+  ],
+  "members": [
+   {
+    "country": "Pakistan",
+    "page": "SumaiL",
+    "name": "SumaiL",
+    "role": "1"
+   },
+   {
+    "country": "Ukraine",
+    "page": "Lorenof",
+    "name": "lorenof",
+    "role": "2"
+   },
+   {
+    "country": "Belgium",
+    "page": "Davai",
+    "name": "Davai",
+    "role": "3"
+   },
+   {
+    "country": "Lebanon",
+    "page": "OmaR",
+    "name": "OmaR",
+    "role": "4"
+   },
+   {
+    "country": "Lebanon",
+    "page": "GH",
+    "name": "GH",
+    "role": "5"
+   },
+   {
+    "country": "Germany",
+    "page": "KuroKy",
+    "name": "KuroKy",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "ssnovv1",
+  "label": "Qualified",
+  "qual": [
+   "Europe",
+   "Europe"
+  ],
+  "members": [
+   {
+    "country": "Russia",
+    "page": "Ssnovv1",
+    "name": "ssnovv1",
+    "role": "1"
+   },
+   {
+    "country": "Kazakhstan",
+    "page": "Mirage%60",
+    "name": "Mirage`",
+    "role": "2"
+   },
+   {
+    "country": "Russia",
+    "page": "Vazya",
+    "name": "Corrupted",
+    "role": "3"
+   },
+   {
+    "country": "Russia",
+    "page": "Sayuw",
+    "name": "sayuw",
+    "role": "4"
+   },
+   {
+    "country": "Belarus",
+    "page": "RESPECT",
+    "name": "RESPECT",
+    "role": "5"
+   },
+   {
+    "country": "Belarus",
+    "page": "TheChosenOne",
+    "name": "TheChosenOne",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Team Resilience",
+  "label": "Qualified",
+  "qual": [
+   "China",
+   "China"
+  ],
+  "members": [
+   {
+    "country": "China",
+    "page": "Erika",
+    "name": "YSR-04E",
+    "role": "1"
+   },
+   {
+    "country": "China",
+    "page": "Echo",
+    "name": "Echozz",
+    "role": "2"
+   },
+   {
+    "country": "China",
+    "page": "Niu",
+    "name": "niu",
+    "role": "3"
+   },
+   {
+    "country": "China",
+    "page": "Planet",
+    "name": "planet",
+    "role": "4"
+   },
+   {
+    "country": "China",
+    "page": "Zzq",
+    "name": "zzq",
+    "role": "5"
+   },
+   {
+    "country": "China",
+    "page": "Super",
+    "name": "Super",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "Vici Gaming",
+  "label": "Qualified",
+  "qual": [
+   "China",
+   "China"
+  ],
+  "members": [
+   {
+    "country": "China",
+    "page": "Shiro",
+    "name": "shiro",
+    "role": "1"
+   },
+   {
+    "country": "China",
+    "page": "Xm",
+    "name": "Xm",
+    "role": "2"
+   },
+   {
+    "country": "China",
+    "page": "Faith_bian",
+    "name": "Bach",
+    "role": "3"
+   },
+   {
+    "country": "China",
+    "page": "XinQ",
+    "name": "XinQ",
+    "role": "4"
+   },
+   {
+    "country": "China",
+    "page": "Y%60",
+    "name": "y`",
+    "role": "5"
+   },
+   {
+    "country": "China",
+    "page": "Yao",
+    "name": "Yao",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "OG",
+  "label": "Qualified",
+  "qual": [
+   "Southeast Asia",
+   "Southeast Asia"
+  ],
+  "members": [
+   {
+    "country": "Philippines",
+    "page": "Natsumi-",
+    "name": "Natsumi",
+    "role": "1"
+   },
+   {
+    "country": "Philippines",
+    "page": "Yopaj",
+    "name": "Yopaj-",
+    "role": "2"
+   },
+   {
+    "country": "Philippines",
+    "page": "Raven",
+    "name": "Raven",
+    "role": "3"
+   },
+   {
+    "country": "Philippines",
+    "page": "TIMS",
+    "name": "TIMS",
+    "role": "4"
+   },
+   {
+    "country": "Philippines",
+    "page": "Skem",
+    "name": "skem",
+    "role": "5"
+   },
+   {
+    "country": "Malaysia",
+    "page": "343",
+    "name": "343",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "GamerLegion",
+  "label": "Qualified",
+  "qual": [
+   "North America",
+   "North America"
+  ],
+  "members": [
+   {
+    "country": "Malaysia",
+    "page": "Ghost_(Daniel_Chan)",
+    "name": "Ghost",
+    "role": "1"
+   },
+   {
+    "country": "United States",
+    "page": "RCY",
+    "name": "RCY",
+    "role": "2"
+   },
+   {
+    "country": "United States",
+    "page": "Fayde",
+    "name": "Fayde",
+    "role": "3"
+   },
+   {
+    "country": "Ukraine",
+    "page": "Bignum",
+    "name": "Bignum",
+    "role": "4"
+   },
+   {
+    "country": "United States",
+    "page": "Speeed",
+    "name": "Speeed",
+    "role": "5"
+   },
+   {
+    "country": "Romania",
+    "page": "Mangusu",
+    "name": "Mangusu",
+    "role": "Coach"
+   }
+  ]
+ },
+ {
+  "team": "LGD Gaming",
+  "label": "Qualified",
+  "qual": [
+   "South America",
+   "South America"
+  ],
+  "members": [
+   {
+    "country": "Nicaragua",
+    "page": "Yuma",
+    "name": "Yuma",
+    "role": "1"
+   },
+   {
+    "country": "Peru",
+    "page": "TaiLung",
+    "name": "TaiLung",
+    "role": "2"
+   },
+   {
+    "country": "Bolivia",
+    "page": "Wisper",
+    "name": "Wisper",
+    "role": "3"
+   },
+   {
+    "country": "Brazil",
+    "page": "Thiolicor",
+    "name": "Thiolicor",
+    "role": "4"
+   },
+   {
+    "country": "Brazil",
+    "page": "KJ",
+    "name": "KJ",
+    "role": "5"
+   },
+   {
+    "country": "Brazil",
+    "page": "Kaffs",
+    "name": "kaffs",
+    "role": "Coach"
+   },
+   {
+    "country": "Brazil",
+    "page": "Fcr",
+    "name": "fcr",
+    "role": "Assistant Coach"
+   }
+  ]
+ }
+]

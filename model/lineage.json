@@ -1,0 +1,322 @@
+{
+ "Aurora Gaming": [
+  {
+   "team_id": "9467224",
+   "games": 311,
+   "games_since_2024": 311,
+   "name": "Aurora Gaming"
+  }
+ ],
+ "BoomBoys": [
+  {
+   "team_id": "8255888",
+   "games": 736,
+   "games_since_2024": 736,
+   "name": "BoomBoys"
+  },
+  {
+   "team_id": "9131584",
+   "games": 49,
+   "games_since_2024": 49,
+   "name": "BB Team"
+  }
+ ],
+ "Iron Wing": [
+  {
+   "team_id": "8291895",
+   "games": 437,
+   "games_since_2024": 437,
+   "name": "Tundra Esports"
+  },
+  {
+   "team_id": "10150413",
+   "games": 24,
+   "games_since_2024": 24,
+   "name": "Iron Wing"
+  },
+  {
+   "team_id": "10182357",
+   "games": 19,
+   "games_since_2024": 19,
+   "name": "1w"
+  }
+ ],
+ "Team Falcons": [
+  {
+   "team_id": "9247354",
+   "games": 855,
+   "games_since_2024": 805,
+   "name": "Team Falcons"
+  },
+  {
+   "team_id": "8291895",
+   "games": 12,
+   "games_since_2024": 0,
+   "name": "Tundra Esports"
+  }
+ ],
+ "Team Liquid": [
+  {
+   "team_id": "2163",
+   "games": 1040,
+   "games_since_2024": 773,
+   "name": "Team Liquid"
+  }
+ ],
+ "Team Yandex": [
+  {
+   "team_id": "9823272",
+   "games": 257,
+   "games_since_2024": 257,
+   "name": "Team Yandex"
+  }
+ ],
+ "Xtreme Gaming": [
+  {
+   "team_id": "8261500",
+   "games": 281,
+   "games_since_2024": 281,
+   "name": "Xtreme Gaming"
+  },
+  {
+   "team_id": "15",
+   "games": 8,
+   "games_since_2024": 0,
+   "name": "LGD Gaming"
+  }
+ ],
+ "Team Spirit": [
+  {
+   "team_id": "7119388",
+   "games": 928,
+   "games_since_2024": 662,
+   "name": "Team Spirit"
+  }
+ ],
+ "TEAM VISION": [
+  {
+   "team_id": "9572001",
+   "games": 480,
+   "games_since_2024": 480,
+   "name": "TEAM VISION"
+  },
+  {
+   "team_id": "9824702",
+   "games": 75,
+   "games_since_2024": 75,
+   "name": "PVISION"
+  },
+  {
+   "team_id": "9547255",
+   "games": 9,
+   "games_since_2024": 9,
+   "name": "Bandanoone"
+  }
+ ],
+ "Nigma Galaxy": [
+  {
+   "team_id": "7554697",
+   "games": 405,
+   "games_since_2024": 405,
+   "name": "Nigma Galaxy"
+  },
+  {
+   "team_id": "10136357",
+   "games": 50,
+   "games_since_2024": 50,
+   "name": "Nigma Galaxy "
+  }
+ ],
+ "HULIGANI": [
+  {
+   "team_id": "9303383",
+   "games": 73,
+   "games_since_2024": 73,
+   "name": "L1GA TEAM"
+  },
+  {
+   "team_id": "10149530",
+   "games": 21,
+   "games_since_2024": 21,
+   "name": "HULIGANI"
+  },
+  {
+   "team_id": "10182299",
+   "games": 10,
+   "games_since_2024": 10,
+   "name": "L1 TEAM"
+  },
+  {
+   "team_id": "10208009",
+   "games": 5,
+   "games_since_2024": 5,
+   "name": "L1GA TEAM"
+  }
+ ],
+ "Team Resilience": [
+  {
+   "team_id": "9593627",
+   "games": 67,
+   "games_since_2024": 67,
+   "name": "Titan"
+  },
+  {
+   "team_id": "9640842",
+   "games": 62,
+   "games_since_2024": 62,
+   "name": "Team Tidebound"
+  },
+  {
+   "team_id": "4",
+   "games": 50,
+   "games_since_2024": 0,
+   "name": "EHOME"
+  },
+  {
+   "team_id": "7267298",
+   "games": 47,
+   "games_since_2024": 0,
+   "name": "EHOME.Immortal"
+  },
+  {
+   "team_id": "9699158",
+   "games": 45,
+   "games_since_2024": 45,
+   "name": "tearlaments"
+  },
+  {
+   "team_id": "5017210",
+   "games": 29,
+   "games_since_2024": 29,
+   "name": "Team Resilience"
+  },
+  {
+   "team_id": "9579337",
+   "games": 23,
+   "games_since_2024": 23,
+   "name": "YB.Tearlaments"
+  },
+  {
+   "team_id": "9895699",
+   "games": 9,
+   "games_since_2024": 9,
+   "name": "tearlaments"
+  },
+  {
+   "team_id": "10207984",
+   "games": 5,
+   "games_since_2024": 5,
+   "name": "Team resilience"
+  }
+ ],
+ "Vici Gaming": [
+  {
+   "team_id": "15",
+   "games": 508,
+   "games_since_2024": 0,
+   "name": "LGD Gaming"
+  },
+  {
+   "team_id": "9640842",
+   "games": 198,
+   "games_since_2024": 198,
+   "name": "Team Tidebound"
+  },
+  {
+   "team_id": "4",
+   "games": 170,
+   "games_since_2024": 0,
+   "name": "EHOME"
+  },
+  {
+   "team_id": "726228",
+   "games": 147,
+   "games_since_2024": 147,
+   "name": "Vici Gaming"
+  }
+ ],
+ "OG": [
+  {
+   "team_id": "7732977",
+   "games": 263,
+   "games_since_2024": 0,
+   "name": "BOOM Esports"
+  },
+  {
+   "team_id": "2586976",
+   "games": 151,
+   "games_since_2024": 151,
+   "name": "OG"
+  },
+  {
+   "team_id": "6187657",
+   "games": 111,
+   "games_since_2024": 0,
+   "name": "Plae8 Neon"
+  },
+  {
+   "team_id": "8360138",
+   "games": 109,
+   "games_since_2024": 0,
+   "name": "Neon Esports"
+  },
+  {
+   "team_id": "9885654",
+   "games": 60,
+   "games_since_2024": 60,
+   "name": "Team Aureus"
+  },
+  {
+   "team_id": "9467430",
+   "games": 12,
+   "games_since_2024": 12,
+   "name": "Blacklist International"
+  }
+ ],
+ "GamerLegion": [
+  {
+   "team_id": "9651185",
+   "games": 219,
+   "games_since_2024": 219,
+   "name": "Wildcard"
+  },
+  {
+   "team_id": "9964962",
+   "games": 179,
+   "games_since_2024": 179,
+   "name": "GamerLegion"
+  },
+  {
+   "team_id": "9381678",
+   "games": 73,
+   "games_since_2024": 73,
+   "name": "Apex Genesis"
+  }
+ ],
+ "LGD Gaming": [
+  {
+   "team_id": "9303484",
+   "games": 385,
+   "games_since_2024": 385,
+   "name": "HEROIC"
+  },
+  {
+   "team_id": "10150538",
+   "games": 60,
+   "games_since_2024": 60,
+   "name": "LGD Gaming"
+  },
+  {
+   "team_id": "10144195",
+   "games": 14,
+   "games_since_2024": 14,
+   "name": "ex-HEROIC"
+  },
+  {
+   "team_id": "10208068",
+   "games": 5,
+   "games_since_2024": 5,
+   "name": "LGD.Pinghu"
+  }
+ ]
+}
