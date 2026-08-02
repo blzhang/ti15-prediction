@@ -1,0 +1,16 @@
+{
+  "source": "bookmaker composite, 01-ti15-facts.md §5",
+  "captured_utc": "2026-08-01",
+  "note": "仅 5 队有盘口，其余为 null。null 项在融合时退回纯模型概率。",
+  "decimal_odds": {
+    "TEAM VISION": 4.50,
+    "Team Spirit": 5.00,
+    "Team Yandex": 6.00,
+    "Iron Wing": 7.00,
+    "Team Falcons": 9.00,
+    "Aurora Gaming": null, "BoomBoys": null, "Team Liquid": null,
+    "Xtreme Gaming": null, "Vici Gaming": null, "Team Resilience": null,
+    "Nigma Galaxy": null, "HULIGANI": null, "OG": null,
+    "GamerLegion": null, "LGD Gaming": null
+  }
+}
