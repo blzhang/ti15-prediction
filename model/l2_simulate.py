@@ -14,6 +14,8 @@
 import json, os, random, collections, itertools
 import numpy as np
 
+from swiss import SwissState, pair_round, rank_teams
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 R = json.load(open(f"{HERE}/l1_rating.json"))
 TEAMS = list(R["rating"])
@@ -24,68 +26,21 @@ N_SIM = 200000
 rng = np.random.default_rng(20260802)
 
 
-def swiss_pair(order, played, scores):
-    """Dutch 式同分配对：按分组、组内上半区对下半区、避免重赛、奇数下浮。"""
-    remaining = list(order)
-    pairs = []
-    while remaining:
-        s = scores[remaining[0]]
-        grp = [t for t in remaining if scores[t] == s]
-        if len(grp) % 2 == 1:                       # 奇数组下浮一队
-            rest = [t for t in remaining if scores[t] != s]
-            if rest:
-                grp.append(rest[0])
-        half = len(grp) // 2
-        top, bot = grp[:half], grp[half:]
-        used = set()
-        for a in top:
-            cand = [b for b in bot if b not in used and b not in played[a]]
-            if not cand:                            # 无法避免重赛就允许重赛
-                cand = [b for b in bot if b not in used]
-            b = cand[0]
-            used.add(b)
-            pairs.append((a, b))
-        for t in grp:
-            if t in remaining:
-                remaining.remove(t)
-    return pairs
-
-
-def run_one(theta):
+def run_one(theta, rng):
     p1 = 1.0 / (1.0 + np.exp(-(theta[:, None] - theta[None, :])))   # 单局胜率矩阵
     p3 = p1 ** 2 * (3 - 2 * p1)                                     # BO3
     q = 1 - p1
     p5 = p1 ** 3 * (1 + 3 * q + 6 * q ** 2)                         # BO5
 
-    wins = [0] * n; losses = [0] * n
-    gw = [0] * n; gl = [0] * n                                       # 小局胜负
-    played = [set() for _ in range(n)]
-    opponents = [[] for _ in range(n)]
+    s = SwissState(n)
+    s.group = list(rng.permutation([0] * 8 + [1] * 8))   # 分组未公布，随机化
+    for rnd in range(5):
+        for a, b in pair_round(s, rnd, rng):
+            a_wins = rng.random() < p3[a, b]
+            s.record(a, b, a_wins, 1 if rng.random() < 0.4386 else 0)
 
-    for rd in range(5):
-        if rd == 0:
-            order = list(rng.permutation(n))                          # R1 由赛事方指定，用随机近似
-        else:
-            order = sorted(range(n), key=lambda t: (-wins[t], losses[t],
-                           -(gw[t] / max(gw[t] + gl[t], 1)),
-                           -sum(wins[o] for o in opponents[t]), rng.random()))
-        for a, b in swiss_pair(order, played, wins):
-            aw = rng.random() < p3[a, b]
-            # 小局比分：赢家 2 胜，输家 0 或 1
-            loser_games = 1 if rng.random() < 0.4386 else 0
-            if aw:
-                wins[a] += 1; losses[b] += 1; gw[a] += 2; gl[a] += loser_games
-                gw[b] += loser_games; gl[b] += 2
-            else:
-                wins[b] += 1; losses[a] += 1; gw[b] += 2; gl[b] += loser_games
-                gw[a] += loser_games; gl[a] += 2
-            played[a].add(b); played[b].add(a)
-            opponents[a].append(b); opponents[b].append(a)
-
-    swiss_rank = sorted(range(n), key=lambda t: (-wins[t], losses[t],
-                        -(gw[t] / max(gw[t] + gl[t], 1)),
-                        -sum(wins[o] for o in opponents[t]), rng.random()))
-    rec = [(wins[t], losses[t]) for t in range(n)]
+    swiss_rank = rank_teams(s, rng)
+    rec = [(s.wins[t], s.losses[t]) for t in range(n)]
 
     direct = swiss_rank[:3]                       # 前 3 直接进淘汰赛
     elim_pool = swiss_rank[3:13]                  # 4–13 名进附加轮
@@ -140,7 +95,7 @@ n50_hist = collections.Counter(); n41_hist = collections.Counter()
 
 for s in range(N_SIM):
     theta = TH + SE * rng.standard_normal(n)        # 后验重抽
-    rec, srank, place, advanced = run_one(theta)
+    rec, srank, place, advanced = run_one(theta, rng)
     for t in range(n):
         rec_c[(t, rec[t])] += 1
         place_c[t, place[t]] += 1
