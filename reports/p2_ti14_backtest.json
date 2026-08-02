@@ -1,0 +1,423 @@
+{
+ "ti14_cutoff_start_time": 1756973096,
+ "ti14_total_games": 144,
+ "ti14_total_player_game_slots": 1440,
+ "n_pre_ti14_rows_used": 80162,
+ "overall_summary": {
+  "n_items": 4,
+  "mean_actual_leader_rank_percentile": 0.86875,
+  "mean_actual_leader_prob_vs_uniform": 1.966,
+  "n_threshold_questions": 8,
+  "n_threshold_correct": 4
+ },
+ "threshold_backtest": [
+  {
+   "item": "kills",
+   "label": "任务原文点名示例（历史80162局里出现过30次）",
+   "threshold": 26.0,
+   "needs_gpd": false,
+   "actual_happened": false,
+   "predicted_prob": 0.421888
+  },
+  {
+   "item": "kills",
+   "label": "超出历史观测上限31的假设阈值（演示 needs_gpd 边界）",
+   "threshold": 36.0,
+   "needs_gpd": true,
+   "actual_happened": false,
+   "predicted_prob": null
+  },
+  {
+   "item": "gold_per_min",
+   "label": "Dota 社区公认的'千GPM'整数关卡（历史80162局里出现过111次）",
+   "threshold": 1000.0,
+   "needs_gpd": false,
+   "actual_happened": true,
+   "predicted_prob": 0.865247
+  },
+  {
+   "item": "gold_per_min",
+   "label": "超出历史观测上限1279的假设阈值（演示 needs_gpd 边界）",
+   "threshold": 1471.0,
+   "needs_gpd": true,
+   "actual_happened": false,
+   "predicted_prob": null
+  },
+  {
+   "item": "last_hits",
+   "label": "Dota 社区公认的'千补刀'整数关卡（历史80162局里出现过136次）",
+   "threshold": 1000.0,
+   "needs_gpd": false,
+   "actual_happened": true,
+   "predicted_prob": 0.914059
+  },
+  {
+   "item": "last_hits",
+   "label": "超出历史观测上限1749的假设阈值（演示 needs_gpd 边界）",
+   "threshold": 2011.0,
+   "needs_gpd": true,
+   "actual_happened": false,
+   "predicted_prob": null
+  },
+  {
+   "item": "stuns",
+   "label": "无公认整数关卡，取接近99.5分位的整数代替（历史79945局里出现过292次）",
+   "threshold": 200.0,
+   "needs_gpd": false,
+   "actual_happened": true,
+   "predicted_prob": 0.994898
+  },
+  {
+   "item": "stuns",
+   "label": "超出历史观测上限702的假设阈值（演示 needs_gpd 边界）",
+   "threshold": 808.0,
+   "needs_gpd": true,
+   "actual_happened": false,
+   "predicted_prob": null
+  }
+ ],
+ "who_leads_backtest": {
+  "kills": {
+   "predicted_top8": [
+    {
+     "account_id": 898455820.0,
+     "name": "Malr1ne",
+     "team": "Team Falcons",
+     "prob_leads": 0.0411,
+     "pre_ti14_rate": 7.631222,
+     "actual_ti14_games": 29
+    },
+    {
+     "account_id": 1044002267.0,
+     "name": "Satanic",
+     "team": "TEAM VISION",
+     "prob_leads": 0.0387,
+     "pre_ti14_rate": 8.082759,
+     "actual_ti14_games": 23
+    },
+    {
+     "account_id": 93618577.0,
+     "name": "bzm",
+     "team": "Tundra Esports",
+     "prob_leads": 0.0353,
+     "pre_ti14_rate": 8.06953,
+     "actual_ti14_games": 21
+    },
+    {
+     "account_id": 206642367.0,
+     "name": "Ghost",
+     "team": "Nigma Galaxy",
+     "prob_leads": 0.03405,
+     "pre_ti14_rate": 7.443526,
+     "actual_ti14_games": 24
+    },
+    {
+     "account_id": 177203952.0,
+     "name": "Yuma",
+     "team": "HEROIC",
+     "prob_leads": 0.03285,
+     "pre_ti14_rate": 8.141333,
+     "actual_ti14_games": 19
+    },
+    {
+     "account_id": 111620041.0,
+     "name": "SumaiL-",
+     "team": "Nigma Galaxy",
+     "prob_leads": 0.03225,
+     "pre_ti14_rate": 7.688559,
+     "actual_ti14_games": 24
+    },
+    {
+     "account_id": 100058342.0,
+     "name": "skiter",
+     "team": "Team Falcons",
+     "prob_leads": 0.03155,
+     "pre_ti14_rate": 7.014749,
+     "actual_ti14_games": 29
+    },
+    {
+     "account_id": 106573901.0,
+     "name": "No[o]ne-",
+     "team": "TEAM VISION",
+     "prob_leads": 0.0303,
+     "pre_ti14_rate": 7.432186,
+     "actual_ti14_games": 23
+    }
+   ],
+   "actual_leader": {
+    "account_id": 154974246,
+    "name": "RCY",
+    "team": "Wildcard",
+    "actual_value": 21.0,
+    "predicted_prob": 0.02535,
+    "predicted_rank": 16,
+    "pre_ti14_rate": 8.347744,
+    "actual_ti14_games": 13
+   },
+   "calibration": {
+    "n_candidates": 80,
+    "uniform_baseline_prob": 0.0125,
+    "actual_leader_prob_vs_uniform": 2.028,
+    "actual_leader_rank_percentile": 0.8125
+   }
+  },
+  "gold_per_min": {
+   "predicted_top8": [
+    {
+     "account_id": 1044002267.0,
+     "name": "Satanic",
+     "team": "TEAM VISION",
+     "prob_leads": 0.2664,
+     "pre_ti14_rate": 758.193103,
+     "actual_ti14_games": 23
+    },
+    {
+     "account_id": 331855530.0,
+     "name": "Pure",
+     "team": "BoomBoys",
+     "prob_leads": 0.0928,
+     "pre_ti14_rate": 700.132629,
+     "actual_ti14_games": 23
+    },
+    {
+     "account_id": 898754153.0,
+     "name": "Ame",
+     "team": "Xtreme Gaming",
+     "prob_leads": 0.07365,
+     "pre_ti14_rate": 682.712748,
+     "actual_ti14_games": 26
+    },
+    {
+     "account_id": 957204049.0,
+     "name": "gotthejuice",
+     "team": "Natus Vincere",
+     "prob_leads": 0.06585,
+     "pre_ti14_rate": 712.270909,
+     "actual_ti14_games": 13
+    },
+    {
+     "account_id": 321580662.0,
+     "name": "Yatoro",
+     "team": "Team Spirit",
+     "prob_leads": 0.06035,
+     "pre_ti14_rate": 702.344531,
+     "actual_ti14_games": 14
+    },
+    {
+     "account_id": 100058342.0,
+     "name": "skiter",
+     "team": "Team Falcons",
+     "prob_leads": 0.0405,
+     "pre_ti14_rate": 645.313422,
+     "actual_ti14_games": 29
+    },
+    {
+     "account_id": 177203952.0,
+     "name": "Yuma",
+     "team": "HEROIC",
+     "prob_leads": 0.0379,
+     "pre_ti14_rate": 660.311111,
+     "actual_ti14_games": 19
+    },
+    {
+     "account_id": 206642367.0,
+     "name": "Ghost",
+     "team": "Nigma Galaxy",
+     "prob_leads": 0.03465,
+     "pre_ti14_rate": 645.589532,
+     "actual_ti14_games": 24
+    }
+   ],
+   "actual_leader": {
+    "account_id": 320252024,
+    "name": "shiro",
+    "team": "Team Tidebound",
+    "actual_value": 1197.0,
+    "predicted_prob": 0.0301,
+    "predicted_rank": 9,
+    "pre_ti14_rate": 661.931689,
+    "actual_ti14_games": 16
+   },
+   "calibration": {
+    "n_candidates": 80,
+    "uniform_baseline_prob": 0.0125,
+    "actual_leader_prob_vs_uniform": 2.408,
+    "actual_leader_rank_percentile": 0.9
+   }
+  },
+  "last_hits": {
+   "predicted_top8": [
+    {
+     "account_id": 1044002267.0,
+     "name": "Satanic",
+     "team": "TEAM VISION",
+     "prob_leads": 0.0675,
+     "pre_ti14_rate": 484.62931,
+     "actual_ti14_games": 23
+    },
+    {
+     "account_id": 898754153.0,
+     "name": "Ame",
+     "team": "Xtreme Gaming",
+     "prob_leads": 0.04525,
+     "pre_ti14_rate": 402.360927,
+     "actual_ti14_games": 26
+    },
+    {
+     "account_id": 100058342.0,
+     "name": "skiter",
+     "team": "Team Falcons",
+     "prob_leads": 0.0432,
+     "pre_ti14_rate": 387.772124,
+     "actual_ti14_games": 29
+    },
+    {
+     "account_id": 331855530.0,
+     "name": "Pure",
+     "team": "BoomBoys",
+     "prob_leads": 0.04245,
+     "pre_ti14_rate": 416.612676,
+     "actual_ti14_games": 23
+    },
+    {
+     "account_id": 206642367.0,
+     "name": "Ghost",
+     "team": "Nigma Galaxy",
+     "prob_leads": 0.0324,
+     "pre_ti14_rate": 366.870523,
+     "actual_ti14_games": 24
+    },
+    {
+     "account_id": 321580662.0,
+     "name": "Yatoro",
+     "team": "Team Spirit",
+     "prob_leads": 0.02935,
+     "pre_ti14_rate": 434.238587,
+     "actual_ti14_games": 14
+    },
+    {
+     "account_id": 898455820.0,
+     "name": "Malr1ne",
+     "team": "Team Falcons",
+     "prob_leads": 0.0278,
+     "pre_ti14_rate": 316.570136,
+     "actual_ti14_games": 29
+    },
+    {
+     "account_id": 177203952.0,
+     "name": "Yuma",
+     "team": "HEROIC",
+     "prob_leads": 0.0264,
+     "pre_ti14_rate": 374.359111,
+     "actual_ti14_games": 19
+    }
+   ],
+   "actual_leader": {
+    "account_id": 320252024,
+    "name": "shiro",
+    "team": "Team Tidebound",
+    "actual_value": 1783.0,
+    "predicted_prob": 0.02365,
+    "predicted_rank": 11,
+    "pre_ti14_rate": 381.498102,
+    "actual_ti14_games": 16
+   },
+   "calibration": {
+    "n_candidates": 80,
+    "uniform_baseline_prob": 0.0125,
+    "actual_leader_prob_vs_uniform": 1.892,
+    "actual_leader_rank_percentile": 0.875
+   }
+  },
+  "stuns": {
+   "predicted_top8": [
+    {
+     "account_id": 25907144.0,
+     "name": "Cr1t-",
+     "team": "Team Falcons",
+     "prob_leads": 0.02385,
+     "pre_ti14_rate": 43.165442,
+     "actual_ti14_games": 29
+    },
+    {
+     "account_id": 157475523.0,
+     "name": "XinQ",
+     "team": "Xtreme Gaming",
+     "prob_leads": 0.02115,
+     "pre_ti14_rate": 46.177376,
+     "actual_ti14_games": 26
+    },
+    {
+     "account_id": 152168157.0,
+     "name": "OmaR",
+     "team": "Nigma Galaxy",
+     "prob_leads": 0.02105,
+     "pre_ti14_rate": 47.902723,
+     "actual_ti14_games": 24
+    },
+    {
+     "account_id": 101356886.0,
+     "name": "GH",
+     "team": "Nigma Galaxy",
+     "prob_leads": 0.02035,
+     "pre_ti14_rate": 39.339773,
+     "actual_ti14_games": 24
+    },
+    {
+     "account_id": 317880638.0,
+     "name": "Save-",
+     "team": "BoomBoys",
+     "prob_leads": 0.0203,
+     "pre_ti14_rate": 45.334356,
+     "actual_ti14_games": 23
+    },
+    {
+     "account_id": 10366616.0,
+     "name": "Sneyking",
+     "team": "Team Falcons",
+     "prob_leads": 0.01995,
+     "pre_ti14_rate": 29.696507,
+     "actual_ti14_games": 29
+    },
+    {
+     "account_id": 157989498.0,
+     "name": "Scofield",
+     "team": "HEROIC",
+     "prob_leads": 0.01965,
+     "pre_ti14_rate": 51.800477,
+     "actual_ti14_games": 19
+    },
+    {
+     "account_id": 100058342.0,
+     "name": "skiter",
+     "team": "Team Falcons",
+     "prob_leads": 0.01955,
+     "pre_ti14_rate": 24.038422,
+     "actual_ti14_games": 29
+    }
+   ],
+   "actual_leader": {
+    "account_id": 898455820,
+    "name": "Malr1ne",
+    "team": "Team Falcons",
+    "actual_value": 364.307,
+    "predicted_prob": 0.0192,
+    "predicted_rank": 10,
+    "pre_ti14_rate": 28.67981,
+    "actual_ti14_games": 29
+   },
+   "calibration": {
+    "n_candidates": 80,
+    "uniform_baseline_prob": 0.0125,
+    "actual_leader_prob_vs_uniform": 1.536,
+    "actual_leader_rank_percentile": 0.8875
+   }
+  }
+ },
+ "notes": [
+  "Step 5：唯一能做的诚实检验——用 TI14 开赛前（start_time < 1756973096）的全部可得历史预测 TI14 会发生的极值，跟 TI14 实际发生的比对，结果不管好不好看都如实记录（见 task-9-report.md）。",
+  "训练窗口用 TI14 开赛前的全部可得历史（不设 since_ts 下限），跟正式 TI15 报告用 since_ts=2024-01-01 这个较近窗口是两回事——回测要最大化样本量以获得稳健的尾部估计，正式报告要避免过时版本的滚动窗口，两者目的不同，是有意的方法论差异，不是不一致。",
+  "身份题回测特意简化：(1) ti14_roster_derived.csv 没有号位字段，无法复现正式报告里'按位置分层收缩+按位置池化残差'那一套，改用选手自己的赛前历史均值（不做 L3 收缩）+全局池化残差（不分位置）；(2) n_games 用 TI14 实际局数（事后已知的真值），不重新模拟晋级路径——回测的目标是检验 L3尾部/L4-P2 这一层（有没有正确把'能力+离散度+局数'合成'谁最可能夺得全场之最'），不是重新检验 L1/L2 的晋级路径模拟（那部分已经在 Task 3/4 独立验证过、不是本任务范围）。",
+  "阈值题的 n_games 用 TI14 实际总局数（144，事后已知）×10 个选手槽位，同一个理由：只检验尾部概率估计本身，不重新检验总局数的预测准不准（00-DESIGN.md §1.2 已经验证 N≈145 点估计与 TI14 实测 144 精确吻合）。"
+ ]
+}
