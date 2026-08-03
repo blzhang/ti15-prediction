@@ -34,3 +34,6 @@ __pycache__/
 
 # SDD 脚手架（任务简报、review 包）
 .superpowers/
+
+# 站点构建产物（可由 site/build_site.py 重建）
+site/dist/
