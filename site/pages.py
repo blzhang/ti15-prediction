@@ -3,8 +3,8 @@ import html
 import os
 import shutil
 
-NAV = [("index.html", "结论"), ("homework.html", "作业"), ("predictions.html", "预测详情"),
-       ("methodology.html", "方法论"), ("data.html", "数据与检索")]
+NAV = [("homework.html", "抄作业"), ("index.html", "结论"), ("predictions.html", "预测详情"),
+       ("odds.html", "市场怎么看"), ("methodology.html", "方法论"), ("data.html", "数据与检索")]
 
 
 def esc(s):
@@ -33,9 +33,9 @@ def shell(base, cur, title, body, extra_js=""):
 %s
 </div></main>
 <footer><div class="wrap">
-预测于 2026-08-03 生成并哈希存证，赛前冻结。数据源 OpenDota / Liquipedia。
-本站不提供博彩建议。<br>
-所有数字由 <code>site/build_site.py</code> 从冻结产出物生成，非手工录入。
+所有预测在开赛前生成并加了防篡改校验，之后没有再改过。比赛数据来自 OpenDota 和 Liquipedia。<br>
+页面上每一个数字都是程序直接算出来的，没有人工誊抄——所以不会出现「模型改了、网页忘了同步」这种事。<br>
+本站不提供任何投注建议。
 </div></footer>
 <script src="%s/assets/app.js"></script>
 <script src="%s/assets/px.js" defer></script>
@@ -94,8 +94,8 @@ def page_index(base, p):
     body = """
 <h1>TI15 谁会赢：一个可被证伪的预测</h1>
 <p class="lede">用 2020–2026 的 145,974 场职业比赛，对 The International 2026（8/13–8/23，上海，16 队）
-做了一次战队与选手层面的量化预测。全部预测在赛前冻结并留下哈希存证，赛后按场级 Brier 打分。</p>
-<p class="meta">生成于 2026-08-03 · 蒙特卡洛 200,000 次 · 存证标签 v4-blended-final</p>
+做了一次战队与选手层面的量化预测。所有预测在开赛前就锁定并加了防篡改校验，赛后会逐场对答案。</p>
+<p class="meta">开赛前生成，已加防篡改校验 · 模拟了 20 万届 TI</p>
 
 <div class="tiles">
   <div class="tile"><div class="k">夺冠概率最高</div><div class="v">%s</div><div class="s">%.1f%%（已融合市场赔率）</div></div>
@@ -133,14 +133,15 @@ def page_index(base, p):
 而 Support Duo 槽的徽记全是蓝色——<b>我们对辅助槽的预测能力结构性偏弱</b>，这个没法靠努力弥补。</div>
 
 <h2>这套预测的可信度上限</h2>
-<p>L1 队伍实力层做过真实的样本外检验：训练只用 2026-03 之前的数据，在之后 %s 场没见过的比赛上——</p>
+<p>队伍实力那一层做过真实的检验：训练只用 2026-03 之前的数据，在之后 %s 场没见过的比赛上——</p>
 <div class="tiles">
   <div class="tile"><div class="k">准确率</div><div class="v">%.1f%%</div><div class="s">现实上限 65–70%%</div></div>
-  <div class="tile"><div class="k">Brier</div><div class="v">%.4f</div><div class="s">健康区间 0.21–0.24</div></div>
-  <div class="tile"><div class="k">LogLoss</div><div class="v">%.4f</div><div class="s">—</div></div>
+  <div class="tile"><div class="k">概率给得准不准</div><div class="v">%.3f</div><div class="s">越低越好，0.21–0.24 属正常</div></div>
 </div>
-<p>落在健康区间内，且明显高于抛硬币、低于泄漏阈值。<b>做到 85%% 一定是数据泄漏</b>——
-所有报告 &gt;80%% 准确率的 Dota 预测论文，用的都是实时游戏内数据而非赛前数据。</p>
+<p>成绩落在正常范围内：明显好过抛硬币，也没好到可疑的地步。</p>
+<div class="note"><b>为什么「太准」反而可疑？</b>因为几乎所有号称赛前预测能到 85%% 以上的研究，
+用的其实是<b>比赛打到一半的实时数据</b>——那当然准，但那不叫预测。
+只用赛前信息的话，六成到七成就是天花板。<b>看到有人说赛前能做到八成五，基本可以断定是把赛后信息漏进模型了。</b></div>
 <p><a href="%s/predictions.html">→ 看完整预测详情</a> ｜ <a href="%s/methodology.html">→ 方法论与已知限制</a></p>
 """ % (esc(top["team"]), top["champ_blended"] * 100,
        oos.get("acc", 0) * 100,
@@ -150,7 +151,7 @@ def page_index(base, p):
        spirit["champ_model"] * 100, spirit["champ_blended"] * 100,
        (spirit["champ_blended"] - spirit["champ_model"]) * 100,
        "{:,}".format(oos.get("n", 0)),
-       oos.get("acc", 0) * 100, oos.get("brier", 0), oos.get("logloss", 0),
+       oos.get("acc", 0) * 100, oos.get("brier", 0),
        base, base)
     return shell(base, "index.html", "结论", body)
 
@@ -179,9 +180,9 @@ def page_pred(base, p):
 <h2>全量指标</h2>
 <div class="tbl-wrap"><table>
 <thead><tr><th>队伍</th><th>夺冠(融合)</th><th>夺冠(纯模型)</th><th>进前四</th><th>进淘汰赛</th>
-<th>瑞士轮前3</th><th>打出4-0</th><th>实力θ</th><th>样本场次</th></tr></thead>
+<th>瑞士轮前3</th><th>打出4-0</th><th>实力分</th><th>样本场次</th></tr></thead>
 <tbody>%s</tbody></table></div>
-<p class="hint">θ 是 Bradley-Terry 实力参数，越高越强；样本场次指「该队现役五人中 ≥3 人同场」的比赛数，
+<p class="hint">实力分越高越强，是从历年交手记录里反推出来的；样本场次指「该队现役五人中 ≥3 人同场」的比赛数，
 不是队伍存在多久——所以拼装队（如 Vici、OG）的数字反映的是新阵容的磨合样本。</p>
 
 <h2>官方预测题</h2>
@@ -218,8 +219,8 @@ def page_method(base, p):
 </ol>
 <p>决定性差异是<b>可证伪性</b>：战绩模型能做时间截断回测，打分卡做不到——你今天没法诚实地重建当年的「BP 深度 8 分」，因为你已经知道结局了。</p>
 
-<h2>L0 数据地基：按「当前这五个人」定义一支队</h2>
-<p>转会是这类预测的头号陷阱。常规做法按 <code>team_id</code> 记分，于是一支队换了 3 个人还继承旧评分。</p>
+<h2>第一层 · 数据地基：一支队 = 当前这五个人</h2>
+<p>转会是这类预测的头号陷阱。常规做法是按「队伍」记分，于是一支队换掉三个人之后，还在继承老阵容打出来的成绩。</p>
 <p>我们的做法：<b>一场比赛的某一方，只有当它包含某队 ≥3 名现役首发时，才标记为那支队</b>。
 这样 Aurora 换掉 3 人之后，旧阵容的比赛自然不计入它头上——转会问题在数据层就解决了，不需要任何事后打折或主观权重。</p>
 <p>这个方法还自动解开了改名问题。Valve 禁止博彩品牌名参赛，导致三支队用了「参赛用名」：</p>
@@ -231,8 +232,10 @@ def page_method(base, p):
 <p>另有 HULIGANI = L1GA TEAM、GamerLegion 承接 Wildcard（219 场）、LGD（南美席位）承接 HEROIC（385 场）。
 六条映射全部生效，<b>没有任何一支队因改名丢失历史</b>。</p>
 
-<h2>L1 队伍实力：正则化 Bradley-Terry</h2>
-<p>用 BT 而不是 Elo——Elo 只是 BT 的在线近似；BT 是似然模型，能加协变量、算标准误、做收缩。</p>
+<h2>第二层 · 队伍实力：从两两胜负反推实力分</h2>
+<p>做法是给每支队估一个「实力分」，两队实力分之差决定谁更可能赢。这套方法叫 Bradley-Terry 模型
+——大家熟悉的 Elo 分其实是它的简化版。用完整版而不是 Elo，是因为它能顺带给出<b>误差范围</b>
+（这支队的实力分有多不确定），还能把「赛事级别」这类因素一起放进去算。</p>
 <p><b>赛事级别加权是自举出来的</b>，不是人工表。OpenDota 自带的 tier 字段 2024 年后已失效
 （premium 场次从 2023 年的 3,878 掉到 2024 年的 121、2026 年的 0），而 14.6 万场里场次最多的全是东欧线上车轮赛。
 我们改用迭代：拟合 → 用各赛事参赛者实力反推赛事权重 → 重拟合，3 次收敛。
@@ -244,7 +247,7 @@ def page_method(base, p):
 <div class="tbl-wrap"><table><thead><tr><th>赛区对</th><th>直接交手场次</th></tr></thead><tbody>%s</tbody></table></div>
 <p>主轴连通性充分，欧洲队整体靠前<b>不是「对战图不连通」造出来的幻觉</b>。</p>
 
-<h2>L2 赛制模拟：瑞士轮必须逐轮跑</h2>
+<h2>第三层 · 赛制模拟：瑞士轮必须一轮一轮跑</h2>
 <p>这一层最容易被低估。瑞士轮的配对是<b>内生</b>的——第 3 轮谁打谁取决于前两轮结果，不能预生成赛程。</p>
 <ul>
 <li><b>不能用二项近似。</b>瑞士轮内建负反馈（赢了就去打更强的对手），强队赛程自动变难。
@@ -255,10 +258,10 @@ def page_method(base, p):
 <li>淘汰赛<b>无 bracket reset</b>（TI15 确实没有，实现了反而是错的）。</li>
 </ul>
 
-<h2>L3 选手能力：按号位分层的经验贝叶斯</h2>
+<h2>第四层 · 选手能力：按位置分开估，小样本往平均值收</h2>
 <p>按 1–5 号位分层收缩。有一个反直觉但重要的点：<b>负二项 = gamma 混合的泊松</b>，
 所以「用负二项」和「加局级随机效应」数学上是同一件事——那就不该裸套负二项。</p>
-<div class="note crit"><b>这一层踩过一个大坑，值得写出来。</b>
+<div class="note crit"><b>选手能力这一层踩过一个大坑，值得写出来。</b>
 初版用裸泊松假定估方差（Var ≈ 均值）。实测多数计分项根本不服从泊松——
 补刀的实测局内标准差是泊松假定的 <b>7.72 倍</b>、stuns 6.08 倍、GPM 4.24 倍。
 结果是 GPM 和补刀的置信区间<b>窄了 4–8 倍</b>。已修正为实测局内方差。<br><br>
@@ -266,26 +269,26 @@ def page_method(base, p):
 这是必须实测的 5 分钟检查」——设计是对的，但这条要求在「设计 → 实施计划 → 任务步骤」的传导中丢失了，从未被执行。
 而当时写的健全性检查偏偏挑了击杀（1.56 倍），六个指标里受影响最轻的那个。</div>
 
-<h2>L5 冻结与赛后评分</h2>
+<h2>第五层 · 赛前锁定与赛后对账</h2>
 <p>一届 TI 只有 1 个冠军观测，<b>评估不了任何东西</b>。但 TI15 会打 59 场系列赛 / 约 145 局——
 场级预测有上百个观测，这是全项目唯一有统计功效的检验场。</p>
-<p>所有预测在赛前哈希存证（sha256 + UTC 时间戳，8 份全部可校验），赛后按场级 Brier 打分。
-对照标准学 FiveThirtyEight 的 <code>spi_matches.csv</code>：赛前概率与赛后结果放在同一张表公开。</p>
+<p>所有预测在赛前都算了防篡改校验码并记下时间，赛后按每场比赛逐一打分。
+对照标准学 FiveThirtyEight 的做法：把赛前概率和赛后结果放在同一张表里公开，谁都能拿去核。</p>
 
-<div class="note"><b>⚠️ 赛后 Brier 会天然偏高，别误判成模型失败。</b>
+<div class="note"><b>⚠️ 赛后分数会天然偏高，别误判成模型不行。</b>
 瑞士轮按同战绩配对，而同战绩强相关同实力。所以实际打出的约 59 场<b>不是 120 个候选配对的均匀随机子集</b>，
 而是系统性偏向势均力敌的那部分——表里那些悬殊配对大概率根本不会发生。
-后果：赛后 Brier 衡量的其实是「模型在势均力敌局面下的判别力」，天然比「在全部可能配对上的判别力」更难做低。
-看到 Brier 偏高时，先排除这个赛制自选择效应，再谈「泄漏」或「模型失败」。</div>
+后果：赛后打出来的分数，衡量的其实是「模型在势均力敌局面下的判别力」，天然比「在全部可能配对上的判别力」更难做低。
+所以赛后如果发现分数偏高，先想想是不是这个原因，再下「模型不行」的结论。</div>
 
 <h2>已知限制（完整清单）</h2>
 <p>下面这些是<b>做不到或没做</b>的事，不是自谦：</p>
 <ul>
-<li><b>只有夺冠概率做了市场融合</b>，名次分布 / 晋级概率 / 逐场胜率都是纯模型。赛后 Brier 评的也是纯模型。</li>
+<li><b>只有夺冠概率做了市场融合</b>，名次分布 / 晋级概率 / 逐场胜率都是纯模型。赛后分数 评的也是纯模型。</li>
 <li><b>L3 没有接入局长 / 版本 / 对手强度协变量</b>（设计里承诺了，接口没留位置）。
-后果：版本大改导致全体系统性漂移时，会被误吸收成「这一届选手能力变了」。</li>
-<li><b>L1 的「赛区随机效应」承诺了但没实现</b>。连通性诊断论证了不需要它，但这属于披露缺失。</li>
-<li><b>样本外 Brier 0.2315 是「无赛事权重版」的成绩单</b>——赛事权重那一层从未做过样本外检验。</li>
+后果：如果版本大改让所有人的数据整体变化，模型会误以为是「这一届选手水平变了」。</li>
+<li><b>原计划里有一项「按赛区做修正」，最后没做</b>。诊断结果显示不做也没问题，但计划里写了没做就该说明。</li>
+<li><b>那个 0.2315 的成绩，是在没启用「赛事级别加权」的版本上测的</b>——加权这一层本身从没做过独立检验。</li>
 <li><b>极值题的「谁打出全场之最」把局数压成了点估计</b>，等于把主方差项归零，右尾被削平。</li>
 <li><b>TI14 回溯校验用的是简化估计器</b>（裸均值、全局残差、事后已知局数），不是交付版本。
 结论「有信号但确认不了具体是谁」是这个简化版的信号。</li>
@@ -347,8 +350,8 @@ python3 fetch_pro_all.py --since 2020-01-01</code></pre>
 <h2>数据质量</h2>
 <ul>
 <li><b>比赛结果极干净</b>：14.6 万场里 <code>radiant_win</code> 只有 7 个空值（0.005%%）。</li>
-<li><b><code>team_id</code> 缺失 5.2%%</b>（7,560 场），且逐年恶化，2026 已达 10.3%%——这些场次进不了战队评分。</li>
-<li><b>选手名 31.8%% 为空</b>，但 <code>account_id</code> 100%% 完整，不影响建模，只影响显示。</li>
+<li><b>有 5.2%% 的比赛（7,560 场）查不到参赛队伍是谁</b>，而且逐年变差，今年已经到 10.3%%——这些场次没法计入战队评分。</li>
+<li><b>三成选手没有登记名字</b>，但每个人的唯一编号都是全的，所以不影响计算，只影响显示。</li>
 <li><b>绝大多数比赛是低级别车轮赛</b>：场次最多的三个赛事是 Ancients League(9,032)、Destiny League(6,082)、
 Ultras Dota Pro League(5,488)，<b>前八名里一个真 major 都没有</b>。所以赛事分级加权是必须的。</li>
 </ul>
@@ -374,14 +377,27 @@ def _sz(b):
 
 def write_all(dist, base, payload):
     src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets_src")
-    for f in ("style.css", "app.js", "px.js"):
+    for f in ("style.css", "app.js", "px.js", "picker.js"):
         shutil.copyfile(os.path.join(src, f), os.path.join(dist, "assets", f))
     import homework
     hw = homework.compute(payload["raw_pred"])
+    fan = payload["raw_fantasy"]
+    fan_rec = homework.fantasy(fan, payload["raw_pred"])
+    import odds as _odds
     pages = {
+        "odds.html": shell(base, "odds.html", "市场怎么看",
+                           _odds.render(base, payload["raw_pred"],
+                                        {r["team"]: r["champ_blended"] for r in payload["teams"]},
+                                        payload["raw_market"])),
         "index.html": page_index(base, payload),
-        "homework.html": shell(base, "homework.html", "作业",
-                               homework.render(base, hw, payload["raw_pred"])),
+        "homework.html": shell(
+            base, "homework.html", "抄作业",
+            homework.render(base, hw, payload["raw_pred"], fan, fan_rec),
+            extra_js='<script src="%s/assets/picker.js"></script>'
+                     '<script>initPicker(%s);</script>'
+                     % (base, __import__("json").dumps(
+                         homework.picker_data(payload["raw_pred"], hw, fan_rec),
+                         ensure_ascii=False, separators=(",", ":")))),
         "predictions.html": page_pred(base, payload),
         "methodology.html": page_method(base, payload),
         "data.html": page_data(base, payload),

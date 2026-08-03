@@ -20,14 +20,14 @@ BASE = "/dota2"
 
 # 站点要打包的产出物：(源路径, 站内文件名, 人类可读说明, 是否进搜索索引)
 ASSETS = [
-    ("model/l2_blended.json", "l2_blended.json", "最终夺冠概率（已与博彩赔率融合，w_market=0.7）"),
-    ("model/l2_predictions.json", "l2_predictions.json", "赛制模拟全量输出：夺冠/前四/晋级/逐队六档战绩分布/附加轮生还/名次矩阵/系列赛数"),
-    ("model/l1_rating.json", "l1_rating.json", "16 队 Bradley-Terry 实力评分 θ 与后验标准误，含样本外检验指标"),
-    ("model/lineage.json", "lineage.json", "实体对齐：各队现役五人反查出的历史 team_id 血统"),
-    ("reports/ti15_matches.csv", "ti15_matches.csv", "120 个候选配对的赛前 BO3 胜率（赛后回填结果用）"),
-    ("reports/p3_p4_players.json", "p3_p4_players.json", "80 名选手 × 15 计分项的速率预测与 95% 区间"),
-    ("reports/p1_fantasy_matrix.json", "p1_fantasy_matrix.json", "Fantasy 分项产出矩阵（选手级 + 三槽位聚合 + A/B 双分支）"),
-    ("reports/p2_extremes.json", "p2_extremes.json", "极值题：阈值概率与「谁打出全场之最」"),
+    ("model/l2_blended.json", "l2_blended.json", "最终夺冠概率（已参考博彩赔率，市场占七成权重）"),
+    ("model/l2_predictions.json", "l2_predictions.json", "模拟的全部结果：夺冠、进前四、晋级、各队小组赛战绩分布、最终名次分布"),
+    ("model/l1_rating.json", "l1_rating.json", "16 支队的实力分与误差范围，以及模型在没见过的比赛上的实测成绩"),
+    ("model/lineage.json", "lineage.json", "每支队的\"前世今生\"：用现役五人反查出来的历史队名与场次"),
+    ("reports/ti15_matches.csv", "ti15_matches.csv", "任意两队交手的赛前胜率，共 120 组，赛后可拿来对账"),
+    ("reports/p3_p4_players.json", "p3_p4_players.json", "80 名参赛选手在 15 项数据上的预测值与误差范围"),
+    ("reports/p1_fantasy_matrix.json", "p1_fantasy_matrix.json", "梦幻挑战：各队三个位置的分项预期表现"),
+    ("reports/p2_extremes.json", "p2_extremes.json", "谁会打出全场最高纪录，以及各种纪录出现的可能性"),
 ]
 
 FULL_DATA = [
@@ -131,10 +131,12 @@ def main():
         "ridge": rating.get("ridge"),
         "cross_region": rating.get("cross_region", {}),
         "raw_pred": pred,
+        "raw_fantasy": json.load(open(need("reports/p1_fantasy_matrix.json"))),
+        "raw_market": json.load(open(need("model/market_odds.json"))),
         "manifest": manifest,
         "full_data": [{"file": f, "size": s, "desc": d} for f, s, d in FULL_DATA],
     }
-    json.dump({k: v for k, v in payload.items() if k != "raw_pred"},
+    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market")},
               open(os.path.join(DIST, "data", "site.json"), "w"),
               ensure_ascii=False, separators=(",", ":"))
     json.dump(build_search_index(players, rating),
