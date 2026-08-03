@@ -38,8 +38,9 @@ def shell(base, cur, title, body, extra_js=""):
 所有数字由 <code>site/build_site.py</code> 从冻结产出物生成，非手工录入。
 </div></footer>
 <script src="%s/assets/app.js"></script>
+<script src="%s/assets/px.js" defer></script>
 %s
-</body></html>""" % (esc(title), base, base, nav, body, base, extra_js)
+</body></html>""" % (esc(title), base, base, nav, body, base, base, extra_js)
 
 
 def bars(rows, key, fmt=lambda v: "%.1f%%" % (v * 100), alt=False):
@@ -383,7 +384,7 @@ def _sz(b):
 
 def write_all(dist, base, payload):
     src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets_src")
-    for f in ("style.css", "app.js"):
+    for f in ("style.css", "app.js", "px.js"):
         shutil.copyfile(os.path.join(src, f), os.path.join(dist, "assets", f))
     pages = {
         "index.html": page_index(base, payload),
