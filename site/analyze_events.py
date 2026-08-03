@@ -20,8 +20,11 @@ HOST = "vultr"
 REMOTE = "/var/log/nginx/dota2-events.log"
 BOT = re.compile(r"bot|spider|crawl|slurp|headless|python-requests|curl/|wget|monitor|uptime",
                  re.I)
-PAGE_LABEL = {"index": "结论（首页）", "pred": "预测详情", "meth": "方法论",
-              "data": "数据与检索", "other": "其它", "selftest": "自测（应排除）"}
+PAGE_LABEL = {"index": "结论（首页）", "predictions": "预测详情", "methodology": "方法论",
+              "data": "数据与检索", "homework": "作业（预测答案）",
+              # 兼容改用自动取名之前的旧事件
+              "pred": "预测详情(旧)", "meth": "方法论(旧)",
+              "other": "未识别页面", "selftest": "自测（应排除）"}
 
 
 def fetch(path=None):

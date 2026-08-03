@@ -31,10 +31,14 @@
     var t0 = Date.now();
     var sent = {};
 
+    // 从文件名自动取页面标识，不用写死的映射表——
+    // 初版用固定映射，结果新加的 homework.html 全部掉进 "other"，
+    // 18 次浏览被归成"未知页面"。新增页面不该需要改埋点。
     var page = (function () {
       var p = location.pathname.replace(/^\/dota2\/?/, "").replace(/\.html$/, "");
-      return { "": "index", "index": "index", "predictions": "pred",
-               "methodology": "meth", "data": "data" }[p] || "other";
+      if (!p || p === "index") return "index";
+      // 只保留安全字符，截断，避免日志被畸形路径污染
+      return p.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 24) || "other";
     })();
 
     var ref = (function () {
