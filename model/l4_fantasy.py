@@ -61,7 +61,14 @@ def slot_aggregate(matrix, rosters, positions, slot):
                    if positions.get(a) in want and a in matrix]
         if not members:
             continue
-        items = set().union(*(matrix[a].keys() for a in members))
+        # sorted()：Python 字符串哈希每进程随机（PYTHONHASHSEED），裸用
+        # set() 的遍历顺序决定输出键序会导致同一份输入连跑两次产出字节不同
+        # 的 JSON（值一样、键序不同）——reports/p1_fantasy_matrix.json 因此
+        # 无法做哈希存证、git diff 也全是噪声（见
+        # .superpowers/sdd/fix-final-report.md【2】，
+        # test_slot_aggregate_orders_items_deterministically_not_by_set_hash
+        # 锁定）。
+        items = sorted(set().union(*(matrix[a].keys() for a in members)))
         team_scores = {}
         for it in items:
             contributing = [matrix[a][it] for a in members if it in matrix[a]]

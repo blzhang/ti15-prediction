@@ -11,7 +11,9 @@
 「可得/总数」，用一份自定义的最小 fixture 验证计算逻辑本身是数据驱动的，
 不是又换了个地方硬编码。
 """
-from model.l4_fantasy_report import _pool_coverage_from_scoring_items
+import pytest
+
+from model.l4_fantasy_report import _pool_coverage_from_scoring_items, load_blob_joined_df
 from model.fantasy_stats import SCORING_ITEMS
 
 
@@ -41,3 +43,64 @@ def test_pool_coverage_on_real_scoring_items_matches_known_gaps():
         n_avail = sum(1 for i in items if i["available"])
         expected[pool] = "%d/%d" % (n_avail, len(items))
     assert out == expected
+
+
+# ---- 补充测试：修复【3】blob csv 缺失时静默降级 ----
+#
+# `load_blob_joined_df` 原来在 blob_path 不存在时只打一句 stderr 警告，
+# 然后把 smokes/tormentor/courier 三项全部填 0 继续跑完——产出物看起来
+# 完全正常，没人会发现这三项计分项其实是假的（见
+# .superpowers/sdd/fix-final-report.md【3】）。改成显式抛
+# FileNotFoundError，不允许静默退化。
+
+_MATCHES_CSV_HEADER = "match_id,account_id,start_time,kills\n"
+
+
+def test_load_blob_joined_df_raises_when_blob_csv_missing(tmp_path):
+    """blob_path 缺失时必须显式报错，不能像原实现那样打个警告就把
+    smokes/tormentor/courier 三项悄悄填 0 继续跑完。"""
+    csv_path = tmp_path / "matches.csv"
+    csv_path.write_text(_MATCHES_CSV_HEADER + "1,100,1700000000,5\n")
+    missing_blob = tmp_path / "does_not_exist.csv"
+
+    with pytest.raises(FileNotFoundError):
+        load_blob_joined_df(str(csv_path), str(missing_blob), account_ids=[100], since_ts=0)
+
+
+def test_load_blob_joined_df_error_message_points_to_the_missing_path(tmp_path):
+    """报错信息应该点名具体缺了哪个路径、并指向 06-fantasy-rules.md §F.5
+    的重新生成方法，而不是一句笼统的"文件不存在"。"""
+    csv_path = tmp_path / "matches.csv"
+    csv_path.write_text(_MATCHES_CSV_HEADER + "1,100,1700000000,5\n")
+    missing_blob = tmp_path / "does_not_exist.csv"
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        load_blob_joined_df(str(csv_path), str(missing_blob), account_ids=[100], since_ts=0)
+
+    msg = str(exc_info.value)
+    assert str(missing_blob) in msg
+    assert "06-fantasy-rules.md" in msg
+
+
+def test_load_blob_joined_df_joins_when_blob_csv_present(tmp_path):
+    """blob_path 存在时应按 match_id+account_id 左连接，缺失值按 0 处理
+    （回归保护：不能因为把「缺失」改成抛异常，就连带改坏「存在时」的
+    正常合并逻辑）。"""
+    csv_path = tmp_path / "matches.csv"
+    csv_path.write_text(
+        _MATCHES_CSV_HEADER + "1,100,1700000000,5\n" + "2,100,1700000000,7\n"
+    )
+    blob_path = tmp_path / "blob.csv"
+    blob_path.write_text(
+        "match_id,account_id,smokes,tormentor,courier\n"
+        "1,100,2,0,1\n"
+    )
+    df = load_blob_joined_df(str(csv_path), str(blob_path), account_ids=[100], since_ts=0)
+
+    row1 = df[df["match_id"] == 1].iloc[0]
+    assert row1["smokes"] == 2 and row1["tormentor"] == 0 and row1["courier"] == 1
+
+    row2 = df[df["match_id"] == 2].iloc[0]
+    assert row2["smokes"] == 0 and row2["tormentor"] == 0 and row2["courier"] == 0, (
+        "blob 表里没有 match_id=2 的记录，左连接缺失值应按 0 处理，不是报错或留 NaN"
+    )

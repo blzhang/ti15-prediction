@@ -1,0 +1,9 @@
+{
+ "label": "v5-players-p2",
+ "frozen_at_utc": "2026-08-03T00:15:22Z",
+ "sha256": "6a1d8bf5de611bd4c73f81b702d71da53bb2013943cba798534dc8337e6d0e09",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/reports/p2_extremes.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v5-players-p2.json",
+ "src_rel": "../reports/p2_extremes.json",
+ "frozen_path_rel": "frozen_v5-players-p2.json"
+}

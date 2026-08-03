@@ -1,0 +1,6544 @@
+{
+ "notes": [
+  "P2 两类题：阈值题（threshold_prob，'本届会不会出现单局≥X'）与身份题（who_leads，'谁会打出全场最高值'）——00-DESIGN.md §2.2。两者都是\"L3 分布尾部 × L2 局数\"（§3-L4），不重新拟合广义帕累托（GPD）：阈值多数落在历史观测范围内（几十上百个真实观测支撑），经验频率+层次平滑更稳，GPD 还会引入'阈值怎么选'这个新的过拟合来源（§4.4）。needs_gpd 划这条边界：命中 True 时如实报告'超出可估计范围'，不假装经验频率仍然可靠。",
+  "对 task-9-brief.md 的两处修正（完整 repro 见 task-9-report.md）：(1) brief 自己的 Step1 测试断言 threshold_prob 在特定 fixture 下 <0.2，代入 brief 自己 Step3 的参考实现精确算出 0.303——测试与实现互相矛盾（本项目第 11 个此类问题，性质与前 10 个不同：不是'共享错误前提所以骗过测试'，是压根跑不过），已修正测试断言，threshold_prob 公式本身不变。(2) who_leads 原参考实现用 rng.poisson(rate) 模拟单局产出，等价于假设 Var(单局)≈rate（泊松）。本任务独立复算局间标准差/泊松假定标准差：kills≈1.5x / deaths≈1.3x / last_hits≈7.2-7.7x / gold_per_min≈4.1-4.3x / stuns≈5.9-6.1x（teamfight_participation≈0.18x，反而比泊松假定更窄）——与控制器实测的方向一致但量级不完全相同（控制器数字 1.8/1.4/12.0/7.8/6.4/0.2x，见 task-9-report.md 对多种聚合口径的交叉验证与讨论）。GPM/补刀/眩晕差 4-8 倍不是舍入误差，已把 who_leads 改成吃真实局间残差分布（residual_pool，见model/l4_extremes.py），不再用一个标量 rate 套泊松。",
+  "两处池化粒度不同，是有意为之：threshold_prob 的 samples 用全局池（不分位置，问题问的是'任意选手任意一局'，池化拿更大样本）；who_leads 的 residual_pool 按位置分别池化（不同位置离散度形状本身有差异）。",
+  "threshold_prob 的 n_games 用 player-game 槽位数 = 全赛事期望总局数(143.9) × 10 个选手槽位 ≈ 1439，不是局数本身——'单局≥26杀'问的是某一名选手在某一局的击杀数。期望总局数从 model/l2_predictions.json 的 series_dist 反推（=59 场系列赛，与 00-DESIGN.md §1.2 精确吻合），乘 2+q 近似（q=TI15_Q_THREE_GAME，决赛那 1 场 BO5 也按 BO3 近似——沿用model/l4_fantasy.py 已有的同一简化，不重新发明口径）。",
+  "who_leads 里选手的预计 TI15 局数来自 series_dist 按队展开（同队 5 人共享同一个局数预期），用无偏随机取整避免截断丢期望（跟 model/l4_fantasy.py::expected_slot_score 内部 draw() 同一个技巧）。",
+  "数据窗口：since=2024-01-01，80 名花名册选手，与 Task 6/7/8 一致；smokes/tormentor/courier 不在本报告范围内（P2 只覆盖 kills/gpm/last_hits/stuns 四项'headline 记录'型计分项，不是全部 15 个可得项——'全场最高眼位数'这类问题娱乐性不足，故未纳入，属主动的范围裁剪）。",
+  "已知数据质量注记（非本任务引入，抽查时发现）：teamfight_participation 在 0.064% 的行里 >1（理论上限应为 1），stuns 在 0.9% 的行里 <0（物理上不可能为负）——TI14 官方数据里同样存在这类值（例如 TI14 teamfight_participation 实测最大值 1.13），判断为 OpenDota 数据源本身的噪声，不是本报告的抽取逻辑引入的，对整体弥散度比值影响可忽略（占比 <1%）。"
+ ],
+ "coverage": {
+  "headline_items": [
+   "kills",
+   "gold_per_min",
+   "last_hits",
+   "stuns"
+  ],
+  "n_players": 80
+ },
+ "variance_check": {
+  "kills": {
+   "ratio_mean": 1.496508,
+   "ratio_median": 1.519303,
+   "n_players": 80,
+   "per_player": [
+    {
+     "account_id": 10366616.0,
+     "n_games": 805,
+     "rate": 2.519255,
+     "empirical_sd": 2.025015,
+     "poisson_sd": 1.587216,
+     "ratio": 1.275828
+    },
+    {
+     "account_id": 16497807.0,
+     "n_games": 730,
+     "rate": 3.339726,
+     "empirical_sd": 2.303379,
+     "poisson_sd": 1.827492,
+     "ratio": 1.260404
+    },
+    {
+     "account_id": 25907144.0,
+     "n_games": 805,
+     "rate": 3.395031,
+     "empirical_sd": 2.485375,
+     "poisson_sd": 1.842561,
+     "ratio": 1.34887
+    },
+    {
+     "account_id": 56351509.0,
+     "n_games": 677,
+     "rate": 4.135894,
+     "empirical_sd": 2.789323,
+     "poisson_sd": 2.03369,
+     "ratio": 1.371558
+    },
+    {
+     "account_id": 73401082.0,
+     "n_games": 735,
+     "rate": 2.462585,
+     "empirical_sd": 1.928815,
+     "poisson_sd": 1.569263,
+     "ratio": 1.229122
+    },
+    {
+     "account_id": 77490514.0,
+     "n_games": 787,
+     "rate": 3.625159,
+     "empirical_sd": 2.495396,
+     "poisson_sd": 1.903985,
+     "ratio": 1.310617
+    },
+    {
+     "account_id": 81306398.0,
+     "n_games": 730,
+     "rate": 2.512329,
+     "empirical_sd": 2.038851,
+     "poisson_sd": 1.585033,
+     "ratio": 1.286315
+    },
+    {
+     "account_id": 86698277.0,
+     "n_games": 815,
+     "rate": 5.146012,
+     "empirical_sd": 3.476072,
+     "poisson_sd": 2.268482,
+     "ratio": 1.532334
+    },
+    {
+     "account_id": 90423751.0,
+     "n_games": 645,
+     "rate": 3.35969,
+     "empirical_sd": 2.557583,
+     "poisson_sd": 1.832946,
+     "ratio": 1.39534
+    },
+    {
+     "account_id": 92487440.0,
+     "n_games": 389,
+     "rate": 4.411311,
+     "empirical_sd": 3.389717,
+     "poisson_sd": 2.100312,
+     "ratio": 1.613911
+    },
+    {
+     "account_id": 93618577.0,
+     "n_games": 776,
+     "rate": 7.46134,
+     "empirical_sd": 4.351468,
+     "poisson_sd": 2.731545,
+     "ratio": 1.593043
+    },
+    {
+     "account_id": 93817671.0,
+     "n_games": 574,
+     "rate": 2.703833,
+     "empirical_sd": 2.047282,
+     "poisson_sd": 1.644334,
+     "ratio": 1.245053
+    },
+    {
+     "account_id": 94296097.0,
+     "n_games": 570,
+     "rate": 2.301754,
+     "empirical_sd": 1.945703,
+     "poisson_sd": 1.517153,
+     "ratio": 1.28247
+    },
+    {
+     "account_id": 97590558.0,
+     "n_games": 730,
+     "rate": 4.275342,
+     "empirical_sd": 3.176054,
+     "poisson_sd": 2.06769,
+     "ratio": 1.53604
+    },
+    {
+     "account_id": 100058342.0,
+     "n_games": 802,
+     "rate": 7.018703,
+     "empirical_sd": 4.49729,
+     "poisson_sd": 2.649284,
+     "ratio": 1.69755
+    },
+    {
+     "account_id": 100594231.0,
+     "n_games": 543,
+     "rate": 2.576427,
+     "empirical_sd": 2.177789,
+     "poisson_sd": 1.605125,
+     "ratio": 1.356772
+    },
+    {
+     "account_id": 101356886.0,
+     "n_games": 557,
+     "rate": 2.543986,
+     "empirical_sd": 2.058572,
+     "poisson_sd": 1.594988,
+     "ratio": 1.290651
+    },
+    {
+     "account_id": 101695162.0,
+     "n_games": 422,
+     "rate": 3.007109,
+     "empirical_sd": 2.314356,
+     "poisson_sd": 1.734102,
+     "ratio": 1.334614
+    },
+    {
+     "account_id": 103735745.0,
+     "n_games": 613,
+     "rate": 3.185971,
+     "empirical_sd": 2.293355,
+     "poisson_sd": 1.784929,
+     "ratio": 1.284844
+    },
+    {
+     "account_id": 105045291.0,
+     "n_games": 466,
+     "rate": 3.32618,
+     "empirical_sd": 2.385629,
+     "poisson_sd": 1.823782,
+     "ratio": 1.308067
+    },
+    {
+     "account_id": 106305042.0,
+     "n_games": 714,
+     "rate": 7.191877,
+     "empirical_sd": 4.127137,
+     "poisson_sd": 2.681767,
+     "ratio": 1.538961
+    },
+    {
+     "account_id": 106573901.0,
+     "n_games": 742,
+     "rate": 7.398922,
+     "empirical_sd": 3.888097,
+     "poisson_sd": 2.720096,
+     "ratio": 1.429397
+    },
+    {
+     "account_id": 111114687.0,
+     "n_games": 523,
+     "rate": 2.237094,
+     "empirical_sd": 1.862413,
+     "poisson_sd": 1.495692,
+     "ratio": 1.245185
+    },
+    {
+     "account_id": 111620041.0,
+     "n_games": 575,
+     "rate": 7.42087,
+     "empirical_sd": 4.617824,
+     "poisson_sd": 2.724127,
+     "ratio": 1.695157
+    },
+    {
+     "account_id": 118134220.0,
+     "n_games": 537,
+     "rate": 4.253259,
+     "empirical_sd": 3.095361,
+     "poisson_sd": 2.062343,
+     "ratio": 1.500896
+    },
+    {
+     "account_id": 123787715.0,
+     "n_games": 659,
+     "rate": 2.792109,
+     "empirical_sd": 2.216448,
+     "poisson_sd": 1.670961,
+     "ratio": 1.326452
+    },
+    {
+     "account_id": 124801257.0,
+     "n_games": 737,
+     "rate": 7.793758,
+     "empirical_sd": 4.611636,
+     "poisson_sd": 2.79173,
+     "ratio": 1.651892
+    },
+    {
+     "account_id": 126842529.0,
+     "n_games": 688,
+     "rate": 5.710756,
+     "empirical_sd": 4.160786,
+     "poisson_sd": 2.389719,
+     "ratio": 1.74112
+    },
+    {
+     "account_id": 129958758.0,
+     "n_games": 637,
+     "rate": 4.135008,
+     "empirical_sd": 2.99223,
+     "poisson_sd": 2.033472,
+     "ratio": 1.471488
+    },
+    {
+     "account_id": 132309493.0,
+     "n_games": 250,
+     "rate": 4.848,
+     "empirical_sd": 3.481577,
+     "poisson_sd": 2.201817,
+     "ratio": 1.581229
+    },
+    {
+     "account_id": 136829091.0,
+     "n_games": 796,
+     "rate": 3.09799,
+     "empirical_sd": 2.203587,
+     "poisson_sd": 1.760111,
+     "ratio": 1.251959
+    },
+    {
+     "account_id": 137129583.0,
+     "n_games": 649,
+     "rate": 6.340524,
+     "empirical_sd": 3.959623,
+     "poisson_sd": 2.51804,
+     "ratio": 1.572502
+    },
+    {
+     "account_id": 138880576.0,
+     "n_games": 665,
+     "rate": 5.407519,
+     "empirical_sd": 3.729273,
+     "poisson_sd": 2.325407,
+     "ratio": 1.603707
+    },
+    {
+     "account_id": 140251702.0,
+     "n_games": 489,
+     "rate": 7.574642,
+     "empirical_sd": 4.612778,
+     "poisson_sd": 2.752207,
+     "ratio": 1.676029
+    },
+    {
+     "account_id": 145065875.0,
+     "n_games": 304,
+     "rate": 2.835526,
+     "empirical_sd": 2.094923,
+     "poisson_sd": 1.683902,
+     "ratio": 1.244088
+    },
+    {
+     "account_id": 145957968.0,
+     "n_games": 370,
+     "rate": 4.513514,
+     "empirical_sd": 3.544694,
+     "poisson_sd": 2.124503,
+     "ratio": 1.668482
+    },
+    {
+     "account_id": 150961567.0,
+     "n_games": 455,
+     "rate": 3.206593,
+     "empirical_sd": 2.523275,
+     "poisson_sd": 1.790696,
+     "ratio": 1.409103
+    },
+    {
+     "account_id": 152168157.0,
+     "n_games": 674,
+     "rate": 3.700297,
+     "empirical_sd": 2.493814,
+     "poisson_sd": 1.923616,
+     "ratio": 1.29642
+    },
+    {
+     "account_id": 152962063.0,
+     "n_games": 789,
+     "rate": 7.875792,
+     "empirical_sd": 4.761551,
+     "poisson_sd": 2.806384,
+     "ratio": 1.696685
+    },
+    {
+     "account_id": 154974246.0,
+     "n_games": 511,
+     "rate": 7.571429,
+     "empirical_sd": 4.652459,
+     "poisson_sd": 2.751623,
+     "ratio": 1.690806
+    },
+    {
+     "account_id": 155494381.0,
+     "n_games": 552,
+     "rate": 2.836957,
+     "empirical_sd": 2.280401,
+     "poisson_sd": 1.684327,
+     "ratio": 1.353895
+    },
+    {
+     "account_id": 157475523.0,
+     "n_games": 473,
+     "rate": 3.408034,
+     "empirical_sd": 2.68559,
+     "poisson_sd": 1.846086,
+     "ratio": 1.454748
+    },
+    {
+     "account_id": 160119017.0,
+     "n_games": 654,
+     "rate": 4.937309,
+     "empirical_sd": 3.632934,
+     "poisson_sd": 2.222006,
+     "ratio": 1.63498
+    },
+    {
+     "account_id": 164199202.0,
+     "n_games": 764,
+     "rate": 3.344241,
+     "empirical_sd": 2.449079,
+     "poisson_sd": 1.828727,
+     "ratio": 1.339226
+    },
+    {
+     "account_id": 165564598.0,
+     "n_games": 785,
+     "rate": 4.732484,
+     "empirical_sd": 3.236791,
+     "poisson_sd": 2.175427,
+     "ratio": 1.487887
+    },
+    {
+     "account_id": 170896543.0,
+     "n_games": 346,
+     "rate": 7.303468,
+     "empirical_sd": 4.895172,
+     "poisson_sd": 2.702493,
+     "ratio": 1.811354
+    },
+    {
+     "account_id": 171262902.0,
+     "n_games": 697,
+     "rate": 8.116212,
+     "empirical_sd": 4.635506,
+     "poisson_sd": 2.848897,
+     "ratio": 1.627123
+    },
+    {
+     "account_id": 172099728.0,
+     "n_games": 553,
+     "rate": 7.309222,
+     "empirical_sd": 4.540902,
+     "poisson_sd": 2.703557,
+     "ratio": 1.679602
+    },
+    {
+     "account_id": 173978074.0,
+     "n_games": 640,
+     "rate": 5.973438,
+     "empirical_sd": 3.814261,
+     "poisson_sd": 2.444062,
+     "ratio": 1.560624
+    },
+    {
+     "account_id": 177203952.0,
+     "n_games": 763,
+     "rate": 8.134993,
+     "empirical_sd": 5.08447,
+     "poisson_sd": 2.852191,
+     "ratio": 1.782654
+    },
+    {
+     "account_id": 183719386.0,
+     "n_games": 809,
+     "rate": 6.410383,
+     "empirical_sd": 3.813692,
+     "poisson_sd": 2.531873,
+     "ratio": 1.506273
+    },
+    {
+     "account_id": 191362875.0,
+     "n_games": 490,
+     "rate": 2.806122,
+     "empirical_sd": 2.405932,
+     "poisson_sd": 1.675148,
+     "ratio": 1.43625
+    },
+    {
+     "account_id": 195108598.0,
+     "n_games": 544,
+     "rate": 4.819853,
+     "empirical_sd": 3.477988,
+     "poisson_sd": 2.195416,
+     "ratio": 1.584204
+    },
+    {
+     "account_id": 196878136.0,
+     "n_games": 770,
+     "rate": 2.666234,
+     "empirical_sd": 2.109247,
+     "poisson_sd": 1.632861,
+     "ratio": 1.29175
+    },
+    {
+     "account_id": 201358612.0,
+     "n_games": 810,
+     "rate": 7.233333,
+     "empirical_sd": 4.276145,
+     "poisson_sd": 2.689486,
+     "ratio": 1.589949
+    },
+    {
+     "account_id": 206642367.0,
+     "n_games": 385,
+     "rate": 7.644156,
+     "empirical_sd": 5.065778,
+     "poisson_sd": 2.764807,
+     "ratio": 1.832236
+    },
+    {
+     "account_id": 210053851.0,
+     "n_games": 691,
+     "rate": 7.570188,
+     "empirical_sd": 4.508502,
+     "poisson_sd": 2.751397,
+     "ratio": 1.638622
+    },
+    {
+     "account_id": 218231587.0,
+     "n_games": 355,
+     "rate": 3.923944,
+     "empirical_sd": 2.563844,
+     "poisson_sd": 1.980895,
+     "ratio": 1.294286
+    },
+    {
+     "account_id": 249835593.0,
+     "n_games": 350,
+     "rate": 2.182857,
+     "empirical_sd": 1.769122,
+     "poisson_sd": 1.47745,
+     "ratio": 1.197416
+    },
+    {
+     "account_id": 256156323.0,
+     "n_games": 724,
+     "rate": 2.972376,
+     "empirical_sd": 2.297225,
+     "poisson_sd": 1.724058,
+     "ratio": 1.332453
+    },
+    {
+     "account_id": 292921272.0,
+     "n_games": 739,
+     "rate": 6.106901,
+     "empirical_sd": 4.102441,
+     "poisson_sd": 2.471215,
+     "ratio": 1.660091
+    },
+    {
+     "account_id": 301750126.0,
+     "n_games": 581,
+     "rate": 7.333907,
+     "empirical_sd": 4.409477,
+     "poisson_sd": 2.708119,
+     "ratio": 1.628244
+    },
+    {
+     "account_id": 302214028.0,
+     "n_games": 640,
+     "rate": 5.373437,
+     "empirical_sd": 3.332805,
+     "poisson_sd": 2.318068,
+     "ratio": 1.437751
+    },
+    {
+     "account_id": 312436974.0,
+     "n_games": 685,
+     "rate": 6.675912,
+     "empirical_sd": 4.097505,
+     "poisson_sd": 2.583779,
+     "ratio": 1.585858
+    },
+    {
+     "account_id": 315272623.0,
+     "n_games": 331,
+     "rate": 5.761329,
+     "empirical_sd": 3.572685,
+     "poisson_sd": 2.400277,
+     "ratio": 1.488447
+    },
+    {
+     "account_id": 317880638.0,
+     "n_games": 785,
+     "rate": 3.602548,
+     "empirical_sd": 2.620074,
+     "poisson_sd": 1.898038,
+     "ratio": 1.380412
+    },
+    {
+     "account_id": 320017600.0,
+     "n_games": 482,
+     "rate": 7.170124,
+     "empirical_sd": 4.90196,
+     "poisson_sd": 2.677709,
+     "ratio": 1.830655
+    },
+    {
+     "account_id": 320219866.0,
+     "n_games": 618,
+     "rate": 3.087379,
+     "empirical_sd": 2.197421,
+     "poisson_sd": 1.757094,
+     "ratio": 1.250599
+    },
+    {
+     "account_id": 320252024.0,
+     "n_games": 525,
+     "rate": 6.798095,
+     "empirical_sd": 4.479938,
+     "poisson_sd": 2.607316,
+     "ratio": 1.718218
+    },
+    {
+     "account_id": 321580662.0,
+     "n_games": 663,
+     "rate": 7.924585,
+     "empirical_sd": 4.837578,
+     "poisson_sd": 2.815064,
+     "ratio": 1.718461
+    },
+    {
+     "account_id": 324277900.0,
+     "n_games": 542,
+     "rate": 7.328413,
+     "empirical_sd": 4.564093,
+     "poisson_sd": 2.707104,
+     "ratio": 1.685969
+    },
+    {
+     "account_id": 331855530.0,
+     "n_games": 725,
+     "rate": 8.037241,
+     "empirical_sd": 4.568991,
+     "poisson_sd": 2.835003,
+     "ratio": 1.611636
+    },
+    {
+     "account_id": 346412363.0,
+     "n_games": 610,
+     "rate": 3.403279,
+     "empirical_sd": 2.379715,
+     "poisson_sd": 1.844798,
+     "ratio": 1.28996
+    },
+    {
+     "account_id": 355168766.0,
+     "n_games": 506,
+     "rate": 6.790514,
+     "empirical_sd": 4.494616,
+     "poisson_sd": 2.605861,
+     "ratio": 1.72481
+    },
+    {
+     "account_id": 480412663.0,
+     "n_games": 705,
+     "rate": 7.107801,
+     "empirical_sd": 4.26165,
+     "poisson_sd": 2.666046,
+     "ratio": 1.598491
+    },
+    {
+     "account_id": 847565596.0,
+     "n_games": 698,
+     "rate": 3.247851,
+     "empirical_sd": 2.331901,
+     "poisson_sd": 1.80218,
+     "ratio": 1.293934
+    },
+    {
+     "account_id": 898455820.0,
+     "n_games": 739,
+     "rate": 7.457375,
+     "empirical_sd": 4.226867,
+     "poisson_sd": 2.730819,
+     "ratio": 1.547838
+    },
+    {
+     "account_id": 898754153.0,
+     "n_games": 753,
+     "rate": 6.466135,
+     "empirical_sd": 4.377072,
+     "poisson_sd": 2.54286,
+     "ratio": 1.721319
+    },
+    {
+     "account_id": 1026694469.0,
+     "n_games": 544,
+     "rate": 7.211397,
+     "empirical_sd": 4.226264,
+     "poisson_sd": 2.685404,
+     "ratio": 1.57379
+    },
+    {
+     "account_id": 1044002267.0,
+     "n_games": 801,
+     "rate": 8.249688,
+     "empirical_sd": 4.864677,
+     "poisson_sd": 2.872227,
+     "ratio": 1.693695
+    }
+   ]
+  },
+  "deaths": {
+   "ratio_mean": 1.317333,
+   "ratio_median": 1.319349,
+   "n_players": 80,
+   "per_player": [
+    {
+     "account_id": 10366616.0,
+     "n_games": 805,
+     "rate": 5.904348,
+     "empirical_sd": 3.434105,
+     "poisson_sd": 2.429886,
+     "ratio": 1.413278
+    },
+    {
+     "account_id": 16497807.0,
+     "n_games": 730,
+     "rate": 5.632877,
+     "empirical_sd": 3.054963,
+     "poisson_sd": 2.373368,
+     "ratio": 1.287185
+    },
+    {
+     "account_id": 25907144.0,
+     "n_games": 805,
+     "rate": 5.519255,
+     "empirical_sd": 3.263501,
+     "poisson_sd": 2.349309,
+     "ratio": 1.389132
+    },
+    {
+     "account_id": 56351509.0,
+     "n_games": 677,
+     "rate": 3.251108,
+     "empirical_sd": 2.300409,
+     "poisson_sd": 1.803083,
+     "ratio": 1.27582
+    },
+    {
+     "account_id": 73401082.0,
+     "n_games": 735,
+     "rate": 5.761905,
+     "empirical_sd": 3.51899,
+     "poisson_sd": 2.400397,
+     "ratio": 1.466003
+    },
+    {
+     "account_id": 77490514.0,
+     "n_games": 787,
+     "rate": 6.336722,
+     "empirical_sd": 3.50459,
+     "poisson_sd": 2.517285,
+     "ratio": 1.39221
+    },
+    {
+     "account_id": 81306398.0,
+     "n_games": 730,
+     "rate": 5.824658,
+     "empirical_sd": 3.246092,
+     "poisson_sd": 2.413433,
+     "ratio": 1.34501
+    },
+    {
+     "account_id": 86698277.0,
+     "n_games": 815,
+     "rate": 4.283436,
+     "empirical_sd": 2.717114,
+     "poisson_sd": 2.069646,
+     "ratio": 1.31284
+    },
+    {
+     "account_id": 90423751.0,
+     "n_games": 645,
+     "rate": 5.553488,
+     "empirical_sd": 3.157709,
+     "poisson_sd": 2.356584,
+     "ratio": 1.339952
+    },
+    {
+     "account_id": 92487440.0,
+     "n_games": 389,
+     "rate": 4.663239,
+     "empirical_sd": 2.657844,
+     "poisson_sd": 2.159453,
+     "ratio": 1.230795
+    },
+    {
+     "account_id": 93618577.0,
+     "n_games": 776,
+     "rate": 4.10567,
+     "empirical_sd": 2.82508,
+     "poisson_sd": 2.026245,
+     "ratio": 1.394244
+    },
+    {
+     "account_id": 93817671.0,
+     "n_games": 574,
+     "rate": 6.41115,
+     "empirical_sd": 3.48594,
+     "poisson_sd": 2.532025,
+     "ratio": 1.37674
+    },
+    {
+     "account_id": 94296097.0,
+     "n_games": 570,
+     "rate": 5.368421,
+     "empirical_sd": 2.978727,
+     "poisson_sd": 2.316985,
+     "ratio": 1.285605
+    },
+    {
+     "account_id": 97590558.0,
+     "n_games": 730,
+     "rate": 4.263014,
+     "empirical_sd": 2.741116,
+     "poisson_sd": 2.064707,
+     "ratio": 1.327606
+    },
+    {
+     "account_id": 100058342.0,
+     "n_games": 802,
+     "rate": 3.153367,
+     "empirical_sd": 2.399578,
+     "poisson_sd": 1.775772,
+     "ratio": 1.351287
+    },
+    {
+     "account_id": 100594231.0,
+     "n_games": 543,
+     "rate": 5.421731,
+     "empirical_sd": 3.336155,
+     "poisson_sd": 2.328461,
+     "ratio": 1.432773
+    },
+    {
+     "account_id": 101356886.0,
+     "n_games": 557,
+     "rate": 5.479354,
+     "empirical_sd": 3.241206,
+     "poisson_sd": 2.340802,
+     "ratio": 1.384656
+    },
+    {
+     "account_id": 101695162.0,
+     "n_games": 422,
+     "rate": 5.917062,
+     "empirical_sd": 3.187005,
+     "poisson_sd": 2.432501,
+     "ratio": 1.310176
+    },
+    {
+     "account_id": 103735745.0,
+     "n_games": 613,
+     "rate": 6.342577,
+     "empirical_sd": 3.450409,
+     "poisson_sd": 2.518447,
+     "ratio": 1.370054
+    },
+    {
+     "account_id": 105045291.0,
+     "n_games": 466,
+     "rate": 6.433476,
+     "empirical_sd": 3.42867,
+     "poisson_sd": 2.53643,
+     "ratio": 1.35177
+    },
+    {
+     "account_id": 106305042.0,
+     "n_games": 714,
+     "rate": 3.812325,
+     "empirical_sd": 2.562775,
+     "poisson_sd": 1.952518,
+     "ratio": 1.312549
+    },
+    {
+     "account_id": 106573901.0,
+     "n_games": 742,
+     "rate": 3.52965,
+     "empirical_sd": 2.514961,
+     "poisson_sd": 1.878736,
+     "ratio": 1.338645
+    },
+    {
+     "account_id": 111114687.0,
+     "n_games": 523,
+     "rate": 5.67304,
+     "empirical_sd": 3.037786,
+     "poisson_sd": 2.381814,
+     "ratio": 1.275408
+    },
+    {
+     "account_id": 111620041.0,
+     "n_games": 575,
+     "rate": 3.608696,
+     "empirical_sd": 2.47389,
+     "poisson_sd": 1.899657,
+     "ratio": 1.302283
+    },
+    {
+     "account_id": 118134220.0,
+     "n_games": 537,
+     "rate": 3.932961,
+     "empirical_sd": 2.557396,
+     "poisson_sd": 1.983169,
+     "ratio": 1.28955
+    },
+    {
+     "account_id": 123787715.0,
+     "n_games": 659,
+     "rate": 5.766313,
+     "empirical_sd": 3.142515,
+     "poisson_sd": 2.401315,
+     "ratio": 1.308664
+    },
+    {
+     "account_id": 124801257.0,
+     "n_games": 737,
+     "rate": 2.667571,
+     "empirical_sd": 1.962818,
+     "poisson_sd": 1.63327,
+     "ratio": 1.201772
+    },
+    {
+     "account_id": 126842529.0,
+     "n_games": 688,
+     "rate": 3.928779,
+     "empirical_sd": 2.660157,
+     "poisson_sd": 1.982115,
+     "ratio": 1.34208
+    },
+    {
+     "account_id": 129958758.0,
+     "n_games": 637,
+     "rate": 3.620094,
+     "empirical_sd": 2.326381,
+     "poisson_sd": 1.902655,
+     "ratio": 1.222703
+    },
+    {
+     "account_id": 132309493.0,
+     "n_games": 250,
+     "rate": 3.412,
+     "empirical_sd": 2.297689,
+     "poisson_sd": 1.84716,
+     "ratio": 1.243903
+    },
+    {
+     "account_id": 136829091.0,
+     "n_games": 796,
+     "rate": 5.870603,
+     "empirical_sd": 3.343194,
+     "poisson_sd": 2.422933,
+     "ratio": 1.379813
+    },
+    {
+     "account_id": 137129583.0,
+     "n_games": 649,
+     "rate": 3.701079,
+     "empirical_sd": 2.477681,
+     "poisson_sd": 1.923819,
+     "ratio": 1.287897
+    },
+    {
+     "account_id": 138880576.0,
+     "n_games": 665,
+     "rate": 5.04812,
+     "empirical_sd": 3.223703,
+     "poisson_sd": 2.246802,
+     "ratio": 1.434796
+    },
+    {
+     "account_id": 140251702.0,
+     "n_games": 489,
+     "rate": 4.055215,
+     "empirical_sd": 2.47674,
+     "poisson_sd": 2.013756,
+     "ratio": 1.22991
+    },
+    {
+     "account_id": 145065875.0,
+     "n_games": 304,
+     "rate": 5.342105,
+     "empirical_sd": 2.850755,
+     "poisson_sd": 2.311299,
+     "ratio": 1.233399
+    },
+    {
+     "account_id": 145957968.0,
+     "n_games": 370,
+     "rate": 3.927027,
+     "empirical_sd": 2.65803,
+     "poisson_sd": 1.981673,
+     "ratio": 1.341306
+    },
+    {
+     "account_id": 150961567.0,
+     "n_games": 455,
+     "rate": 4.443956,
+     "empirical_sd": 2.804308,
+     "poisson_sd": 2.108069,
+     "ratio": 1.330273
+    },
+    {
+     "account_id": 152168157.0,
+     "n_games": 674,
+     "rate": 6.109792,
+     "empirical_sd": 3.282597,
+     "poisson_sd": 2.471799,
+     "ratio": 1.328019
+    },
+    {
+     "account_id": 152962063.0,
+     "n_games": 789,
+     "rate": 3.676806,
+     "empirical_sd": 2.505979,
+     "poisson_sd": 1.9175,
+     "ratio": 1.306899
+    },
+    {
+     "account_id": 154974246.0,
+     "n_games": 511,
+     "rate": 3.317025,
+     "empirical_sd": 2.222277,
+     "poisson_sd": 1.82127,
+     "ratio": 1.220179
+    },
+    {
+     "account_id": 155494381.0,
+     "n_games": 552,
+     "rate": 5.644928,
+     "empirical_sd": 3.012498,
+     "poisson_sd": 2.375906,
+     "ratio": 1.267937
+    },
+    {
+     "account_id": 157475523.0,
+     "n_games": 473,
+     "rate": 5.234672,
+     "empirical_sd": 3.078407,
+     "poisson_sd": 2.287941,
+     "ratio": 1.345493
+    },
+    {
+     "account_id": 160119017.0,
+     "n_games": 654,
+     "rate": 4.087156,
+     "empirical_sd": 2.783135,
+     "poisson_sd": 2.021672,
+     "ratio": 1.37665
+    },
+    {
+     "account_id": 164199202.0,
+     "n_games": 764,
+     "rate": 6.387435,
+     "empirical_sd": 3.542537,
+     "poisson_sd": 2.527337,
+     "ratio": 1.401687
+    },
+    {
+     "account_id": 165564598.0,
+     "n_games": 785,
+     "rate": 3.909554,
+     "empirical_sd": 2.561135,
+     "poisson_sd": 1.977259,
+     "ratio": 1.295295
+    },
+    {
+     "account_id": 170896543.0,
+     "n_games": 346,
+     "rate": 2.881503,
+     "empirical_sd": 2.018854,
+     "poisson_sd": 1.697499,
+     "ratio": 1.189311
+    },
+    {
+     "account_id": 171262902.0,
+     "n_games": 697,
+     "rate": 3.037303,
+     "empirical_sd": 2.299122,
+     "poisson_sd": 1.742786,
+     "ratio": 1.319222
+    },
+    {
+     "account_id": 172099728.0,
+     "n_games": 553,
+     "rate": 3.338156,
+     "empirical_sd": 2.51004,
+     "poisson_sd": 1.827062,
+     "ratio": 1.373812
+    },
+    {
+     "account_id": 173978074.0,
+     "n_games": 640,
+     "rate": 3.85,
+     "empirical_sd": 2.368811,
+     "poisson_sd": 1.962142,
+     "ratio": 1.207258
+    },
+    {
+     "account_id": 177203952.0,
+     "n_games": 763,
+     "rate": 3.284404,
+     "empirical_sd": 2.281756,
+     "poisson_sd": 1.812292,
+     "ratio": 1.259044
+    },
+    {
+     "account_id": 183719386.0,
+     "n_games": 809,
+     "rate": 4.163164,
+     "empirical_sd": 2.734195,
+     "poisson_sd": 2.040383,
+     "ratio": 1.34004
+    },
+    {
+     "account_id": 191362875.0,
+     "n_games": 490,
+     "rate": 4.85102,
+     "empirical_sd": 3.00991,
+     "poisson_sd": 2.202503,
+     "ratio": 1.366586
+    },
+    {
+     "account_id": 195108598.0,
+     "n_games": 544,
+     "rate": 3.900735,
+     "empirical_sd": 2.47367,
+     "poisson_sd": 1.975028,
+     "ratio": 1.252473
+    },
+    {
+     "account_id": 196878136.0,
+     "n_games": 770,
+     "rate": 6.0,
+     "empirical_sd": 3.333637,
+     "poisson_sd": 2.44949,
+     "ratio": 1.360952
+    },
+    {
+     "account_id": 201358612.0,
+     "n_games": 810,
+     "rate": 3.803704,
+     "empirical_sd": 2.631414,
+     "poisson_sd": 1.950309,
+     "ratio": 1.349229
+    },
+    {
+     "account_id": 206642367.0,
+     "n_games": 385,
+     "rate": 3.636364,
+     "empirical_sd": 2.516141,
+     "poisson_sd": 1.906925,
+     "ratio": 1.319476
+    },
+    {
+     "account_id": 210053851.0,
+     "n_games": 691,
+     "rate": 2.824891,
+     "empirical_sd": 2.06833,
+     "poisson_sd": 1.680741,
+     "ratio": 1.230606
+    },
+    {
+     "account_id": 218231587.0,
+     "n_games": 355,
+     "rate": 7.467606,
+     "empirical_sd": 3.790554,
+     "poisson_sd": 2.732692,
+     "ratio": 1.387113
+    },
+    {
+     "account_id": 249835593.0,
+     "n_games": 350,
+     "rate": 6.134286,
+     "empirical_sd": 3.153517,
+     "poisson_sd": 2.476749,
+     "ratio": 1.273248
+    },
+    {
+     "account_id": 256156323.0,
+     "n_games": 724,
+     "rate": 7.305249,
+     "empirical_sd": 3.543357,
+     "poisson_sd": 2.702822,
+     "ratio": 1.310984
+    },
+    {
+     "account_id": 292921272.0,
+     "n_games": 739,
+     "rate": 4.439783,
+     "empirical_sd": 2.78937,
+     "poisson_sd": 2.107079,
+     "ratio": 1.323809
+    },
+    {
+     "account_id": 301750126.0,
+     "n_games": 581,
+     "rate": 2.951807,
+     "empirical_sd": 2.114258,
+     "poisson_sd": 1.718082,
+     "ratio": 1.230592
+    },
+    {
+     "account_id": 302214028.0,
+     "n_games": 640,
+     "rate": 4.34375,
+     "empirical_sd": 2.800172,
+     "poisson_sd": 2.084167,
+     "ratio": 1.343545
+    },
+    {
+     "account_id": 312436974.0,
+     "n_games": 685,
+     "rate": 4.160584,
+     "empirical_sd": 2.758383,
+     "poisson_sd": 2.039751,
+     "ratio": 1.352314
+    },
+    {
+     "account_id": 315272623.0,
+     "n_games": 331,
+     "rate": 3.268882,
+     "empirical_sd": 2.262386,
+     "poisson_sd": 1.808005,
+     "ratio": 1.251316
+    },
+    {
+     "account_id": 317880638.0,
+     "n_games": 785,
+     "rate": 5.021656,
+     "empirical_sd": 3.218773,
+     "poisson_sd": 2.240905,
+     "ratio": 1.436372
+    },
+    {
+     "account_id": 320017600.0,
+     "n_games": 482,
+     "rate": 3.618257,
+     "empirical_sd": 2.403981,
+     "poisson_sd": 1.902172,
+     "ratio": 1.263809
+    },
+    {
+     "account_id": 320219866.0,
+     "n_games": 618,
+     "rate": 6.220065,
+     "empirical_sd": 3.601744,
+     "poisson_sd": 2.494006,
+     "ratio": 1.44416
+    },
+    {
+     "account_id": 320252024.0,
+     "n_games": 525,
+     "rate": 2.982857,
+     "empirical_sd": 2.004216,
+     "poisson_sd": 1.727095,
+     "ratio": 1.160455
+    },
+    {
+     "account_id": 321580662.0,
+     "n_games": 663,
+     "rate": 3.447964,
+     "empirical_sd": 2.385111,
+     "poisson_sd": 1.856869,
+     "ratio": 1.28448
+    },
+    {
+     "account_id": 324277900.0,
+     "n_games": 542,
+     "rate": 3.546125,
+     "empirical_sd": 2.332106,
+     "poisson_sd": 1.883116,
+     "ratio": 1.238429
+    },
+    {
+     "account_id": 331855530.0,
+     "n_games": 725,
+     "rate": 3.715862,
+     "empirical_sd": 2.63934,
+     "poisson_sd": 1.927657,
+     "ratio": 1.369196
+    },
+    {
+     "account_id": 346412363.0,
+     "n_games": 610,
+     "rate": 5.911475,
+     "empirical_sd": 3.155837,
+     "poisson_sd": 2.431353,
+     "ratio": 1.297976
+    },
+    {
+     "account_id": 355168766.0,
+     "n_games": 506,
+     "rate": 2.958498,
+     "empirical_sd": 2.12581,
+     "poisson_sd": 1.720028,
+     "ratio": 1.235915
+    },
+    {
+     "account_id": 480412663.0,
+     "n_games": 705,
+     "rate": 3.012766,
+     "empirical_sd": 2.298989,
+     "poisson_sd": 1.735732,
+     "ratio": 1.324507
+    },
+    {
+     "account_id": 847565596.0,
+     "n_games": 698,
+     "rate": 5.82808,
+     "empirical_sd": 3.178427,
+     "poisson_sd": 2.414142,
+     "ratio": 1.316587
+    },
+    {
+     "account_id": 898455820.0,
+     "n_games": 739,
+     "rate": 3.538566,
+     "empirical_sd": 2.475257,
+     "poisson_sd": 1.881108,
+     "ratio": 1.315851
+    },
+    {
+     "account_id": 898754153.0,
+     "n_games": 753,
+     "rate": 3.272244,
+     "empirical_sd": 2.328475,
+     "poisson_sd": 1.808935,
+     "ratio": 1.287208
+    },
+    {
+     "account_id": 1026694469.0,
+     "n_games": 544,
+     "rate": 3.869485,
+     "empirical_sd": 2.677831,
+     "poisson_sd": 1.967101,
+     "ratio": 1.361309
+    },
+    {
+     "account_id": 1044002267.0,
+     "n_games": 801,
+     "rate": 2.956305,
+     "empirical_sd": 2.330094,
+     "poisson_sd": 1.719391,
+     "ratio": 1.355186
+    }
+   ]
+  },
+  "last_hits": {
+   "ratio_mean": 7.268275,
+   "ratio_median": 7.198451,
+   "n_players": 80,
+   "per_player": [
+    {
+     "account_id": 10366616.0,
+     "n_games": 805,
+     "rate": 128.264596,
+     "empirical_sd": 83.490121,
+     "poisson_sd": 11.325396,
+     "ratio": 7.371938
+    },
+    {
+     "account_id": 16497807.0,
+     "n_games": 730,
+     "rate": 103.39589,
+     "empirical_sd": 75.243333,
+     "poisson_sd": 10.168377,
+     "ratio": 7.399739
+    },
+    {
+     "account_id": 25907144.0,
+     "n_games": 805,
+     "rate": 86.90559,
+     "empirical_sd": 57.236209,
+     "poisson_sd": 9.322317,
+     "ratio": 6.139698
+    },
+    {
+     "account_id": 56351509.0,
+     "n_games": 677,
+     "rate": 292.979321,
+     "empirical_sd": 110.27597,
+     "poisson_sd": 17.116639,
+     "ratio": 6.442618
+    },
+    {
+     "account_id": 73401082.0,
+     "n_games": 735,
+     "rate": 60.288435,
+     "empirical_sd": 44.450733,
+     "poisson_sd": 7.764563,
+     "ratio": 5.724821
+    },
+    {
+     "account_id": 77490514.0,
+     "n_games": 787,
+     "rate": 75.456163,
+     "empirical_sd": 53.6142,
+     "poisson_sd": 8.686551,
+     "ratio": 6.172093
+    },
+    {
+     "account_id": 81306398.0,
+     "n_games": 730,
+     "rate": 75.019178,
+     "empirical_sd": 54.290305,
+     "poisson_sd": 8.661361,
+     "ratio": 6.268103
+    },
+    {
+     "account_id": 86698277.0,
+     "n_games": 815,
+     "rate": 305.860123,
+     "empirical_sd": 121.15018,
+     "poisson_sd": 17.488857,
+     "ratio": 6.927278
+    },
+    {
+     "account_id": 90423751.0,
+     "n_games": 645,
+     "rate": 56.189147,
+     "empirical_sd": 48.672197,
+     "poisson_sd": 7.495942,
+     "ratio": 6.493139
+    },
+    {
+     "account_id": 92487440.0,
+     "n_games": 389,
+     "rate": 294.902314,
+     "empirical_sd": 109.406062,
+     "poisson_sd": 17.17272,
+     "ratio": 6.370922
+    },
+    {
+     "account_id": 93618577.0,
+     "n_games": 776,
+     "rate": 343.242268,
+     "empirical_sd": 159.902625,
+     "poisson_sd": 18.526799,
+     "ratio": 8.630883
+    },
+    {
+     "account_id": 93817671.0,
+     "n_games": 574,
+     "rate": 76.486063,
+     "empirical_sd": 55.6097,
+     "poisson_sd": 8.745631,
+     "ratio": 6.358569
+    },
+    {
+     "account_id": 94296097.0,
+     "n_games": 570,
+     "rate": 77.240351,
+     "empirical_sd": 53.557158,
+     "poisson_sd": 8.788649,
+     "ratio": 6.093901
+    },
+    {
+     "account_id": 97590558.0,
+     "n_games": 730,
+     "rate": 305.571233,
+     "empirical_sd": 118.386818,
+     "poisson_sd": 17.480596,
+     "ratio": 6.77247
+    },
+    {
+     "account_id": 100058342.0,
+     "n_games": 802,
+     "rate": 434.057357,
+     "empirical_sd": 167.25225,
+     "poisson_sd": 20.834043,
+     "ratio": 8.027834
+    },
+    {
+     "account_id": 100594231.0,
+     "n_games": 543,
+     "rate": 102.14733,
+     "empirical_sd": 79.30715,
+     "poisson_sd": 10.106796,
+     "ratio": 7.846913
+    },
+    {
+     "account_id": 101356886.0,
+     "n_games": 557,
+     "rate": 81.64632,
+     "empirical_sd": 58.083965,
+     "poisson_sd": 9.035835,
+     "ratio": 6.428179
+    },
+    {
+     "account_id": 101695162.0,
+     "n_games": 422,
+     "rate": 98.668246,
+     "empirical_sd": 79.501737,
+     "poisson_sd": 9.933189,
+     "ratio": 8.003647
+    },
+    {
+     "account_id": 103735745.0,
+     "n_games": 613,
+     "rate": 94.21044,
+     "empirical_sd": 70.367335,
+     "poisson_sd": 9.706206,
+     "ratio": 7.249726
+    },
+    {
+     "account_id": 105045291.0,
+     "n_games": 466,
+     "rate": 84.590129,
+     "empirical_sd": 64.810438,
+     "poisson_sd": 9.197289,
+     "ratio": 7.046689
+    },
+    {
+     "account_id": 106305042.0,
+     "n_games": 714,
+     "rate": 345.610644,
+     "empirical_sd": 132.129191,
+     "poisson_sd": 18.590606,
+     "ratio": 7.107309
+    },
+    {
+     "account_id": 106573901.0,
+     "n_games": 742,
+     "rate": 348.985175,
+     "empirical_sd": 146.550838,
+     "poisson_sd": 18.681145,
+     "ratio": 7.844853
+    },
+    {
+     "account_id": 111114687.0,
+     "n_games": 523,
+     "rate": 68.269598,
+     "empirical_sd": 51.578698,
+     "poisson_sd": 8.262542,
+     "ratio": 6.242473
+    },
+    {
+     "account_id": 111620041.0,
+     "n_games": 575,
+     "rate": 332.2,
+     "empirical_sd": 147.276932,
+     "poisson_sd": 18.226355,
+     "ratio": 8.080438
+    },
+    {
+     "account_id": 118134220.0,
+     "n_games": 537,
+     "rate": 291.504655,
+     "empirical_sd": 118.92314,
+     "poisson_sd": 17.073507,
+     "ratio": 6.965361
+    },
+    {
+     "account_id": 123787715.0,
+     "n_games": 659,
+     "rate": 88.676783,
+     "empirical_sd": 63.045337,
+     "poisson_sd": 9.416835,
+     "ratio": 6.69496
+    },
+    {
+     "account_id": 124801257.0,
+     "n_games": 737,
+     "rate": 451.857531,
+     "empirical_sd": 162.383211,
+     "poisson_sd": 21.256941,
+     "ratio": 7.639068
+    },
+    {
+     "account_id": 126842529.0,
+     "n_games": 688,
+     "rate": 290.898256,
+     "empirical_sd": 118.388161,
+     "poisson_sd": 17.05574,
+     "ratio": 6.94125
+    },
+    {
+     "account_id": 129958758.0,
+     "n_games": 637,
+     "rate": 330.726845,
+     "empirical_sd": 126.73415,
+     "poisson_sd": 18.185897,
+     "ratio": 6.968815
+    },
+    {
+     "account_id": 132309493.0,
+     "n_games": 250,
+     "rate": 303.76,
+     "empirical_sd": 134.481805,
+     "poisson_sd": 17.428712,
+     "ratio": 7.716107
+    },
+    {
+     "account_id": 136829091.0,
+     "n_games": 796,
+     "rate": 72.591709,
+     "empirical_sd": 54.768355,
+     "poisson_sd": 8.520077,
+     "ratio": 6.428153
+    },
+    {
+     "account_id": 137129583.0,
+     "n_games": 649,
+     "rate": 360.847458,
+     "empirical_sd": 141.216987,
+     "poisson_sd": 18.995985,
+     "ratio": 7.434044
+    },
+    {
+     "account_id": 138880576.0,
+     "n_games": 665,
+     "rate": 277.819549,
+     "empirical_sd": 112.302292,
+     "poisson_sd": 16.66792,
+     "ratio": 6.737631
+    },
+    {
+     "account_id": 140251702.0,
+     "n_games": 489,
+     "rate": 310.607362,
+     "empirical_sd": 125.962236,
+     "poisson_sd": 17.624056,
+     "ratio": 7.147176
+    },
+    {
+     "account_id": 145065875.0,
+     "n_games": 304,
+     "rate": 84.763158,
+     "empirical_sd": 59.799637,
+     "poisson_sd": 9.206691,
+     "ratio": 6.495237
+    },
+    {
+     "account_id": 145957968.0,
+     "n_games": 370,
+     "rate": 261.413514,
+     "empirical_sd": 91.273432,
+     "poisson_sd": 16.168287,
+     "ratio": 5.645213
+    },
+    {
+     "account_id": 150961567.0,
+     "n_games": 455,
+     "rate": 98.995604,
+     "empirical_sd": 58.98387,
+     "poisson_sd": 9.949653,
+     "ratio": 5.928234
+    },
+    {
+     "account_id": 152168157.0,
+     "n_games": 674,
+     "rate": 68.396142,
+     "empirical_sd": 47.189089,
+     "poisson_sd": 8.270196,
+     "ratio": 5.705921
+    },
+    {
+     "account_id": 152962063.0,
+     "n_games": 789,
+     "rate": 439.503169,
+     "empirical_sd": 171.668519,
+     "poisson_sd": 20.964331,
+     "ratio": 8.1886
+    },
+    {
+     "account_id": 154974246.0,
+     "n_games": 511,
+     "rate": 315.18591,
+     "empirical_sd": 144.928551,
+     "poisson_sd": 17.753476,
+     "ratio": 8.16339
+    },
+    {
+     "account_id": 155494381.0,
+     "n_games": 552,
+     "rate": 87.347826,
+     "empirical_sd": 63.371706,
+     "poisson_sd": 9.346006,
+     "ratio": 6.780619
+    },
+    {
+     "account_id": 157475523.0,
+     "n_games": 473,
+     "rate": 119.164905,
+     "empirical_sd": 82.981506,
+     "poisson_sd": 10.916268,
+     "ratio": 7.601637
+    },
+    {
+     "account_id": 160119017.0,
+     "n_games": 654,
+     "rate": 277.353211,
+     "empirical_sd": 121.723996,
+     "poisson_sd": 16.653925,
+     "ratio": 7.309028
+    },
+    {
+     "account_id": 164199202.0,
+     "n_games": 764,
+     "rate": 100.61911,
+     "empirical_sd": 70.568912,
+     "poisson_sd": 10.030908,
+     "ratio": 7.035147
+    },
+    {
+     "account_id": 165564598.0,
+     "n_games": 785,
+     "rate": 302.580892,
+     "empirical_sd": 114.090341,
+     "poisson_sd": 17.394852,
+     "ratio": 6.558857
+    },
+    {
+     "account_id": 170896543.0,
+     "n_games": 346,
+     "rate": 416.248555,
+     "empirical_sd": 155.613574,
+     "poisson_sd": 20.40217,
+     "ratio": 7.627305
+    },
+    {
+     "account_id": 171262902.0,
+     "n_games": 697,
+     "rate": 419.54089,
+     "empirical_sd": 161.964418,
+     "poisson_sd": 20.482697,
+     "ratio": 7.907377
+    },
+    {
+     "account_id": 172099728.0,
+     "n_games": 553,
+     "rate": 456.611212,
+     "empirical_sd": 199.266515,
+     "poisson_sd": 21.368463,
+     "ratio": 9.325262
+    },
+    {
+     "account_id": 173978074.0,
+     "n_games": 640,
+     "rate": 350.29375,
+     "empirical_sd": 165.791594,
+     "poisson_sd": 18.716136,
+     "ratio": 8.858217
+    },
+    {
+     "account_id": 177203952.0,
+     "n_games": 763,
+     "rate": 427.576671,
+     "empirical_sd": 178.903243,
+     "poisson_sd": 20.677927,
+     "ratio": 8.651894
+    },
+    {
+     "account_id": 183719386.0,
+     "n_games": 809,
+     "rate": 347.055624,
+     "empirical_sd": 141.13419,
+     "poisson_sd": 18.629429,
+     "ratio": 7.575873
+    },
+    {
+     "account_id": 191362875.0,
+     "n_games": 490,
+     "rate": 105.373469,
+     "empirical_sd": 91.11083,
+     "poisson_sd": 10.265158,
+     "ratio": 8.875736
+    },
+    {
+     "account_id": 195108598.0,
+     "n_games": 544,
+     "rate": 319.665441,
+     "empirical_sd": 127.672586,
+     "poisson_sd": 17.87919,
+     "ratio": 7.140848
+    },
+    {
+     "account_id": 196878136.0,
+     "n_games": 770,
+     "rate": 78.228571,
+     "empirical_sd": 57.016182,
+     "poisson_sd": 8.844692,
+     "ratio": 6.446373
+    },
+    {
+     "account_id": 201358612.0,
+     "n_games": 810,
+     "rate": 345.522222,
+     "empirical_sd": 150.852526,
+     "poisson_sd": 18.588228,
+     "ratio": 8.115487
+    },
+    {
+     "account_id": 206642367.0,
+     "n_games": 385,
+     "rate": 416.451948,
+     "empirical_sd": 166.543158,
+     "poisson_sd": 20.407154,
+     "ratio": 8.161018
+    },
+    {
+     "account_id": 210053851.0,
+     "n_games": 691,
+     "rate": 372.146165,
+     "empirical_sd": 151.13925,
+     "poisson_sd": 19.29109,
+     "ratio": 7.834666
+    },
+    {
+     "account_id": 218231587.0,
+     "n_games": 355,
+     "rate": 75.002817,
+     "empirical_sd": 50.86642,
+     "poisson_sd": 8.660417,
+     "ratio": 5.873438
+    },
+    {
+     "account_id": 249835593.0,
+     "n_games": 350,
+     "rate": 71.671429,
+     "empirical_sd": 51.864967,
+     "poisson_sd": 8.465898,
+     "ratio": 6.12634
+    },
+    {
+     "account_id": 256156323.0,
+     "n_games": 724,
+     "rate": 79.088398,
+     "empirical_sd": 56.478522,
+     "poisson_sd": 8.893166,
+     "ratio": 6.350778
+    },
+    {
+     "account_id": 292921272.0,
+     "n_games": 739,
+     "rate": 321.165088,
+     "empirical_sd": 147.930374,
+     "poisson_sd": 17.921079,
+     "ratio": 8.254546
+    },
+    {
+     "account_id": 301750126.0,
+     "n_games": 581,
+     "rate": 344.192771,
+     "empirical_sd": 143.885314,
+     "poisson_sd": 18.552433,
+     "ratio": 7.755603
+    },
+    {
+     "account_id": 302214028.0,
+     "n_games": 640,
+     "rate": 304.90625,
+     "empirical_sd": 107.764744,
+     "poisson_sd": 17.461565,
+     "ratio": 6.17154
+    },
+    {
+     "account_id": 312436974.0,
+     "n_games": 685,
+     "rate": 304.108029,
+     "empirical_sd": 130.587102,
+     "poisson_sd": 17.438693,
+     "ratio": 7.488354
+    },
+    {
+     "account_id": 315272623.0,
+     "n_games": 331,
+     "rate": 290.093656,
+     "empirical_sd": 112.139714,
+     "poisson_sd": 17.032136,
+     "ratio": 6.584008
+    },
+    {
+     "account_id": 317880638.0,
+     "n_games": 785,
+     "rate": 77.119745,
+     "empirical_sd": 52.010212,
+     "poisson_sd": 8.781785,
+     "ratio": 5.92251
+    },
+    {
+     "account_id": 320017600.0,
+     "n_games": 482,
+     "rate": 487.40249,
+     "empirical_sd": 182.146807,
+     "poisson_sd": 22.077194,
+     "ratio": 8.250451
+    },
+    {
+     "account_id": 320219866.0,
+     "n_games": 618,
+     "rate": 87.132686,
+     "empirical_sd": 59.517933,
+     "poisson_sd": 9.334489,
+     "ratio": 6.376132
+    },
+    {
+     "account_id": 320252024.0,
+     "n_games": 525,
+     "rate": 465.24,
+     "empirical_sd": 179.237772,
+     "poisson_sd": 21.569423,
+     "ratio": 8.309808
+    },
+    {
+     "account_id": 321580662.0,
+     "n_games": 663,
+     "rate": 487.432881,
+     "empirical_sd": 184.514996,
+     "poisson_sd": 22.077882,
+     "ratio": 8.357459
+    },
+    {
+     "account_id": 324277900.0,
+     "n_games": 542,
+     "rate": 295.741697,
+     "empirical_sd": 134.975796,
+     "poisson_sd": 17.197142,
+     "ratio": 7.848734
+    },
+    {
+     "account_id": 331855530.0,
+     "n_games": 725,
+     "rate": 468.132414,
+     "empirical_sd": 184.794396,
+     "poisson_sd": 21.636368,
+     "ratio": 8.540916
+    },
+    {
+     "account_id": 346412363.0,
+     "n_games": 610,
+     "rate": 82.242623,
+     "empirical_sd": 59.882782,
+     "poisson_sd": 9.068772,
+     "ratio": 6.603185
+    },
+    {
+     "account_id": 355168766.0,
+     "n_games": 506,
+     "rate": 427.581028,
+     "empirical_sd": 180.367398,
+     "poisson_sd": 20.678032,
+     "ratio": 8.722658
+    },
+    {
+     "account_id": 480412663.0,
+     "n_games": 705,
+     "rate": 369.81844,
+     "empirical_sd": 141.841054,
+     "poisson_sd": 19.230664,
+     "ratio": 7.375775
+    },
+    {
+     "account_id": 847565596.0,
+     "n_games": 698,
+     "rate": 70.37106,
+     "empirical_sd": 49.993384,
+     "poisson_sd": 8.388746,
+     "ratio": 5.959578
+    },
+    {
+     "account_id": 898455820.0,
+     "n_games": 739,
+     "rate": 351.895805,
+     "empirical_sd": 144.488974,
+     "poisson_sd": 18.758886,
+     "ratio": 7.702428
+    },
+    {
+     "account_id": 898754153.0,
+     "n_games": 753,
+     "rate": 471.25498,
+     "empirical_sd": 192.581991,
+     "poisson_sd": 21.708408,
+     "ratio": 8.871309
+    },
+    {
+     "account_id": 1026694469.0,
+     "n_games": 544,
+     "rate": 322.299632,
+     "empirical_sd": 169.586726,
+     "poisson_sd": 17.952705,
+     "ratio": 9.446305
+    },
+    {
+     "account_id": 1044002267.0,
+     "n_games": 801,
+     "rate": 499.357054,
+     "empirical_sd": 199.360239,
+     "poisson_sd": 22.346298,
+     "ratio": 8.921399
+    }
+   ]
+  },
+  "gold_per_min": {
+   "ratio_mean": 4.146902,
+   "ratio_median": 4.07119,
+   "n_players": 80,
+   "per_player": [
+    {
+     "account_id": 10366616.0,
+     "n_games": 805,
+     "rate": 376.909317,
+     "empirical_sd": 80.557004,
+     "poisson_sd": 19.414152,
+     "ratio": 4.149396
+    },
+    {
+     "account_id": 16497807.0,
+     "n_games": 730,
+     "rate": 346.946575,
+     "empirical_sd": 73.886753,
+     "poisson_sd": 18.626502,
+     "ratio": 3.966754
+    },
+    {
+     "account_id": 25907144.0,
+     "n_games": 805,
+     "rate": 345.677019,
+     "empirical_sd": 67.32547,
+     "poisson_sd": 18.592391,
+     "ratio": 3.62113
+    },
+    {
+     "account_id": 56351509.0,
+     "n_games": 677,
+     "rate": 551.014771,
+     "empirical_sd": 82.91635,
+     "poisson_sd": 23.473704,
+     "ratio": 3.532308
+    },
+    {
+     "account_id": 73401082.0,
+     "n_games": 735,
+     "rate": 321.401361,
+     "empirical_sd": 63.637904,
+     "poisson_sd": 17.92767,
+     "ratio": 3.549703
+    },
+    {
+     "account_id": 77490514.0,
+     "n_games": 787,
+     "rate": 327.031766,
+     "empirical_sd": 66.233992,
+     "poisson_sd": 18.08402,
+     "ratio": 3.66257
+    },
+    {
+     "account_id": 81306398.0,
+     "n_games": 730,
+     "rate": 324.787671,
+     "empirical_sd": 68.268192,
+     "poisson_sd": 18.021866,
+     "ratio": 3.788076
+    },
+    {
+     "account_id": 86698277.0,
+     "n_games": 815,
+     "rate": 578.818405,
+     "empirical_sd": 98.261054,
+     "poisson_sd": 24.058645,
+     "ratio": 4.084231
+    },
+    {
+     "account_id": 90423751.0,
+     "n_games": 645,
+     "rate": 317.550388,
+     "empirical_sd": 70.119105,
+     "poisson_sd": 17.819944,
+     "ratio": 3.934867
+    },
+    {
+     "account_id": 92487440.0,
+     "n_games": 389,
+     "rate": 535.544987,
+     "empirical_sd": 91.501513,
+     "poisson_sd": 23.141845,
+     "ratio": 3.953942
+    },
+    {
+     "account_id": 93618577.0,
+     "n_games": 776,
+     "rate": 615.987113,
+     "empirical_sd": 112.164659,
+     "poisson_sd": 24.819088,
+     "ratio": 4.51929
+    },
+    {
+     "account_id": 93817671.0,
+     "n_games": 574,
+     "rate": 333.275261,
+     "empirical_sd": 70.004893,
+     "poisson_sd": 18.255828,
+     "ratio": 3.83466
+    },
+    {
+     "account_id": 94296097.0,
+     "n_games": 570,
+     "rate": 316.991228,
+     "empirical_sd": 67.550319,
+     "poisson_sd": 17.804247,
+     "ratio": 3.794056
+    },
+    {
+     "account_id": 97590558.0,
+     "n_games": 730,
+     "rate": 543.658904,
+     "empirical_sd": 94.623607,
+     "poisson_sd": 23.316494,
+     "ratio": 4.058226
+    },
+    {
+     "account_id": 100058342.0,
+     "n_games": 802,
+     "rate": 680.907731,
+     "empirical_sd": 123.653795,
+     "poisson_sd": 26.094209,
+     "ratio": 4.738745
+    },
+    {
+     "account_id": 100594231.0,
+     "n_games": 543,
+     "rate": 359.303867,
+     "empirical_sd": 80.983562,
+     "poisson_sd": 18.955312,
+     "ratio": 4.272341
+    },
+    {
+     "account_id": 101356886.0,
+     "n_games": 557,
+     "rate": 333.204668,
+     "empirical_sd": 70.905103,
+     "poisson_sd": 18.253895,
+     "ratio": 3.884382
+    },
+    {
+     "account_id": 101695162.0,
+     "n_games": 422,
+     "rate": 336.234597,
+     "empirical_sd": 74.090107,
+     "poisson_sd": 18.336701,
+     "ratio": 4.040536
+    },
+    {
+     "account_id": 103735745.0,
+     "n_games": 613,
+     "rate": 351.76509,
+     "empirical_sd": 69.982096,
+     "poisson_sd": 18.755402,
+     "ratio": 3.731304
+    },
+    {
+     "account_id": 105045291.0,
+     "n_games": 466,
+     "rate": 345.315451,
+     "empirical_sd": 71.962395,
+     "poisson_sd": 18.582665,
+     "ratio": 3.872555
+    },
+    {
+     "account_id": 106305042.0,
+     "n_games": 714,
+     "rate": 590.148459,
+     "empirical_sd": 91.543169,
+     "poisson_sd": 24.292971,
+     "ratio": 3.768299
+    },
+    {
+     "account_id": 106573901.0,
+     "n_games": 742,
+     "rate": 619.086253,
+     "empirical_sd": 92.104723,
+     "poisson_sd": 24.881444,
+     "ratio": 3.701743
+    },
+    {
+     "account_id": 111114687.0,
+     "n_games": 523,
+     "rate": 319.67304,
+     "empirical_sd": 66.873517,
+     "poisson_sd": 17.879403,
+     "ratio": 3.740255
+    },
+    {
+     "account_id": 111620041.0,
+     "n_games": 575,
+     "rate": 596.295652,
+     "empirical_sd": 116.031773,
+     "poisson_sd": 24.419166,
+     "ratio": 4.751668
+    },
+    {
+     "account_id": 118134220.0,
+     "n_games": 537,
+     "rate": 527.206704,
+     "empirical_sd": 97.276399,
+     "poisson_sd": 22.960982,
+     "ratio": 4.236596
+    },
+    {
+     "account_id": 123787715.0,
+     "n_games": 659,
+     "rate": 339.679818,
+     "empirical_sd": 73.112931,
+     "poisson_sd": 18.430405,
+     "ratio": 3.966974
+    },
+    {
+     "account_id": 124801257.0,
+     "n_games": 737,
+     "rate": 722.350068,
+     "empirical_sd": 115.526487,
+     "poisson_sd": 26.876571,
+     "ratio": 4.298409
+    },
+    {
+     "account_id": 126842529.0,
+     "n_games": 688,
+     "rate": 556.453488,
+     "empirical_sd": 98.050076,
+     "poisson_sd": 23.589266,
+     "ratio": 4.156555
+    },
+    {
+     "account_id": 129958758.0,
+     "n_games": 637,
+     "rate": 549.232339,
+     "empirical_sd": 93.711467,
+     "poisson_sd": 23.435706,
+     "ratio": 3.998662
+    },
+    {
+     "account_id": 132309493.0,
+     "n_games": 250,
+     "rate": 555.3,
+     "empirical_sd": 98.93149,
+     "poisson_sd": 23.564804,
+     "ratio": 4.198273
+    },
+    {
+     "account_id": 136829091.0,
+     "n_games": 796,
+     "rate": 340.933417,
+     "empirical_sd": 69.203205,
+     "poisson_sd": 18.464382,
+     "ratio": 3.74793
+    },
+    {
+     "account_id": 137129583.0,
+     "n_games": 649,
+     "rate": 595.038521,
+     "empirical_sd": 96.579527,
+     "poisson_sd": 24.393411,
+     "ratio": 3.959246
+    },
+    {
+     "account_id": 138880576.0,
+     "n_games": 665,
+     "rate": 530.792481,
+     "empirical_sd": 96.99661,
+     "poisson_sd": 23.038934,
+     "ratio": 4.210117
+    },
+    {
+     "account_id": 140251702.0,
+     "n_games": 489,
+     "rate": 583.650307,
+     "empirical_sd": 100.937219,
+     "poisson_sd": 24.158856,
+     "ratio": 4.178063
+    },
+    {
+     "account_id": 145065875.0,
+     "n_games": 304,
+     "rate": 331.907895,
+     "empirical_sd": 71.389542,
+     "poisson_sd": 18.21834,
+     "ratio": 3.918554
+    },
+    {
+     "account_id": 145957968.0,
+     "n_games": 370,
+     "rate": 520.416216,
+     "empirical_sd": 89.925924,
+     "poisson_sd": 22.812633,
+     "ratio": 3.941935
+    },
+    {
+     "account_id": 150961567.0,
+     "n_games": 455,
+     "rate": 344.956044,
+     "empirical_sd": 66.936539,
+     "poisson_sd": 18.572992,
+     "ratio": 3.603972
+    },
+    {
+     "account_id": 152168157.0,
+     "n_games": 674,
+     "rate": 323.041543,
+     "empirical_sd": 63.800474,
+     "poisson_sd": 17.973356,
+     "ratio": 3.549725
+    },
+    {
+     "account_id": 152962063.0,
+     "n_games": 789,
+     "rate": 696.114068,
+     "empirical_sd": 119.727492,
+     "poisson_sd": 26.383974,
+     "ratio": 4.537887
+    },
+    {
+     "account_id": 154974246.0,
+     "n_games": 511,
+     "rate": 597.105675,
+     "empirical_sd": 105.043579,
+     "poisson_sd": 24.435746,
+     "ratio": 4.298767
+    },
+    {
+     "account_id": 155494381.0,
+     "n_games": 552,
+     "rate": 331.291667,
+     "empirical_sd": 74.897559,
+     "poisson_sd": 18.201419,
+     "ratio": 4.11493
+    },
+    {
+     "account_id": 157475523.0,
+     "n_games": 473,
+     "rate": 366.171247,
+     "empirical_sd": 86.374494,
+     "poisson_sd": 19.135602,
+     "ratio": 4.513811
+    },
+    {
+     "account_id": 160119017.0,
+     "n_games": 654,
+     "rate": 546.389908,
+     "empirical_sd": 111.441134,
+     "poisson_sd": 23.374985,
+     "ratio": 4.767538
+    },
+    {
+     "account_id": 164199202.0,
+     "n_games": 764,
+     "rate": 355.479058,
+     "empirical_sd": 75.587352,
+     "poisson_sd": 18.854152,
+     "ratio": 4.009056
+    },
+    {
+     "account_id": 165564598.0,
+     "n_games": 785,
+     "rate": 543.496815,
+     "empirical_sd": 87.740807,
+     "poisson_sd": 23.313018,
+     "ratio": 3.763597
+    },
+    {
+     "account_id": 170896543.0,
+     "n_games": 346,
+     "rate": 705.34104,
+     "empirical_sd": 130.618015,
+     "poisson_sd": 26.558257,
+     "ratio": 4.91817
+    },
+    {
+     "account_id": 171262902.0,
+     "n_games": 697,
+     "rate": 699.185079,
+     "empirical_sd": 123.133065,
+     "poisson_sd": 26.442108,
+     "ratio": 4.656704
+    },
+    {
+     "account_id": 172099728.0,
+     "n_games": 553,
+     "rate": 709.45208,
+     "empirical_sd": 133.614176,
+     "poisson_sd": 26.635542,
+     "ratio": 5.016387
+    },
+    {
+     "account_id": 173978074.0,
+     "n_games": 640,
+     "rate": 579.767187,
+     "empirical_sd": 103.393412,
+     "poisson_sd": 24.078355,
+     "ratio": 4.29404
+    },
+    {
+     "account_id": 177203952.0,
+     "n_games": 763,
+     "rate": 688.432503,
+     "empirical_sd": 130.927337,
+     "poisson_sd": 26.237997,
+     "ratio": 4.98999
+    },
+    {
+     "account_id": 183719386.0,
+     "n_games": 809,
+     "rate": 596.845488,
+     "empirical_sd": 107.107606,
+     "poisson_sd": 24.430421,
+     "ratio": 4.38419
+    },
+    {
+     "account_id": 191362875.0,
+     "n_games": 490,
+     "rate": 359.906122,
+     "empirical_sd": 97.420259,
+     "poisson_sd": 18.971192,
+     "ratio": 5.135168
+    },
+    {
+     "account_id": 195108598.0,
+     "n_games": 544,
+     "rate": 567.786765,
+     "empirical_sd": 95.72414,
+     "poisson_sd": 23.828277,
+     "ratio": 4.01725
+    },
+    {
+     "account_id": 196878136.0,
+     "n_games": 770,
+     "rate": 335.081818,
+     "empirical_sd": 71.626123,
+     "poisson_sd": 18.30524,
+     "ratio": 3.912875
+    },
+    {
+     "account_id": 201358612.0,
+     "n_games": 810,
+     "rate": 601.844444,
+     "empirical_sd": 102.647213,
+     "poisson_sd": 24.532518,
+     "ratio": 4.184129
+    },
+    {
+     "account_id": 206642367.0,
+     "n_games": 385,
+     "rate": 687.32987,
+     "empirical_sd": 120.502605,
+     "poisson_sd": 26.216977,
+     "ratio": 4.596358
+    },
+    {
+     "account_id": 210053851.0,
+     "n_games": 691,
+     "rate": 629.021708,
+     "empirical_sd": 113.516051,
+     "poisson_sd": 25.080305,
+     "ratio": 4.526103
+    },
+    {
+     "account_id": 218231587.0,
+     "n_games": 355,
+     "rate": 334.464789,
+     "empirical_sd": 66.458863,
+     "poisson_sd": 18.288379,
+     "ratio": 3.63394
+    },
+    {
+     "account_id": 249835593.0,
+     "n_games": 350,
+     "rate": 324.894286,
+     "empirical_sd": 70.536363,
+     "poisson_sd": 18.024824,
+     "ratio": 3.91329
+    },
+    {
+     "account_id": 256156323.0,
+     "n_games": 724,
+     "rate": 324.412983,
+     "empirical_sd": 61.914338,
+     "poisson_sd": 18.011468,
+     "ratio": 3.437495
+    },
+    {
+     "account_id": 292921272.0,
+     "n_games": 739,
+     "rate": 573.866035,
+     "empirical_sd": 111.620763,
+     "poisson_sd": 23.955501,
+     "ratio": 4.659504
+    },
+    {
+     "account_id": 301750126.0,
+     "n_games": 581,
+     "rate": 604.817556,
+     "empirical_sd": 102.912288,
+     "poisson_sd": 24.593039,
+     "ratio": 4.18461
+    },
+    {
+     "account_id": 302214028.0,
+     "n_games": 640,
+     "rate": 553.376562,
+     "empirical_sd": 90.988746,
+     "poisson_sd": 23.523957,
+     "ratio": 3.867918
+    },
+    {
+     "account_id": 312436974.0,
+     "n_games": 685,
+     "rate": 562.19708,
+     "empirical_sd": 92.56111,
+     "poisson_sd": 23.710695,
+     "ratio": 3.90377
+    },
+    {
+     "account_id": 315272623.0,
+     "n_games": 331,
+     "rate": 555.97281,
+     "empirical_sd": 96.300583,
+     "poisson_sd": 23.579076,
+     "ratio": 4.084154
+    },
+    {
+     "account_id": 317880638.0,
+     "n_games": 785,
+     "rate": 332.612739,
+     "empirical_sd": 65.746462,
+     "poisson_sd": 18.237674,
+     "ratio": 3.604981
+    },
+    {
+     "account_id": 320017600.0,
+     "n_games": 482,
+     "rate": 740.427386,
+     "empirical_sd": 140.551068,
+     "poisson_sd": 27.210795,
+     "ratio": 5.165269
+    },
+    {
+     "account_id": 320219866.0,
+     "n_games": 618,
+     "rate": 347.97411,
+     "empirical_sd": 66.200442,
+     "poisson_sd": 18.654064,
+     "ratio": 3.548848
+    },
+    {
+     "account_id": 320252024.0,
+     "n_games": 525,
+     "rate": 716.251429,
+     "empirical_sd": 119.635426,
+     "poisson_sd": 26.762874,
+     "ratio": 4.470201
+    },
+    {
+     "account_id": 321580662.0,
+     "n_games": 663,
+     "rate": 736.410256,
+     "empirical_sd": 126.407666,
+     "poisson_sd": 27.13688,
+     "ratio": 4.65815
+    },
+    {
+     "account_id": 324277900.0,
+     "n_games": 542,
+     "rate": 568.332103,
+     "empirical_sd": 98.766198,
+     "poisson_sd": 23.839717,
+     "ratio": 4.142927
+    },
+    {
+     "account_id": 331855530.0,
+     "n_games": 725,
+     "rate": 746.88,
+     "empirical_sd": 118.386042,
+     "poisson_sd": 27.329105,
+     "ratio": 4.331867
+    },
+    {
+     "account_id": 346412363.0,
+     "n_games": 610,
+     "rate": 334.286885,
+     "empirical_sd": 69.383975,
+     "poisson_sd": 18.283514,
+     "ratio": 3.794893
+    },
+    {
+     "account_id": 355168766.0,
+     "n_games": 506,
+     "rate": 686.250988,
+     "empirical_sd": 130.974694,
+     "poisson_sd": 26.196393,
+     "ratio": 4.999723
+    },
+    {
+     "account_id": 480412663.0,
+     "n_games": 705,
+     "rate": 603.207092,
+     "empirical_sd": 96.361327,
+     "poisson_sd": 24.560275,
+     "ratio": 3.923463
+    },
+    {
+     "account_id": 847565596.0,
+     "n_games": 698,
+     "rate": 332.687679,
+     "empirical_sd": 65.736288,
+     "poisson_sd": 18.239728,
+     "ratio": 3.604017
+    },
+    {
+     "account_id": 898455820.0,
+     "n_games": 739,
+     "rate": 599.124493,
+     "empirical_sd": 103.037569,
+     "poisson_sd": 24.47702,
+     "ratio": 4.209564
+    },
+    {
+     "account_id": 898754153.0,
+     "n_games": 753,
+     "rate": 720.739708,
+     "empirical_sd": 128.986139,
+     "poisson_sd": 26.846596,
+     "ratio": 4.804562
+    },
+    {
+     "account_id": 1026694469.0,
+     "n_games": 544,
+     "rate": 593.216912,
+     "empirical_sd": 108.520966,
+     "poisson_sd": 24.356045,
+     "ratio": 4.455607
+    },
+    {
+     "account_id": 1044002267.0,
+     "n_games": 801,
+     "rate": 767.10362,
+     "empirical_sd": 132.955897,
+     "poisson_sd": 27.696636,
+     "ratio": 4.800435
+    }
+   ]
+  },
+  "stuns": {
+   "ratio_mean": 5.941932,
+   "ratio_median": 5.89527,
+   "n_players": 80,
+   "per_player": [
+    {
+     "account_id": 10366616.0,
+     "n_games": 805,
+     "rate": 25.29967,
+     "empirical_sd": 29.905949,
+     "poisson_sd": 5.029878,
+     "ratio": 5.945661
+    },
+    {
+     "account_id": 16497807.0,
+     "n_games": 729,
+     "rate": 39.806189,
+     "empirical_sd": 41.902663,
+     "poisson_sd": 6.309215,
+     "ratio": 6.641502
+    },
+    {
+     "account_id": 25907144.0,
+     "n_games": 805,
+     "rate": 44.764395,
+     "empirical_sd": 33.823611,
+     "poisson_sd": 6.69062,
+     "ratio": 5.055378
+    },
+    {
+     "account_id": 56351509.0,
+     "n_games": 677,
+     "rate": 32.813503,
+     "empirical_sd": 38.011212,
+     "poisson_sd": 5.728307,
+     "ratio": 6.63568
+    },
+    {
+     "account_id": 73401082.0,
+     "n_games": 734,
+     "rate": 21.963319,
+     "empirical_sd": 24.96345,
+     "poisson_sd": 4.686504,
+     "ratio": 5.326668
+    },
+    {
+     "account_id": 77490514.0,
+     "n_games": 787,
+     "rate": 48.218102,
+     "empirical_sd": 39.809677,
+     "poisson_sd": 6.943926,
+     "ratio": 5.733022
+    },
+    {
+     "account_id": 81306398.0,
+     "n_games": 728,
+     "rate": 29.092055,
+     "empirical_sd": 29.941222,
+     "poisson_sd": 5.393705,
+     "ratio": 5.551142
+    },
+    {
+     "account_id": 86698277.0,
+     "n_games": 814,
+     "rate": 27.566661,
+     "empirical_sd": 26.178656,
+     "poisson_sd": 5.250396,
+     "ratio": 4.986034
+    },
+    {
+     "account_id": 90423751.0,
+     "n_games": 644,
+     "rate": 45.41283,
+     "empirical_sd": 43.698571,
+     "poisson_sd": 6.738904,
+     "ratio": 6.484522
+    },
+    {
+     "account_id": 92487440.0,
+     "n_games": 389,
+     "rate": 48.329821,
+     "empirical_sd": 46.128186,
+     "poisson_sd": 6.951965,
+     "ratio": 6.635273
+    },
+    {
+     "account_id": 93618577.0,
+     "n_games": 775,
+     "rate": 45.482988,
+     "empirical_sd": 45.631964,
+     "poisson_sd": 6.744108,
+     "ratio": 6.766198
+    },
+    {
+     "account_id": 93817671.0,
+     "n_games": 573,
+     "rate": 24.938415,
+     "empirical_sd": 26.04665,
+     "poisson_sd": 4.993838,
+     "ratio": 5.215758
+    },
+    {
+     "account_id": 94296097.0,
+     "n_games": 570,
+     "rate": 22.300269,
+     "empirical_sd": 25.983937,
+     "poisson_sd": 4.722316,
+     "ratio": 5.502371
+    },
+    {
+     "account_id": 97590558.0,
+     "n_games": 729,
+     "rate": 35.469609,
+     "empirical_sd": 40.686739,
+     "poisson_sd": 5.955637,
+     "ratio": 6.831635
+    },
+    {
+     "account_id": 100058342.0,
+     "n_games": 802,
+     "rate": 26.850263,
+     "empirical_sd": 26.335228,
+     "poisson_sd": 5.181724,
+     "ratio": 5.082329
+    },
+    {
+     "account_id": 100594231.0,
+     "n_games": 543,
+     "rate": 25.685208,
+     "empirical_sd": 28.661389,
+     "poisson_sd": 5.068058,
+     "ratio": 5.655301
+    },
+    {
+     "account_id": 101356886.0,
+     "n_games": 556,
+     "rate": 31.716989,
+     "empirical_sd": 46.633754,
+     "poisson_sd": 5.631784,
+     "ratio": 8.280459
+    },
+    {
+     "account_id": 101695162.0,
+     "n_games": 421,
+     "rate": 55.76728,
+     "empirical_sd": 41.851874,
+     "poisson_sd": 7.467749,
+     "ratio": 5.604349
+    },
+    {
+     "account_id": 103735745.0,
+     "n_games": 612,
+     "rate": 42.084738,
+     "empirical_sd": 38.340569,
+     "poisson_sd": 6.487275,
+     "ratio": 5.910119
+    },
+    {
+     "account_id": 105045291.0,
+     "n_games": 466,
+     "rate": 51.462623,
+     "empirical_sd": 40.605643,
+     "poisson_sd": 7.173745,
+     "ratio": 5.660313
+    },
+    {
+     "account_id": 106305042.0,
+     "n_games": 714,
+     "rate": 38.634849,
+     "empirical_sd": 38.814566,
+     "poisson_sd": 6.215694,
+     "ratio": 6.244607
+    },
+    {
+     "account_id": 106573901.0,
+     "n_games": 742,
+     "rate": 36.738701,
+     "empirical_sd": 39.70266,
+     "poisson_sd": 6.061246,
+     "ratio": 6.550247
+    },
+    {
+     "account_id": 111114687.0,
+     "n_games": 521,
+     "rate": 24.510395,
+     "empirical_sd": 26.375531,
+     "poisson_sd": 4.950797,
+     "ratio": 5.327532
+    },
+    {
+     "account_id": 111620041.0,
+     "n_games": 574,
+     "rate": 34.943664,
+     "empirical_sd": 38.943561,
+     "poisson_sd": 5.911317,
+     "ratio": 6.587967
+    },
+    {
+     "account_id": 118134220.0,
+     "n_games": 535,
+     "rate": 33.332244,
+     "empirical_sd": 33.813075,
+     "poisson_sd": 5.773408,
+     "ratio": 5.856692
+    },
+    {
+     "account_id": 123787715.0,
+     "n_games": 658,
+     "rate": 25.514793,
+     "empirical_sd": 25.92283,
+     "poisson_sd": 5.051217,
+     "ratio": 5.131997
+    },
+    {
+     "account_id": 124801257.0,
+     "n_games": 737,
+     "rate": 21.701771,
+     "empirical_sd": 23.14661,
+     "poisson_sd": 4.658516,
+     "ratio": 4.968666
+    },
+    {
+     "account_id": 126842529.0,
+     "n_games": 687,
+     "rate": 32.027421,
+     "empirical_sd": 29.644743,
+     "poisson_sd": 5.659277,
+     "ratio": 5.238256
+    },
+    {
+     "account_id": 129958758.0,
+     "n_games": 637,
+     "rate": 38.567463,
+     "empirical_sd": 36.497057,
+     "poisson_sd": 6.210271,
+     "ratio": 5.876887
+    },
+    {
+     "account_id": 132309493.0,
+     "n_games": 250,
+     "rate": 33.291185,
+     "empirical_sd": 42.197967,
+     "poisson_sd": 5.769851,
+     "ratio": 7.313528
+    },
+    {
+     "account_id": 136829091.0,
+     "n_games": 795,
+     "rate": 29.010794,
+     "empirical_sd": 30.401549,
+     "poisson_sd": 5.386167,
+     "ratio": 5.644376
+    },
+    {
+     "account_id": 137129583.0,
+     "n_games": 648,
+     "rate": 25.737968,
+     "empirical_sd": 30.19919,
+     "poisson_sd": 5.07326,
+     "ratio": 5.95262
+    },
+    {
+     "account_id": 138880576.0,
+     "n_games": 663,
+     "rate": 35.100761,
+     "empirical_sd": 39.921868,
+     "poisson_sd": 5.92459,
+     "ratio": 6.738335
+    },
+    {
+     "account_id": 140251702.0,
+     "n_games": 488,
+     "rate": 34.200446,
+     "empirical_sd": 38.936427,
+     "poisson_sd": 5.848115,
+     "ratio": 6.657945
+    },
+    {
+     "account_id": 145065875.0,
+     "n_games": 303,
+     "rate": 42.651611,
+     "empirical_sd": 49.803994,
+     "poisson_sd": 6.53082,
+     "ratio": 7.625994
+    },
+    {
+     "account_id": 145957968.0,
+     "n_games": 369,
+     "rate": 29.330933,
+     "empirical_sd": 31.521403,
+     "poisson_sd": 5.415804,
+     "ratio": 5.820263
+    },
+    {
+     "account_id": 150961567.0,
+     "n_games": 455,
+     "rate": 40.676217,
+     "empirical_sd": 40.130326,
+     "poisson_sd": 6.377791,
+     "ratio": 6.292198
+    },
+    {
+     "account_id": 152168157.0,
+     "n_games": 672,
+     "rate": 55.840937,
+     "empirical_sd": 49.442337,
+     "poisson_sd": 7.472679,
+     "ratio": 6.616414
+    },
+    {
+     "account_id": 152962063.0,
+     "n_games": 789,
+     "rate": 21.797534,
+     "empirical_sd": 23.907508,
+     "poisson_sd": 4.668783,
+     "ratio": 5.120715
+    },
+    {
+     "account_id": 154974246.0,
+     "n_games": 510,
+     "rate": 29.373532,
+     "empirical_sd": 31.870324,
+     "poisson_sd": 5.419735,
+     "ratio": 5.880421
+    },
+    {
+     "account_id": 155494381.0,
+     "n_games": 552,
+     "rate": 45.283001,
+     "empirical_sd": 40.418648,
+     "poisson_sd": 6.729265,
+     "ratio": 6.006399
+    },
+    {
+     "account_id": 157475523.0,
+     "n_games": 472,
+     "rate": 53.929242,
+     "empirical_sd": 56.843102,
+     "poisson_sd": 7.343653,
+     "ratio": 7.740439
+    },
+    {
+     "account_id": 160119017.0,
+     "n_games": 652,
+     "rate": 33.482623,
+     "empirical_sd": 35.793168,
+     "poisson_sd": 5.786417,
+     "ratio": 6.185722
+    },
+    {
+     "account_id": 164199202.0,
+     "n_games": 764,
+     "rate": 43.987367,
+     "empirical_sd": 43.682231,
+     "poisson_sd": 6.632297,
+     "ratio": 6.58629
+    },
+    {
+     "account_id": 165564598.0,
+     "n_games": 784,
+     "rate": 33.320031,
+     "empirical_sd": 30.608858,
+     "poisson_sd": 5.772351,
+     "ratio": 5.302668
+    },
+    {
+     "account_id": 170896543.0,
+     "n_games": 346,
+     "rate": 14.552677,
+     "empirical_sd": 17.439926,
+     "poisson_sd": 3.814797,
+     "ratio": 4.571652
+    },
+    {
+     "account_id": 171262902.0,
+     "n_games": 695,
+     "rate": 17.369398,
+     "empirical_sd": 23.102363,
+     "poisson_sd": 4.167661,
+     "ratio": 5.543244
+    },
+    {
+     "account_id": 172099728.0,
+     "n_games": 551,
+     "rate": 19.724649,
+     "empirical_sd": 21.186787,
+     "poisson_sd": 4.441244,
+     "ratio": 4.770462
+    },
+    {
+     "account_id": 173978074.0,
+     "n_games": 640,
+     "rate": 37.381999,
+     "empirical_sd": 43.896389,
+     "poisson_sd": 6.114082,
+     "ratio": 7.179555
+    },
+    {
+     "account_id": 177203952.0,
+     "n_games": 762,
+     "rate": 23.321824,
+     "empirical_sd": 25.345545,
+     "poisson_sd": 4.829267,
+     "ratio": 5.248321
+    },
+    {
+     "account_id": 183719386.0,
+     "n_games": 809,
+     "rate": 27.738173,
+     "empirical_sd": 34.3553,
+     "poisson_sd": 5.266704,
+     "ratio": 6.523112
+    },
+    {
+     "account_id": 191362875.0,
+     "n_games": 489,
+     "rate": 21.461166,
+     "empirical_sd": 25.806862,
+     "poisson_sd": 4.63262,
+     "ratio": 5.570684
+    },
+    {
+     "account_id": 195108598.0,
+     "n_games": 542,
+     "rate": 38.57723,
+     "empirical_sd": 39.938703,
+     "poisson_sd": 6.211057,
+     "ratio": 6.430259
+    },
+    {
+     "account_id": 196878136.0,
+     "n_games": 769,
+     "rate": 37.07386,
+     "empirical_sd": 33.470372,
+     "poisson_sd": 6.088831,
+     "ratio": 5.497011
+    },
+    {
+     "account_id": 201358612.0,
+     "n_games": 810,
+     "rate": 36.047445,
+     "empirical_sd": 42.127009,
+     "poisson_sd": 6.003952,
+     "ratio": 7.016546
+    },
+    {
+     "account_id": 206642367.0,
+     "n_games": 385,
+     "rate": 21.22174,
+     "empirical_sd": 23.990398,
+     "poisson_sd": 4.606706,
+     "ratio": 5.207712
+    },
+    {
+     "account_id": 210053851.0,
+     "n_games": 691,
+     "rate": 28.342105,
+     "empirical_sd": 33.147597,
+     "poisson_sd": 5.32373,
+     "ratio": 6.226385
+    },
+    {
+     "account_id": 218231587.0,
+     "n_games": 354,
+     "rate": 46.060545,
+     "empirical_sd": 42.800545,
+     "poisson_sd": 6.786792,
+     "ratio": 6.306447
+    },
+    {
+     "account_id": 249835593.0,
+     "n_games": 350,
+     "rate": 25.350075,
+     "empirical_sd": 24.656302,
+     "poisson_sd": 5.034886,
+     "ratio": 4.897093
+    },
+    {
+     "account_id": 256156323.0,
+     "n_games": 724,
+     "rate": 60.988223,
+     "empirical_sd": 50.977293,
+     "poisson_sd": 7.809496,
+     "ratio": 6.527604
+    },
+    {
+     "account_id": 292921272.0,
+     "n_games": 738,
+     "rate": 36.633142,
+     "empirical_sd": 35.903132,
+     "poisson_sd": 6.052532,
+     "ratio": 5.931919
+    },
+    {
+     "account_id": 301750126.0,
+     "n_games": 580,
+     "rate": 28.903116,
+     "empirical_sd": 32.370216,
+     "poisson_sd": 5.376162,
+     "ratio": 6.021064
+    },
+    {
+     "account_id": 302214028.0,
+     "n_games": 640,
+     "rate": 40.359551,
+     "empirical_sd": 34.210684,
+     "poisson_sd": 6.352917,
+     "ratio": 5.385036
+    },
+    {
+     "account_id": 312436974.0,
+     "n_games": 683,
+     "rate": 37.829548,
+     "empirical_sd": 38.317223,
+     "poisson_sd": 6.150573,
+     "ratio": 6.229862
+    },
+    {
+     "account_id": 315272623.0,
+     "n_games": 331,
+     "rate": 31.94933,
+     "empirical_sd": 34.888234,
+     "poisson_sd": 5.652374,
+     "ratio": 6.172315
+    },
+    {
+     "account_id": 317880638.0,
+     "n_games": 784,
+     "rate": 51.027877,
+     "empirical_sd": 38.743549,
+     "poisson_sd": 7.14338,
+     "ratio": 5.4237
+    },
+    {
+     "account_id": 320017600.0,
+     "n_games": 482,
+     "rate": 15.859199,
+     "empirical_sd": 19.150418,
+     "poisson_sd": 3.982361,
+     "ratio": 4.80881
+    },
+    {
+     "account_id": 320219866.0,
+     "n_games": 618,
+     "rate": 25.552907,
+     "empirical_sd": 29.4558,
+     "poisson_sd": 5.054988,
+     "ratio": 5.827076
+    },
+    {
+     "account_id": 320252024.0,
+     "n_games": 523,
+     "rate": 19.296271,
+     "empirical_sd": 20.804554,
+     "poisson_sd": 4.392752,
+     "ratio": 4.736109
+    },
+    {
+     "account_id": 321580662.0,
+     "n_games": 663,
+     "rate": 17.779032,
+     "empirical_sd": 21.082721,
+     "poisson_sd": 4.216519,
+     "ratio": 5.00003
+    },
+    {
+     "account_id": 324277900.0,
+     "n_games": 542,
+     "rate": 39.757345,
+     "empirical_sd": 43.985079,
+     "poisson_sd": 6.305343,
+     "ratio": 6.975843
+    },
+    {
+     "account_id": 331855530.0,
+     "n_games": 724,
+     "rate": 19.884789,
+     "empirical_sd": 21.495672,
+     "poisson_sd": 4.459236,
+     "ratio": 4.820483
+    },
+    {
+     "account_id": 346412363.0,
+     "n_games": 608,
+     "rate": 58.271775,
+     "empirical_sd": 48.731584,
+     "poisson_sd": 7.633595,
+     "ratio": 6.383831
+    },
+    {
+     "account_id": 355168766.0,
+     "n_games": 506,
+     "rate": 20.289773,
+     "empirical_sd": 23.63316,
+     "poisson_sd": 4.504417,
+     "ratio": 5.246663
+    },
+    {
+     "account_id": 480412663.0,
+     "n_games": 704,
+     "rate": 33.096769,
+     "empirical_sd": 34.180592,
+     "poisson_sd": 5.752979,
+     "ratio": 5.941372
+    },
+    {
+     "account_id": 847565596.0,
+     "n_games": 698,
+     "rate": 48.885748,
+     "empirical_sd": 44.474917,
+     "poisson_sd": 6.991834,
+     "ratio": 6.36098
+    },
+    {
+     "account_id": 898455820.0,
+     "n_games": 739,
+     "rate": 37.231872,
+     "empirical_sd": 40.24714,
+     "poisson_sd": 6.101793,
+     "ratio": 6.595953
+    },
+    {
+     "account_id": 898754153.0,
+     "n_games": 753,
+     "rate": 16.614881,
+     "empirical_sd": 21.168541,
+     "poisson_sd": 4.076136,
+     "ratio": 5.193287
+    },
+    {
+     "account_id": 1026694469.0,
+     "n_games": 544,
+     "rate": 34.125011,
+     "empirical_sd": 40.033657,
+     "poisson_sd": 5.841662,
+     "ratio": 6.853128
+    },
+    {
+     "account_id": 1044002267.0,
+     "n_games": 801,
+     "rate": 16.539502,
+     "empirical_sd": 20.985451,
+     "poisson_sd": 4.066879,
+     "ratio": 5.160088
+    }
+   ]
+  },
+  "teamfight_participation": {
+   "ratio_mean": 0.177457,
+   "ratio_median": 0.174015,
+   "n_players": 80,
+   "per_player": [
+    {
+     "account_id": 10366616.0,
+     "n_games": 805,
+     "rate": 0.646387,
+     "empirical_sd": 0.137997,
+     "poisson_sd": 0.803982,
+     "ratio": 0.171642
+    },
+    {
+     "account_id": 16497807.0,
+     "n_games": 729,
+     "rate": 0.703428,
+     "empirical_sd": 0.131177,
+     "poisson_sd": 0.838706,
+     "ratio": 0.156404
+    },
+    {
+     "account_id": 25907144.0,
+     "n_games": 805,
+     "rate": 0.676223,
+     "empirical_sd": 0.127308,
+     "poisson_sd": 0.822328,
+     "ratio": 0.154814
+    },
+    {
+     "account_id": 56351509.0,
+     "n_games": 677,
+     "rate": 0.64987,
+     "empirical_sd": 0.147935,
+     "poisson_sd": 0.806145,
+     "ratio": 0.183509
+    },
+    {
+     "account_id": 73401082.0,
+     "n_games": 734,
+     "rate": 0.67558,
+     "empirical_sd": 0.136199,
+     "poisson_sd": 0.821937,
+     "ratio": 0.165705
+    },
+    {
+     "account_id": 77490514.0,
+     "n_games": 787,
+     "rate": 0.685762,
+     "empirical_sd": 0.129084,
+     "poisson_sd": 0.828107,
+     "ratio": 0.155878
+    },
+    {
+     "account_id": 81306398.0,
+     "n_games": 728,
+     "rate": 0.641006,
+     "empirical_sd": 0.150193,
+     "poisson_sd": 0.800629,
+     "ratio": 0.187594
+    },
+    {
+     "account_id": 86698277.0,
+     "n_games": 814,
+     "rate": 0.646562,
+     "empirical_sd": 0.155519,
+     "poisson_sd": 0.80409,
+     "ratio": 0.193409
+    },
+    {
+     "account_id": 90423751.0,
+     "n_games": 644,
+     "rate": 0.698793,
+     "empirical_sd": 0.131744,
+     "poisson_sd": 0.835938,
+     "ratio": 0.1576
+    },
+    {
+     "account_id": 92487440.0,
+     "n_games": 389,
+     "rate": 0.652489,
+     "empirical_sd": 0.147574,
+     "poisson_sd": 0.807768,
+     "ratio": 0.182693
+    },
+    {
+     "account_id": 93618577.0,
+     "n_games": 775,
+     "rate": 0.688725,
+     "empirical_sd": 0.136011,
+     "poisson_sd": 0.829895,
+     "ratio": 0.163889
+    },
+    {
+     "account_id": 93817671.0,
+     "n_games": 573,
+     "rate": 0.676184,
+     "empirical_sd": 0.140792,
+     "poisson_sd": 0.822304,
+     "ratio": 0.171217
+    },
+    {
+     "account_id": 94296097.0,
+     "n_games": 570,
+     "rate": 0.660955,
+     "empirical_sd": 0.160675,
+     "poisson_sd": 0.812992,
+     "ratio": 0.197635
+    },
+    {
+     "account_id": 97590558.0,
+     "n_games": 729,
+     "rate": 0.615779,
+     "empirical_sd": 0.151384,
+     "poisson_sd": 0.784716,
+     "ratio": 0.192915
+    },
+    {
+     "account_id": 100058342.0,
+     "n_games": 802,
+     "rate": 0.610998,
+     "empirical_sd": 0.150469,
+     "poisson_sd": 0.781664,
+     "ratio": 0.192498
+    },
+    {
+     "account_id": 100594231.0,
+     "n_games": 543,
+     "rate": 0.670325,
+     "empirical_sd": 0.145768,
+     "poisson_sd": 0.818734,
+     "ratio": 0.17804
+    },
+    {
+     "account_id": 101356886.0,
+     "n_games": 556,
+     "rate": 0.657847,
+     "empirical_sd": 0.146461,
+     "poisson_sd": 0.811077,
+     "ratio": 0.180576
+    },
+    {
+     "account_id": 101695162.0,
+     "n_games": 421,
+     "rate": 0.70716,
+     "empirical_sd": 0.128202,
+     "poisson_sd": 0.840928,
+     "ratio": 0.152454
+    },
+    {
+     "account_id": 103735745.0,
+     "n_games": 612,
+     "rate": 0.677366,
+     "empirical_sd": 0.133336,
+     "poisson_sd": 0.823022,
+     "ratio": 0.162007
+    },
+    {
+     "account_id": 105045291.0,
+     "n_games": 466,
+     "rate": 0.676333,
+     "empirical_sd": 0.12805,
+     "poisson_sd": 0.822395,
+     "ratio": 0.155703
+    },
+    {
+     "account_id": 106305042.0,
+     "n_games": 714,
+     "rate": 0.705197,
+     "empirical_sd": 0.135075,
+     "poisson_sd": 0.83976,
+     "ratio": 0.160849
+    },
+    {
+     "account_id": 106573901.0,
+     "n_games": 742,
+     "rate": 0.726019,
+     "empirical_sd": 0.124802,
+     "poisson_sd": 0.852068,
+     "ratio": 0.146469
+    },
+    {
+     "account_id": 111114687.0,
+     "n_games": 521,
+     "rate": 0.677775,
+     "empirical_sd": 0.150446,
+     "poisson_sd": 0.823271,
+     "ratio": 0.182742
+    },
+    {
+     "account_id": 111620041.0,
+     "n_games": 574,
+     "rate": 0.707767,
+     "empirical_sd": 0.137685,
+     "poisson_sd": 0.841289,
+     "ratio": 0.16366
+    },
+    {
+     "account_id": 118134220.0,
+     "n_games": 535,
+     "rate": 0.660112,
+     "empirical_sd": 0.156783,
+     "poisson_sd": 0.812473,
+     "ratio": 0.192971
+    },
+    {
+     "account_id": 123787715.0,
+     "n_games": 658,
+     "rate": 0.666977,
+     "empirical_sd": 0.141607,
+     "poisson_sd": 0.816686,
+     "ratio": 0.173392
+    },
+    {
+     "account_id": 124801257.0,
+     "n_games": 737,
+     "rate": 0.62476,
+     "empirical_sd": 0.148289,
+     "poisson_sd": 0.790418,
+     "ratio": 0.187608
+    },
+    {
+     "account_id": 126842529.0,
+     "n_games": 687,
+     "rate": 0.665575,
+     "empirical_sd": 0.15246,
+     "poisson_sd": 0.815828,
+     "ratio": 0.186877
+    },
+    {
+     "account_id": 129958758.0,
+     "n_games": 637,
+     "rate": 0.658874,
+     "empirical_sd": 0.163943,
+     "poisson_sd": 0.81171,
+     "ratio": 0.201973
+    },
+    {
+     "account_id": 132309493.0,
+     "n_games": 250,
+     "rate": 0.680248,
+     "empirical_sd": 0.138262,
+     "poisson_sd": 0.824772,
+     "ratio": 0.167637
+    },
+    {
+     "account_id": 136829091.0,
+     "n_games": 795,
+     "rate": 0.681341,
+     "empirical_sd": 0.136099,
+     "poisson_sd": 0.825434,
+     "ratio": 0.164882
+    },
+    {
+     "account_id": 137129583.0,
+     "n_games": 648,
+     "rate": 0.710314,
+     "empirical_sd": 0.153991,
+     "poisson_sd": 0.842801,
+     "ratio": 0.182714
+    },
+    {
+     "account_id": 138880576.0,
+     "n_games": 663,
+     "rate": 0.658741,
+     "empirical_sd": 0.154844,
+     "poisson_sd": 0.811629,
+     "ratio": 0.190781
+    },
+    {
+     "account_id": 140251702.0,
+     "n_games": 488,
+     "rate": 0.704726,
+     "empirical_sd": 0.14465,
+     "poisson_sd": 0.839479,
+     "ratio": 0.17231
+    },
+    {
+     "account_id": 145065875.0,
+     "n_games": 303,
+     "rate": 0.702261,
+     "empirical_sd": 0.133819,
+     "poisson_sd": 0.83801,
+     "ratio": 0.159687
+    },
+    {
+     "account_id": 145957968.0,
+     "n_games": 369,
+     "rate": 0.69205,
+     "empirical_sd": 0.153356,
+     "poisson_sd": 0.831895,
+     "ratio": 0.184346
+    },
+    {
+     "account_id": 150961567.0,
+     "n_games": 455,
+     "rate": 0.728821,
+     "empirical_sd": 0.135354,
+     "poisson_sd": 0.85371,
+     "ratio": 0.158548
+    },
+    {
+     "account_id": 152168157.0,
+     "n_games": 672,
+     "rate": 0.682785,
+     "empirical_sd": 0.127897,
+     "poisson_sd": 0.826308,
+     "ratio": 0.154781
+    },
+    {
+     "account_id": 152962063.0,
+     "n_games": 789,
+     "rate": 0.626851,
+     "empirical_sd": 0.148347,
+     "poisson_sd": 0.791739,
+     "ratio": 0.187369
+    },
+    {
+     "account_id": 154974246.0,
+     "n_games": 510,
+     "rate": 0.718699,
+     "empirical_sd": 0.147667,
+     "poisson_sd": 0.847761,
+     "ratio": 0.174184
+    },
+    {
+     "account_id": 155494381.0,
+     "n_games": 552,
+     "rate": 0.702489,
+     "empirical_sd": 0.138308,
+     "poisson_sd": 0.838146,
+     "ratio": 0.165017
+    },
+    {
+     "account_id": 157475523.0,
+     "n_games": 472,
+     "rate": 0.712522,
+     "empirical_sd": 0.151827,
+     "poisson_sd": 0.84411,
+     "ratio": 0.179867
+    },
+    {
+     "account_id": 160119017.0,
+     "n_games": 652,
+     "rate": 0.644961,
+     "empirical_sd": 0.157751,
+     "poisson_sd": 0.803094,
+     "ratio": 0.19643
+    },
+    {
+     "account_id": 164199202.0,
+     "n_games": 764,
+     "rate": 0.660696,
+     "empirical_sd": 0.129524,
+     "poisson_sd": 0.812832,
+     "ratio": 0.15935
+    },
+    {
+     "account_id": 165564598.0,
+     "n_games": 784,
+     "rate": 0.659635,
+     "empirical_sd": 0.150917,
+     "poisson_sd": 0.812179,
+     "ratio": 0.185817
+    },
+    {
+     "account_id": 170896543.0,
+     "n_games": 346,
+     "rate": 0.639217,
+     "empirical_sd": 0.181099,
+     "poisson_sd": 0.799511,
+     "ratio": 0.226512
+    },
+    {
+     "account_id": 171262902.0,
+     "n_games": 695,
+     "rate": 0.632694,
+     "empirical_sd": 0.155121,
+     "poisson_sd": 0.79542,
+     "ratio": 0.195018
+    },
+    {
+     "account_id": 172099728.0,
+     "n_games": 551,
+     "rate": 0.609313,
+     "empirical_sd": 0.155548,
+     "poisson_sd": 0.780585,
+     "ratio": 0.199271
+    },
+    {
+     "account_id": 173978074.0,
+     "n_games": 640,
+     "rate": 0.72524,
+     "empirical_sd": 0.145899,
+     "poisson_sd": 0.85161,
+     "ratio": 0.171321
+    },
+    {
+     "account_id": 177203952.0,
+     "n_games": 762,
+     "rate": 0.644297,
+     "empirical_sd": 0.162324,
+     "poisson_sd": 0.802681,
+     "ratio": 0.202227
+    },
+    {
+     "account_id": 183719386.0,
+     "n_games": 809,
+     "rate": 0.654208,
+     "empirical_sd": 0.131043,
+     "poisson_sd": 0.808831,
+     "ratio": 0.162015
+    },
+    {
+     "account_id": 191362875.0,
+     "n_games": 489,
+     "rate": 0.636334,
+     "empirical_sd": 0.147308,
+     "poisson_sd": 0.797706,
+     "ratio": 0.184664
+    },
+    {
+     "account_id": 195108598.0,
+     "n_games": 542,
+     "rate": 0.644111,
+     "empirical_sd": 0.145708,
+     "poisson_sd": 0.802565,
+     "ratio": 0.181552
+    },
+    {
+     "account_id": 196878136.0,
+     "n_games": 769,
+     "rate": 0.655164,
+     "empirical_sd": 0.132678,
+     "poisson_sd": 0.809422,
+     "ratio": 0.163916
+    },
+    {
+     "account_id": 201358612.0,
+     "n_games": 810,
+     "rate": 0.707771,
+     "empirical_sd": 0.135062,
+     "poisson_sd": 0.841291,
+     "ratio": 0.160541
+    },
+    {
+     "account_id": 206642367.0,
+     "n_games": 385,
+     "rate": 0.589282,
+     "empirical_sd": 0.162392,
+     "poisson_sd": 0.767647,
+     "ratio": 0.211545
+    },
+    {
+     "account_id": 210053851.0,
+     "n_games": 691,
+     "rate": 0.707669,
+     "empirical_sd": 0.146245,
+     "poisson_sd": 0.841231,
+     "ratio": 0.173847
+    },
+    {
+     "account_id": 218231587.0,
+     "n_games": 354,
+     "rate": 0.682465,
+     "empirical_sd": 0.130038,
+     "poisson_sd": 0.826115,
+     "ratio": 0.157409
+    },
+    {
+     "account_id": 249835593.0,
+     "n_games": 350,
+     "rate": 0.663159,
+     "empirical_sd": 0.155109,
+     "poisson_sd": 0.814346,
+     "ratio": 0.190471
+    },
+    {
+     "account_id": 256156323.0,
+     "n_games": 724,
+     "rate": 0.669496,
+     "empirical_sd": 0.135252,
+     "poisson_sd": 0.818227,
+     "ratio": 0.165299
+    },
+    {
+     "account_id": 292921272.0,
+     "n_games": 738,
+     "rate": 0.683676,
+     "empirical_sd": 0.146944,
+     "poisson_sd": 0.826847,
+     "ratio": 0.177716
+    },
+    {
+     "account_id": 301750126.0,
+     "n_games": 580,
+     "rate": 0.700366,
+     "empirical_sd": 0.144388,
+     "poisson_sd": 0.836879,
+     "ratio": 0.172532
+    },
+    {
+     "account_id": 302214028.0,
+     "n_games": 640,
+     "rate": 0.667378,
+     "empirical_sd": 0.14066,
+     "poisson_sd": 0.816932,
+     "ratio": 0.172181
+    },
+    {
+     "account_id": 312436974.0,
+     "n_games": 683,
+     "rate": 0.702277,
+     "empirical_sd": 0.13477,
+     "poisson_sd": 0.83802,
+     "ratio": 0.16082
+    },
+    {
+     "account_id": 315272623.0,
+     "n_games": 331,
+     "rate": 0.714762,
+     "empirical_sd": 0.148789,
+     "poisson_sd": 0.845436,
+     "ratio": 0.17599
+    },
+    {
+     "account_id": 317880638.0,
+     "n_games": 784,
+     "rate": 0.727679,
+     "empirical_sd": 0.122011,
+     "poisson_sd": 0.853041,
+     "ratio": 0.143031
+    },
+    {
+     "account_id": 320017600.0,
+     "n_games": 482,
+     "rate": 0.59035,
+     "empirical_sd": 0.172233,
+     "poisson_sd": 0.768343,
+     "ratio": 0.224162
+    },
+    {
+     "account_id": 320219866.0,
+     "n_games": 618,
+     "rate": 0.663953,
+     "empirical_sd": 0.132821,
+     "poisson_sd": 0.814833,
+     "ratio": 0.163003
+    },
+    {
+     "account_id": 320252024.0,
+     "n_games": 523,
+     "rate": 0.609361,
+     "empirical_sd": 0.169097,
+     "poisson_sd": 0.780616,
+     "ratio": 0.21662
+    },
+    {
+     "account_id": 321580662.0,
+     "n_games": 663,
+     "rate": 0.604547,
+     "empirical_sd": 0.153674,
+     "poisson_sd": 0.777526,
+     "ratio": 0.197644
+    },
+    {
+     "account_id": 324277900.0,
+     "n_games": 542,
+     "rate": 0.701407,
+     "empirical_sd": 0.145879,
+     "poisson_sd": 0.8375,
+     "ratio": 0.174184
+    },
+    {
+     "account_id": 331855530.0,
+     "n_games": 724,
+     "rate": 0.62318,
+     "empirical_sd": 0.14669,
+     "poisson_sd": 0.789418,
+     "ratio": 0.185821
+    },
+    {
+     "account_id": 346412363.0,
+     "n_games": 608,
+     "rate": 0.684046,
+     "empirical_sd": 0.13004,
+     "poisson_sd": 0.827071,
+     "ratio": 0.15723
+    },
+    {
+     "account_id": 355168766.0,
+     "n_games": 506,
+     "rate": 0.625038,
+     "empirical_sd": 0.157544,
+     "poisson_sd": 0.790594,
+     "ratio": 0.199273
+    },
+    {
+     "account_id": 480412663.0,
+     "n_games": 704,
+     "rate": 0.700277,
+     "empirical_sd": 0.141351,
+     "poisson_sd": 0.836826,
+     "ratio": 0.168913
+    },
+    {
+     "account_id": 847565596.0,
+     "n_games": 698,
+     "rate": 0.695852,
+     "empirical_sd": 0.140572,
+     "poisson_sd": 0.834177,
+     "ratio": 0.168515
+    },
+    {
+     "account_id": 898455820.0,
+     "n_games": 739,
+     "rate": 0.709183,
+     "empirical_sd": 0.132978,
+     "poisson_sd": 0.84213,
+     "ratio": 0.157906
+    },
+    {
+     "account_id": 898754153.0,
+     "n_games": 753,
+     "rate": 0.605199,
+     "empirical_sd": 0.173309,
+     "poisson_sd": 0.777945,
+     "ratio": 0.222778
+    },
+    {
+     "account_id": 1026694469.0,
+     "n_games": 544,
+     "rate": 0.67092,
+     "empirical_sd": 0.142292,
+     "poisson_sd": 0.819097,
+     "ratio": 0.173718
+    },
+    {
+     "account_id": 1044002267.0,
+     "n_games": 801,
+     "rate": 0.611765,
+     "empirical_sd": 0.158377,
+     "poisson_sd": 0.782154,
+     "ratio": 0.202488
+    }
+   ]
+  }
+ },
+ "total_expected_games_ti15": 143.8774,
+ "total_player_game_slots_ti15": 1438.774,
+ "who_leads": {
+  "kills": [
+   {
+    "account_id": 1044002267,
+    "name": "Satanic",
+    "team": "TEAM VISION",
+    "prob_leads": 0.05515,
+    "rate": 8.209902,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 171262902,
+    "name": "watson",
+    "team": "Team Yandex",
+    "prob_leads": 0.04635,
+    "rate": 8.079929,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 331855530,
+    "name": "Pure",
+    "team": "Iron Wing",
+    "prob_leads": 0.04315,
+    "rate": 8.006731,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 321580662,
+    "name": "Yatoro",
+    "team": "Team Spirit",
+    "prob_leads": 0.04275,
+    "rate": 7.894716,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 177203952,
+    "name": "Yuma",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0408,
+    "rate": 8.094427,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 124801257,
+    "name": "Nightfall",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0403,
+    "rate": 7.776879,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 152962063,
+    "name": "m1CKe",
+    "team": "Team Liquid",
+    "prob_leads": 0.03855,
+    "rate": 7.853937,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 100058342,
+    "name": "skiter",
+    "team": "Team Falcons",
+    "prob_leads": 0.0317,
+    "rate": 7.047206,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 172099728,
+    "name": "Kiritych~",
+    "team": "BoomBoys",
+    "prob_leads": 0.0309,
+    "rate": 7.330034,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 93618577,
+    "name": "bzm",
+    "team": "Iron Wing",
+    "prob_leads": 0.0294,
+    "rate": 7.440445,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 206642367,
+    "name": "Ghost",
+    "team": "GamerLegion",
+    "prob_leads": 0.02835,
+    "rate": 7.629773,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 170896543,
+    "name": "YSR-04E",
+    "team": "Team Resilience",
+    "prob_leads": 0.028,
+    "rate": 7.340329,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 106573901,
+    "name": "No[o]ne-",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0271,
+    "rate": 7.384112,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 898455820,
+    "name": "Malr1ne",
+    "team": "Team Falcons",
+    "prob_leads": 0.027,
+    "rate": 7.436864,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 320252024,
+    "name": "shiro",
+    "team": "Vici Gaming",
+    "prob_leads": 0.02665,
+    "rate": 6.850859,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 111620041,
+    "name": "SumaiL",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.02635,
+    "rate": 7.432137,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 301750126,
+    "name": "Mikoto",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.02575,
+    "rate": 7.315311,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 355168766,
+    "name": "Natsumi",
+    "team": "OG",
+    "prob_leads": 0.0239,
+    "rate": 6.845793,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 106305042,
+    "name": "Larl",
+    "team": "Team Spirit",
+    "prob_leads": 0.0236,
+    "rate": 7.186839,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 210053851,
+    "name": "lorenof",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0234,
+    "rate": 7.539064,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 201358612,
+    "name": "Nisha",
+    "team": "Team Liquid",
+    "prob_leads": 0.02325,
+    "rate": 7.226123,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 480412663,
+    "name": "gpk~",
+    "team": "BoomBoys",
+    "prob_leads": 0.0232,
+    "rate": 7.108047,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 320017600,
+    "name": "ssnovv1",
+    "team": "HULIGANI",
+    "prob_leads": 0.023,
+    "rate": 7.211178,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 154974246,
+    "name": "RCY",
+    "team": "GamerLegion",
+    "prob_leads": 0.0223,
+    "rate": 7.527662,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 140251702,
+    "name": "Mirage`",
+    "team": "HULIGANI",
+    "prob_leads": 0.02095,
+    "rate": 7.52954,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 898754153,
+    "name": "Ame",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0209,
+    "rate": 6.506796,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 1026694469,
+    "name": "TaiLung",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0206,
+    "rate": 7.202997,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 312436974,
+    "name": "CHIRA_JUNIOR",
+    "team": "Team Yandex",
+    "prob_leads": 0.0194,
+    "rate": 6.701063,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 324277900,
+    "name": "Yopaj-",
+    "team": "OG",
+    "prob_leads": 0.0184,
+    "rate": 7.307804,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 137129583,
+    "name": "Xm",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0145,
+    "rate": 6.376418,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 173978074,
+    "name": "NothingToSay",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.01305,
+    "rate": 6.011335,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 315272623,
+    "name": "Echozz",
+    "team": "Team Resilience",
+    "prob_leads": 0.0121,
+    "rate": 5.825984,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 183719386,
+    "name": "ATF",
+    "team": "Team Falcons",
+    "prob_leads": 0.01115,
+    "rate": 6.38441,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 302214028,
+    "name": "Collapse",
+    "team": "Team Spirit",
+    "prob_leads": 0.009,
+    "rate": 5.361826,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 86698277,
+    "name": "33",
+    "team": "Iron Wing",
+    "prob_leads": 0.00885,
+    "rate": 5.142304,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 292921272,
+    "name": "Wisper",
+    "team": "LGD Gaming",
+    "prob_leads": 0.00885,
+    "rate": 6.075313,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 126842529,
+    "name": "Ws",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0084,
+    "rate": 5.682631,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 195108598,
+    "name": "Noticed",
+    "team": "TEAM VISION",
+    "prob_leads": 0.007,
+    "rate": 4.828642,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 97590558,
+    "name": "Ace",
+    "team": "Team Liquid",
+    "prob_leads": 0.0065,
+    "rate": 4.291771,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 138880576,
+    "name": "Davai",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.00635,
+    "rate": 5.392439,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 132309493,
+    "name": "Raven",
+    "team": "OG",
+    "prob_leads": 0.00615,
+    "rate": 4.86377,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 56351509,
+    "name": "DM",
+    "team": "Team Yandex",
+    "prob_leads": 0.0059,
+    "rate": 4.150828,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 118134220,
+    "name": "Bach",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0058,
+    "rate": 4.274723,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 165564598,
+    "name": "MieRo",
+    "team": "BoomBoys",
+    "prob_leads": 0.00565,
+    "rate": 4.740018,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 160119017,
+    "name": "Fayde",
+    "team": "GamerLegion",
+    "prob_leads": 0.0054,
+    "rate": 4.94071,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 129958758,
+    "name": "Xxs",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.00515,
+    "rate": 4.153239,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 145957968,
+    "name": "niu",
+    "team": "Team Resilience",
+    "prob_leads": 0.0048,
+    "rate": 4.543639,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 92487440,
+    "name": "Corrupted",
+    "team": "HULIGANI",
+    "prob_leads": 0.0038,
+    "rate": 4.441568,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 105045291,
+    "name": "Thiolicor",
+    "team": "LGD Gaming",
+    "prob_leads": 0.00015,
+    "rate": 3.327211,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 150961567,
+    "name": "planet",
+    "team": "Team Resilience",
+    "prob_leads": 0.0001,
+    "rate": 3.21677,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 25907144,
+    "name": "Cr1t-",
+    "team": "Team Falcons",
+    "prob_leads": 5e-05,
+    "rate": 3.392682,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 103735745,
+    "name": "Saksa",
+    "team": "Team Yandex",
+    "prob_leads": 5e-05,
+    "rate": 3.193319,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 152168157,
+    "name": "OmaR",
+    "team": "Nigma Galaxy",
+    "prob_leads": 5e-05,
+    "rate": 3.684281,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 157475523,
+    "name": "XinQ",
+    "team": "Vici Gaming",
+    "prob_leads": 5e-05,
+    "rate": 3.402485,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 256156323,
+    "name": "Mira",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0,
+    "rate": 2.98537,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 317880638,
+    "name": "Save-",
+    "team": "BoomBoys",
+    "prob_leads": 0.0,
+    "rate": 3.590651,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 346412363,
+    "name": "Ari",
+    "team": "Iron Wing",
+    "prob_leads": 0.0,
+    "rate": 3.400034,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 77490514,
+    "name": "Boxi",
+    "team": "Team Liquid",
+    "prob_leads": 0.0,
+    "rate": 3.613595,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 101695162,
+    "name": "fy",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0,
+    "rate": 3.02773,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 218231587,
+    "name": "not me",
+    "team": "Team Spirit",
+    "prob_leads": 0.0,
+    "rate": 3.882764,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 164199202,
+    "name": "9Class",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0,
+    "rate": 3.34411,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 145065875,
+    "name": "sayuw",
+    "team": "HULIGANI",
+    "prob_leads": 0.0,
+    "rate": 2.865904,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 155494381,
+    "name": "TIMS",
+    "team": "OG",
+    "prob_leads": 0.0,
+    "rate": 2.857031,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 90423751,
+    "name": "Bignum",
+    "team": "GamerLegion",
+    "prob_leads": 0.0,
+    "rate": 3.358639,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 320219866,
+    "name": "kaori",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0,
+    "rate": 3.071143,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 196878136,
+    "name": "Kataomi",
+    "team": "BoomBoys",
+    "prob_leads": 0.0,
+    "rate": 2.668532,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 136829091,
+    "name": "Whitemon",
+    "team": "Iron Wing",
+    "prob_leads": 0.0,
+    "rate": 3.084985,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 10366616,
+    "name": "Sneyking",
+    "team": "Team Falcons",
+    "prob_leads": 0.0,
+    "rate": 2.526117,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 16497807,
+    "name": "tOfu",
+    "team": "Team Liquid",
+    "prob_leads": 0.0,
+    "rate": 3.320545,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 93817671,
+    "name": "Malady",
+    "team": "Team Yandex",
+    "prob_leads": 0.0,
+    "rate": 2.704808,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 94296097,
+    "name": "xNova",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0,
+    "rate": 2.31687,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 847565596,
+    "name": "rue",
+    "team": "Team Spirit",
+    "prob_leads": 0.0,
+    "rate": 3.228295,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 73401082,
+    "name": "Dukalis",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0,
+    "rate": 2.470951,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 101356886,
+    "name": "GH",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0,
+    "rate": 2.552985,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 123787715,
+    "name": "RESPECT",
+    "team": "HULIGANI",
+    "prob_leads": 0.0,
+    "rate": 2.78855,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 249835593,
+    "name": "zzq",
+    "team": "Team Resilience",
+    "prob_leads": 0.0,
+    "rate": 2.205477,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 111114687,
+    "name": "y`",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0,
+    "rate": 2.253282,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 100594231,
+    "name": "skem",
+    "team": "OG",
+    "prob_leads": 0.0,
+    "rate": 2.584966,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 191362875,
+    "name": "Speeed",
+    "team": "GamerLegion",
+    "prob_leads": 0.0,
+    "rate": 2.799557,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 81306398,
+    "name": "KJ",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0,
+    "rate": 2.520196,
+    "n_games_ti15": 17
+   }
+  ],
+  "gold_per_min": [
+   {
+    "account_id": 1044002267,
+    "name": "Satanic",
+    "team": "TEAM VISION",
+    "prob_leads": 0.1838,
+    "rate": 766.547406,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 331855530,
+    "name": "Pure",
+    "team": "Iron Wing",
+    "prob_leads": 0.1117,
+    "rate": 746.474432,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 321580662,
+    "name": "Yatoro",
+    "team": "Team Spirit",
+    "prob_leads": 0.0938,
+    "rate": 736.003141,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 320017600,
+    "name": "ssnovv1",
+    "team": "HULIGANI",
+    "prob_leads": 0.07785,
+    "rate": 739.670808,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 124801257,
+    "name": "Nightfall",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.07475,
+    "rate": 722.179431,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 898754153,
+    "name": "Ame",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0607,
+    "rate": 720.553873,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 320252024,
+    "name": "shiro",
+    "team": "Vici Gaming",
+    "prob_leads": 0.059,
+    "rate": 716.100486,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 172099728,
+    "name": "Kiritych~",
+    "team": "BoomBoys",
+    "prob_leads": 0.057,
+    "rate": 709.418635,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 171262902,
+    "name": "watson",
+    "team": "Team Yandex",
+    "prob_leads": 0.0465,
+    "rate": 699.311137,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 170896543,
+    "name": "YSR-04E",
+    "team": "Team Resilience",
+    "prob_leads": 0.0421,
+    "rate": 705.424406,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 152962063,
+    "name": "m1CKe",
+    "team": "Team Liquid",
+    "prob_leads": 0.0392,
+    "rate": 696.255319,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 100058342,
+    "name": "skiter",
+    "team": "Team Falcons",
+    "prob_leads": 0.0308,
+    "rate": 681.217276,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 177203952,
+    "name": "Yuma",
+    "team": "LGD Gaming",
+    "prob_leads": 0.03055,
+    "rate": 688.709432,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 355168766,
+    "name": "Natsumi",
+    "team": "OG",
+    "prob_leads": 0.0282,
+    "rate": 686.706287,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 206642367,
+    "name": "Ghost",
+    "team": "GamerLegion",
+    "prob_leads": 0.02705,
+    "rate": 687.813432,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 210053851,
+    "name": "lorenof",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0049,
+    "rate": 628.120311,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 106573901,
+    "name": "No[o]ne-",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0048,
+    "rate": 618.601319,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 93618577,
+    "name": "bzm",
+    "team": "Iron Wing",
+    "prob_leads": 0.00365,
+    "rate": 615.358129,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 301750126,
+    "name": "Mikoto",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0029,
+    "rate": 604.449964,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 480412663,
+    "name": "gpk~",
+    "team": "BoomBoys",
+    "prob_leads": 0.0027,
+    "rate": 602.983902,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 898455820,
+    "name": "Malr1ne",
+    "team": "Team Falcons",
+    "prob_leads": 0.0021,
+    "rate": 599.014983,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 111620041,
+    "name": "SumaiL",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.00205,
+    "rate": 596.869724,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 106305042,
+    "name": "Larl",
+    "team": "Team Spirit",
+    "prob_leads": 0.00195,
+    "rate": 590.307997,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 201358612,
+    "name": "Nisha",
+    "team": "Team Liquid",
+    "prob_leads": 0.0017,
+    "rate": 601.663297,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 1026694469,
+    "name": "TaiLung",
+    "team": "LGD Gaming",
+    "prob_leads": 0.00165,
+    "rate": 593.353418,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 173978074,
+    "name": "NothingToSay",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.00155,
+    "rate": 580.32485,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 137129583,
+    "name": "Xm",
+    "team": "Vici Gaming",
+    "prob_leads": 0.00155,
+    "rate": 595.068554,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 154974246,
+    "name": "RCY",
+    "team": "GamerLegion",
+    "prob_leads": 0.0015,
+    "rate": 597.045303,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 324277900,
+    "name": "Yopaj-",
+    "team": "OG",
+    "prob_leads": 0.00105,
+    "rate": 569.153401,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 140251702,
+    "name": "Mirage`",
+    "team": "HULIGANI",
+    "prob_leads": 0.00095,
+    "rate": 584.204646,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 312436974,
+    "name": "CHIRA_JUNIOR",
+    "team": "Team Yandex",
+    "prob_leads": 0.00065,
+    "rate": 562.806025,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 315272623,
+    "name": "Echozz",
+    "team": "Team Resilience",
+    "prob_leads": 0.00055,
+    "rate": 557.362357,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 183719386,
+    "name": "ATF",
+    "team": "Team Falcons",
+    "prob_leads": 0.00055,
+    "rate": 596.136205,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 292921272,
+    "name": "Wisper",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0001,
+    "rate": 573.217794,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 86698277,
+    "name": "33",
+    "team": "Iron Wing",
+    "prob_leads": 5e-05,
+    "rate": 578.297601,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 195108598,
+    "name": "Noticed",
+    "team": "TEAM VISION",
+    "prob_leads": 5e-05,
+    "rate": 567.294164,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 132309493,
+    "name": "Raven",
+    "team": "OG",
+    "prob_leads": 5e-05,
+    "rate": 555.214824,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 126842529,
+    "name": "Ws",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0,
+    "rate": 556.382415,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 165564598,
+    "name": "MieRo",
+    "team": "BoomBoys",
+    "prob_leads": 0.0,
+    "rate": 543.739742,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 97590558,
+    "name": "Ace",
+    "team": "Team Liquid",
+    "prob_leads": 0.0,
+    "rate": 543.957205,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 56351509,
+    "name": "DM",
+    "team": "Team Yandex",
+    "prob_leads": 0.0,
+    "rate": 551.096808,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 129958758,
+    "name": "Xxs",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0,
+    "rate": 549.400357,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 302214028,
+    "name": "Collapse",
+    "team": "Team Spirit",
+    "prob_leads": 0.0,
+    "rate": 553.406937,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 138880576,
+    "name": "Davai",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0,
+    "rate": 531.401087,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 92487440,
+    "name": "Corrupted",
+    "team": "HULIGANI",
+    "prob_leads": 0.0,
+    "rate": 536.346581,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 145957968,
+    "name": "niu",
+    "team": "Team Resilience",
+    "prob_leads": 0.0,
+    "rate": 521.484499,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 118134220,
+    "name": "Bach",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0,
+    "rate": 528.012606,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 160119017,
+    "name": "Fayde",
+    "team": "GamerLegion",
+    "prob_leads": 0.0,
+    "rate": 546.738377,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 256156323,
+    "name": "Mira",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0,
+    "rate": 324.729724,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 317880638,
+    "name": "Save-",
+    "team": "BoomBoys",
+    "prob_leads": 0.0,
+    "rate": 332.752701,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 346412363,
+    "name": "Ari",
+    "team": "Iron Wing",
+    "prob_leads": 0.0,
+    "rate": 334.414101,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 25907144,
+    "name": "Cr1t-",
+    "team": "Team Falcons",
+    "prob_leads": 0.0,
+    "rate": 345.426723,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 77490514,
+    "name": "Boxi",
+    "team": "Team Liquid",
+    "prob_leads": 0.0,
+    "rate": 327.315757,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 103735745,
+    "name": "Saksa",
+    "team": "Team Yandex",
+    "prob_leads": 0.0,
+    "rate": 351.251773,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 101695162,
+    "name": "fy",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0,
+    "rate": 336.300919,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 218231587,
+    "name": "not me",
+    "team": "Team Spirit",
+    "prob_leads": 0.0,
+    "rate": 334.648526,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 164199202,
+    "name": "9Class",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0,
+    "rate": 354.944381,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 152168157,
+    "name": "OmaR",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0,
+    "rate": 323.42467,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 145065875,
+    "name": "sayuw",
+    "team": "HULIGANI",
+    "prob_leads": 0.0,
+    "rate": 332.36786,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 150961567,
+    "name": "planet",
+    "team": "Team Resilience",
+    "prob_leads": 0.0,
+    "rate": 344.557501,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 157475523,
+    "name": "XinQ",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0,
+    "rate": 364.95612,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 155494381,
+    "name": "TIMS",
+    "team": "OG",
+    "prob_leads": 0.0,
+    "rate": 331.611132,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 90423751,
+    "name": "Bignum",
+    "team": "GamerLegion",
+    "prob_leads": 0.0,
+    "rate": 318.108142,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 105045291,
+    "name": "Thiolicor",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0,
+    "rate": 344.851,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 320219866,
+    "name": "kaori",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0,
+    "rate": 347.763046,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 196878136,
+    "name": "Kataomi",
+    "team": "BoomBoys",
+    "prob_leads": 0.0,
+    "rate": 335.174249,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 136829091,
+    "name": "Whitemon",
+    "team": "Iron Wing",
+    "prob_leads": 0.0,
+    "rate": 340.892602,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 10366616,
+    "name": "Sneyking",
+    "team": "Team Falcons",
+    "prob_leads": 0.0,
+    "rate": 376.425007,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 16497807,
+    "name": "tOfu",
+    "team": "Team Liquid",
+    "prob_leads": 0.0,
+    "rate": 346.746996,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 93817671,
+    "name": "Malady",
+    "team": "Team Yandex",
+    "prob_leads": 0.0,
+    "rate": 333.444305,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 94296097,
+    "name": "xNova",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0,
+    "rate": 317.432316,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 847565596,
+    "name": "rue",
+    "team": "Team Spirit",
+    "prob_leads": 0.0,
+    "rate": 332.823029,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 73401082,
+    "name": "Dukalis",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0,
+    "rate": 321.674451,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 101356886,
+    "name": "GH",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0,
+    "rate": 333.385155,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 123787715,
+    "name": "RESPECT",
+    "team": "HULIGANI",
+    "prob_leads": 0.0,
+    "rate": 339.661079,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 249835593,
+    "name": "zzq",
+    "team": "Team Resilience",
+    "prob_leads": 0.0,
+    "rate": 325.492824,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 111114687,
+    "name": "y`",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0,
+    "rate": 320.11632,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 100594231,
+    "name": "skem",
+    "team": "OG",
+    "prob_leads": 0.0,
+    "rate": 358.666956,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 191362875,
+    "name": "Speeed",
+    "team": "GamerLegion",
+    "prob_leads": 0.0,
+    "rate": 358.882702,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 81306398,
+    "name": "KJ",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0,
+    "rate": 325.063244,
+    "n_games_ti15": 17
+   }
+  ],
+  "last_hits": [
+   {
+    "account_id": 1044002267,
+    "name": "Satanic",
+    "team": "TEAM VISION",
+    "prob_leads": 0.08255,
+    "rate": 498.230678,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 321580662,
+    "name": "Yatoro",
+    "team": "Team Spirit",
+    "prob_leads": 0.0728,
+    "rate": 486.409926,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 331855530,
+    "name": "Pure",
+    "team": "Iron Wing",
+    "prob_leads": 0.05735,
+    "rate": 467.54877,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 172099728,
+    "name": "Kiritych~",
+    "team": "BoomBoys",
+    "prob_leads": 0.0563,
+    "rate": 456.172156,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 898754153,
+    "name": "Ame",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0554,
+    "rate": 470.572337,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 320252024,
+    "name": "shiro",
+    "team": "Vici Gaming",
+    "prob_leads": 0.05515,
+    "rate": 464.575897,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 100058342,
+    "name": "skiter",
+    "team": "Team Falcons",
+    "prob_leads": 0.0549,
+    "rate": 434.309497,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 124801257,
+    "name": "Nightfall",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0541,
+    "rate": 451.734616,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 320017600,
+    "name": "ssnovv1",
+    "team": "HULIGANI",
+    "prob_leads": 0.0518,
+    "rate": 486.04057,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 152962063,
+    "name": "m1CKe",
+    "team": "Team Liquid",
+    "prob_leads": 0.05035,
+    "rate": 439.653981,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 171262902,
+    "name": "watson",
+    "team": "Team Yandex",
+    "prob_leads": 0.04845,
+    "rate": 420.092484,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 177203952,
+    "name": "Yuma",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0412,
+    "rate": 428.027046,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 355168766,
+    "name": "Natsumi",
+    "team": "OG",
+    "prob_leads": 0.0368,
+    "rate": 428.262819,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 170896543,
+    "name": "YSR-04E",
+    "team": "Team Resilience",
+    "prob_leads": 0.0347,
+    "rate": 417.356162,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 206642367,
+    "name": "Ghost",
+    "team": "GamerLegion",
+    "prob_leads": 0.03425,
+    "rate": 417.585011,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 111620041,
+    "name": "SumaiL",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.02195,
+    "rate": 333.092371,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 480412663,
+    "name": "gpk~",
+    "team": "BoomBoys",
+    "prob_leads": 0.0125,
+    "rate": 368.866228,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 301750126,
+    "name": "Mikoto",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0112,
+    "rate": 343.934602,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 106573901,
+    "name": "No[o]ne-",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0112,
+    "rate": 348.585646,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 201358612,
+    "name": "Nisha",
+    "team": "Team Liquid",
+    "prob_leads": 0.01095,
+    "rate": 345.264572,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 93618577,
+    "name": "bzm",
+    "team": "Iron Wing",
+    "prob_leads": 0.01075,
+    "rate": 343.046439,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 137129583,
+    "name": "Xm",
+    "team": "Vici Gaming",
+    "prob_leads": 0.01065,
+    "rate": 360.021606,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 898455820,
+    "name": "Malr1ne",
+    "team": "Team Falcons",
+    "prob_leads": 0.0105,
+    "rate": 351.401953,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 106305042,
+    "name": "Larl",
+    "team": "Team Spirit",
+    "prob_leads": 0.01015,
+    "rate": 345.382264,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 210053851,
+    "name": "lorenof",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.01005,
+    "rate": 371.007149,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 173978074,
+    "name": "NothingToSay",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.01,
+    "rate": 349.640963,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 1026694469,
+    "name": "TaiLung",
+    "team": "LGD Gaming",
+    "prob_leads": 0.00855,
+    "rate": 323.429295,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 312436974,
+    "name": "CHIRA_JUNIOR",
+    "team": "Team Yandex",
+    "prob_leads": 0.00815,
+    "rate": 304.990723,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 154974246,
+    "name": "RCY",
+    "team": "GamerLegion",
+    "prob_leads": 0.00615,
+    "rate": 316.351708,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 140251702,
+    "name": "Mirage`",
+    "team": "HULIGANI",
+    "prob_leads": 0.006,
+    "rate": 311.642466,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 315272623,
+    "name": "Echozz",
+    "team": "Team Resilience",
+    "prob_leads": 0.006,
+    "rate": 291.556692,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 324277900,
+    "name": "Yopaj-",
+    "team": "OG",
+    "prob_leads": 0.00585,
+    "rate": 297.011532,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 183719386,
+    "name": "ATF",
+    "team": "Team Falcons",
+    "prob_leads": 0.00515,
+    "rate": 345.897408,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 292921272,
+    "name": "Wisper",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0036,
+    "rate": 320.232262,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 97590558,
+    "name": "Ace",
+    "team": "Team Liquid",
+    "prob_leads": 0.00325,
+    "rate": 305.498266,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 56351509,
+    "name": "DM",
+    "team": "Team Yandex",
+    "prob_leads": 0.00325,
+    "rate": 293.369387,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 129958758,
+    "name": "Xxs",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.00325,
+    "rate": 329.679133,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 302214028,
+    "name": "Collapse",
+    "team": "Team Spirit",
+    "prob_leads": 0.00315,
+    "rate": 304.862748,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 126842529,
+    "name": "Ws",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.00275,
+    "rate": 291.411372,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 86698277,
+    "name": "33",
+    "team": "Iron Wing",
+    "prob_leads": 0.0027,
+    "rate": 305.780486,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 132309493,
+    "name": "Raven",
+    "team": "OG",
+    "prob_leads": 0.0027,
+    "rate": 303.762754,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 195108598,
+    "name": "Noticed",
+    "team": "TEAM VISION",
+    "prob_leads": 0.00245,
+    "rate": 318.784774,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 165564598,
+    "name": "MieRo",
+    "team": "BoomBoys",
+    "prob_leads": 0.00235,
+    "rate": 302.623349,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 92487440,
+    "name": "Corrupted",
+    "team": "HULIGANI",
+    "prob_leads": 0.00225,
+    "rate": 295.448017,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 138880576,
+    "name": "Davai",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0018,
+    "rate": 278.598546,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 160119017,
+    "name": "Fayde",
+    "team": "GamerLegion",
+    "prob_leads": 0.0017,
+    "rate": 278.288308,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 145957968,
+    "name": "niu",
+    "team": "Team Resilience",
+    "prob_leads": 0.00165,
+    "rate": 262.471903,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 118134220,
+    "name": "Bach",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0013,
+    "rate": 292.134486,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 256156323,
+    "name": "Mira",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0,
+    "rate": 79.192208,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 317880638,
+    "name": "Save-",
+    "team": "BoomBoys",
+    "prob_leads": 0.0,
+    "rate": 77.227892,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 346412363,
+    "name": "Ari",
+    "team": "Iron Wing",
+    "prob_leads": 0.0,
+    "rate": 82.301834,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 25907144,
+    "name": "Cr1t-",
+    "team": "Team Falcons",
+    "prob_leads": 0.0,
+    "rate": 86.862286,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 77490514,
+    "name": "Boxi",
+    "team": "Team Liquid",
+    "prob_leads": 0.0,
+    "rate": 75.592556,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 103735745,
+    "name": "Saksa",
+    "team": "Team Yandex",
+    "prob_leads": 0.0,
+    "rate": 93.89675,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 101695162,
+    "name": "fy",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0,
+    "rate": 97.913158,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 218231587,
+    "name": "not me",
+    "team": "Team Spirit",
+    "prob_leads": 0.0,
+    "rate": 75.282439,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 164199202,
+    "name": "9Class",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0,
+    "rate": 100.255075,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 152168157,
+    "name": "OmaR",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0,
+    "rate": 68.582286,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 145065875,
+    "name": "sayuw",
+    "team": "HULIGANI",
+    "prob_leads": 0.0,
+    "rate": 84.750692,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 150961567,
+    "name": "planet",
+    "team": "Team Resilience",
+    "prob_leads": 0.0,
+    "rate": 98.596142,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 157475523,
+    "name": "XinQ",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0,
+    "rate": 118.185087,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 155494381,
+    "name": "TIMS",
+    "team": "OG",
+    "prob_leads": 0.0,
+    "rate": 87.257573,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 90423751,
+    "name": "Bignum",
+    "team": "GamerLegion",
+    "prob_leads": 0.0,
+    "rate": 56.436979,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 105045291,
+    "name": "Thiolicor",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0,
+    "rate": 84.587306,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 320219866,
+    "name": "kaori",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0,
+    "rate": 87.086948,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 196878136,
+    "name": "Kataomi",
+    "team": "BoomBoys",
+    "prob_leads": 0.0,
+    "rate": 78.311541,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 136829091,
+    "name": "Whitemon",
+    "team": "Iron Wing",
+    "prob_leads": 0.0,
+    "rate": 72.721227,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 10366616,
+    "name": "Sneyking",
+    "team": "Team Falcons",
+    "prob_leads": 0.0,
+    "rate": 127.78132,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 16497807,
+    "name": "tOfu",
+    "team": "Team Liquid",
+    "prob_leads": 0.0,
+    "rate": 103.035012,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 93817671,
+    "name": "Malady",
+    "team": "Team Yandex",
+    "prob_leads": 0.0,
+    "rate": 76.617911,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 94296097,
+    "name": "xNova",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0,
+    "rate": 77.353148,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 847565596,
+    "name": "rue",
+    "team": "Team Spirit",
+    "prob_leads": 0.0,
+    "rate": 70.511181,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 73401082,
+    "name": "Dukalis",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0,
+    "rate": 60.430765,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 101356886,
+    "name": "GH",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0,
+    "rate": 81.702556,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 123787715,
+    "name": "RESPECT",
+    "team": "HULIGANI",
+    "prob_leads": 0.0,
+    "rate": 88.599984,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 249835593,
+    "name": "zzq",
+    "team": "Team Resilience",
+    "prob_leads": 0.0,
+    "rate": 71.94863,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 111114687,
+    "name": "y`",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0,
+    "rate": 68.48781,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 100594231,
+    "name": "skem",
+    "team": "OG",
+    "prob_leads": 0.0,
+    "rate": 101.633815,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 191362875,
+    "name": "Speeed",
+    "team": "GamerLegion",
+    "prob_leads": 0.0,
+    "rate": 104.553607,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 81306398,
+    "name": "KJ",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0,
+    "rate": 75.134075,
+    "n_games_ti15": 17
+   }
+  ],
+  "stuns": [
+   {
+    "account_id": 346412363,
+    "name": "Ari",
+    "team": "Iron Wing",
+    "prob_leads": 0.03975,
+    "rate": 57.705587,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 256156323,
+    "name": "Mira",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0396,
+    "rate": 60.424466,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 218231587,
+    "name": "not me",
+    "team": "Team Spirit",
+    "prob_leads": 0.03305,
+    "rate": 46.426151,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 25907144,
+    "name": "Cr1t-",
+    "team": "Team Falcons",
+    "prob_leads": 0.0324,
+    "rate": 44.907118,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 164199202,
+    "name": "9Class",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0323,
+    "rate": 44.263706,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 77490514,
+    "name": "Boxi",
+    "team": "Team Liquid",
+    "prob_leads": 0.03205,
+    "rate": 48.274348,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 101695162,
+    "name": "fy",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.03115,
+    "rate": 55.26444,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 157475523,
+    "name": "XinQ",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0309,
+    "rate": 53.315416,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 103735745,
+    "name": "Saksa",
+    "team": "Team Yandex",
+    "prob_leads": 0.03075,
+    "rate": 42.407091,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 317880638,
+    "name": "Save-",
+    "team": "BoomBoys",
+    "prob_leads": 0.03065,
+    "rate": 50.952968,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 105045291,
+    "name": "Thiolicor",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0296,
+    "rate": 51.295407,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 152168157,
+    "name": "OmaR",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.02955,
+    "rate": 55.394564,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 155494381,
+    "name": "TIMS",
+    "team": "OG",
+    "prob_leads": 0.0227,
+    "rate": 45.545152,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 90423751,
+    "name": "Bignum",
+    "team": "GamerLegion",
+    "prob_leads": 0.02225,
+    "rate": 45.668483,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 150961567,
+    "name": "planet",
+    "team": "Team Resilience",
+    "prob_leads": 0.02145,
+    "rate": 41.186765,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 145065875,
+    "name": "sayuw",
+    "team": "HULIGANI",
+    "prob_leads": 0.0208,
+    "rate": 43.618499,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 302214028,
+    "name": "Collapse",
+    "team": "Team Spirit",
+    "prob_leads": 0.01695,
+    "rate": 40.059978,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 195108598,
+    "name": "Noticed",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0166,
+    "rate": 38.203614,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 97590558,
+    "name": "Ace",
+    "team": "Team Liquid",
+    "prob_leads": 0.01485,
+    "rate": 35.379968,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 92487440,
+    "name": "Corrupted",
+    "team": "HULIGANI",
+    "prob_leads": 0.0148,
+    "rate": 47.27493,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 312436974,
+    "name": "CHIRA_JUNIOR",
+    "team": "Team Yandex",
+    "prob_leads": 0.0147,
+    "rate": 37.623841,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 93618577,
+    "name": "bzm",
+    "team": "Iron Wing",
+    "prob_leads": 0.01455,
+    "rate": 44.949722,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 56351509,
+    "name": "DM",
+    "team": "Team Yandex",
+    "prob_leads": 0.01445,
+    "rate": 32.923881,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 129958758,
+    "name": "Xxs",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.01445,
+    "rate": 38.296544,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 106305042,
+    "name": "Larl",
+    "team": "Team Spirit",
+    "prob_leads": 0.0144,
+    "rate": 38.38468,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 86698277,
+    "name": "33",
+    "team": "Iron Wing",
+    "prob_leads": 0.01405,
+    "rate": 27.714762,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 126842529,
+    "name": "Ws",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.01385,
+    "rate": 32.128496,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 292921272,
+    "name": "Wisper",
+    "team": "LGD Gaming",
+    "prob_leads": 0.01385,
+    "rate": 36.496299,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 118134220,
+    "name": "Bach",
+    "team": "Vici Gaming",
+    "prob_leads": 0.01365,
+    "rate": 33.405502,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 165564598,
+    "name": "MieRo",
+    "team": "BoomBoys",
+    "prob_leads": 0.0133,
+    "rate": 33.362881,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 173978074,
+    "name": "NothingToSay",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0132,
+    "rate": 37.14236,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 183719386,
+    "name": "ATF",
+    "team": "Team Falcons",
+    "prob_leads": 0.01275,
+    "rate": 27.989405,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 106573901,
+    "name": "No[o]ne-",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0127,
+    "rate": 36.609555,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 138880576,
+    "name": "Davai",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0125,
+    "rate": 35.036292,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 201358612,
+    "name": "Nisha",
+    "team": "Team Liquid",
+    "prob_leads": 0.01175,
+    "rate": 35.967129,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 898455820,
+    "name": "Malr1ne",
+    "team": "Team Falcons",
+    "prob_leads": 0.0113,
+    "rate": 37.063186,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 301750126,
+    "name": "Mikoto",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0112,
+    "rate": 29.211891,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 324277900,
+    "name": "Yopaj-",
+    "team": "OG",
+    "prob_leads": 0.01115,
+    "rate": 39.2575,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 480412663,
+    "name": "gpk~",
+    "team": "BoomBoys",
+    "prob_leads": 0.0111,
+    "rate": 33.212161,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 132309493,
+    "name": "Raven",
+    "team": "OG",
+    "prob_leads": 0.01085,
+    "rate": 33.50814,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 1026694469,
+    "name": "TaiLung",
+    "team": "LGD Gaming",
+    "prob_leads": 0.01075,
+    "rate": 34.218989,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 145957968,
+    "name": "niu",
+    "team": "Team Resilience",
+    "prob_leads": 0.01,
+    "rate": 29.716571,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 315272623,
+    "name": "Echozz",
+    "team": "Team Resilience",
+    "prob_leads": 0.0097,
+    "rate": 32.314504,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 160119017,
+    "name": "Fayde",
+    "team": "GamerLegion",
+    "prob_leads": 0.0097,
+    "rate": 33.540214,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 847565596,
+    "name": "rue",
+    "team": "Team Spirit",
+    "prob_leads": 0.00945,
+    "rate": 48.515113,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 210053851,
+    "name": "lorenof",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0092,
+    "rate": 28.626499,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 154974246,
+    "name": "RCY",
+    "team": "GamerLegion",
+    "prob_leads": 0.00875,
+    "rate": 29.698298,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 140251702,
+    "name": "Mirage`",
+    "team": "HULIGANI",
+    "prob_leads": 0.0087,
+    "rate": 34.290883,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 137129583,
+    "name": "Xm",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0086,
+    "rate": 26.015386,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 196878136,
+    "name": "Kataomi",
+    "team": "BoomBoys",
+    "prob_leads": 0.00825,
+    "rate": 36.914254,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 10366616,
+    "name": "Sneyking",
+    "team": "Team Falcons",
+    "prob_leads": 0.00685,
+    "rate": 25.371071,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 136829091,
+    "name": "Whitemon",
+    "team": "Iron Wing",
+    "prob_leads": 0.00675,
+    "rate": 29.014089,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 320219866,
+    "name": "kaori",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0066,
+    "rate": 25.637497,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 81306398,
+    "name": "KJ",
+    "team": "LGD Gaming",
+    "prob_leads": 0.00615,
+    "rate": 29.093777,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 16497807,
+    "name": "tOfu",
+    "team": "Team Liquid",
+    "prob_leads": 0.0061,
+    "rate": 39.504721,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 93817671,
+    "name": "Malady",
+    "team": "Team Yandex",
+    "prob_leads": 0.0061,
+    "rate": 25.020535,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 111114687,
+    "name": "y`",
+    "team": "Vici Gaming",
+    "prob_leads": 0.00605,
+    "rate": 24.610616,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 101356886,
+    "name": "GH",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0058,
+    "rate": 31.553451,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 94296097,
+    "name": "xNova",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.00555,
+    "rate": 22.419606,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 73401082,
+    "name": "Dukalis",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0054,
+    "rate": 22.05188,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 100594231,
+    "name": "skem",
+    "team": "OG",
+    "prob_leads": 0.00525,
+    "rate": 25.77321,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 123787715,
+    "name": "RESPECT",
+    "team": "HULIGANI",
+    "prob_leads": 0.0051,
+    "rate": 25.577278,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 249835593,
+    "name": "zzq",
+    "team": "Team Resilience",
+    "prob_leads": 0.0051,
+    "rate": 25.459357,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 191362875,
+    "name": "Speeed",
+    "team": "GamerLegion",
+    "prob_leads": 0.004,
+    "rate": 21.608388,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 331855530,
+    "name": "Pure",
+    "team": "Iron Wing",
+    "prob_leads": 0.002,
+    "rate": 19.90467,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 355168766,
+    "name": "Natsumi",
+    "team": "OG",
+    "prob_leads": 0.00175,
+    "rate": 20.30625,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 100058342,
+    "name": "skiter",
+    "team": "Team Falcons",
+    "prob_leads": 0.0017,
+    "rate": 26.695751,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 171262902,
+    "name": "watson",
+    "team": "Team Yandex",
+    "prob_leads": 0.0017,
+    "rate": 17.460289,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 1044002267,
+    "name": "Satanic",
+    "team": "TEAM VISION",
+    "prob_leads": 0.00165,
+    "rate": 16.617262,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 152962063,
+    "name": "m1CKe",
+    "team": "Team Liquid",
+    "prob_leads": 0.0016,
+    "rate": 21.765605,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 320252024,
+    "name": "shiro",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0016,
+    "rate": 19.340448,
+    "n_games_ti15": 18
+   },
+   {
+    "account_id": 124801257,
+    "name": "Nightfall",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.00155,
+    "rate": 21.672402,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 321580662,
+    "name": "Yatoro",
+    "team": "Team Spirit",
+    "prob_leads": 0.0015,
+    "rate": 17.85034,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 172099728,
+    "name": "Kiritych~",
+    "team": "BoomBoys",
+    "prob_leads": 0.00145,
+    "rate": 19.754896,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 111620041,
+    "name": "SumaiL",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.00145,
+    "rate": 34.427815,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 206642367,
+    "name": "Ghost",
+    "team": "GamerLegion",
+    "prob_leads": 0.00135,
+    "rate": 21.19023,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 177203952,
+    "name": "Yuma",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0013,
+    "rate": 23.239206,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 898754153,
+    "name": "Ame",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.00125,
+    "rate": 16.697834,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 320017600,
+    "name": "ssnovv1",
+    "team": "HULIGANI",
+    "prob_leads": 0.0012,
+    "rate": 15.977821,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 170896543,
+    "name": "YSR-04E",
+    "team": "Team Resilience",
+    "prob_leads": 0.00115,
+    "rate": 14.709002,
+    "n_games_ti15": 16
+   }
+  ]
+ },
+ "threshold_questions": {
+  "kills": [
+   {
+    "label": "任务原文点名示例（历史49762局里出现过20次）",
+    "threshold": 26.0,
+    "needs_gpd": false,
+    "prob_at_least_one": 0.447062,
+    "note": null
+   },
+   {
+    "label": "超出历史观测上限33的假设阈值（演示 needs_gpd 边界）",
+    "threshold": 38.0,
+    "needs_gpd": true,
+    "prob_at_least_one": null,
+    "note": "阈值超出历史观测范围，经验频率不可靠；本模块按设计不实现 GPD，如实报告为无法估计，不假装能算"
+   }
+  ],
+  "gold_per_min": [
+   {
+    "label": "Dota 社区公认的'千GPM'整数关卡（历史49762局里出现过105次）",
+    "threshold": 1000.0,
+    "needs_gpd": false,
+    "prob_at_least_one": 0.952729,
+    "note": null
+   },
+   {
+    "label": "超出历史观测上限1197的假设阈值（演示 needs_gpd 边界）",
+    "threshold": 1377.0,
+    "needs_gpd": true,
+    "prob_at_least_one": null,
+    "note": "阈值超出历史观测范围，经验频率不可靠；本模块按设计不实现 GPD，如实报告为无法估计，不假装能算"
+   }
+  ],
+  "last_hits": [
+   {
+    "label": "Dota 社区公认的'千补刀'整数关卡（历史49762局里出现过179次）",
+    "threshold": 1000.0,
+    "needs_gpd": false,
+    "prob_at_least_one": 0.994463,
+    "note": null
+   },
+   {
+    "label": "超出历史观测上限2077的假设阈值（演示 needs_gpd 边界）",
+    "threshold": 2389.0,
+    "needs_gpd": true,
+    "prob_at_least_one": null,
+    "note": "阈值超出历史观测范围，经验频率不可靠；本模块按设计不实现 GPD，如实报告为无法估计，不假装能算"
+   }
+  ],
+  "stuns": [
+   {
+    "label": "无公认整数关卡，取接近99.5分位的整数代替（历史49708局里出现过271次）",
+    "threshold": 200.0,
+    "needs_gpd": false,
+    "prob_at_least_one": 0.99962,
+    "note": null
+   },
+   {
+    "label": "超出历史观测上限702的假设阈值（演示 needs_gpd 边界）",
+    "threshold": 808.0,
+    "needs_gpd": true,
+    "prob_at_least_one": null,
+    "note": "阈值超出历史观测范围，经验频率不可靠；本模块按设计不实现 GPD，如实报告为无法估计，不假装能算"
+   }
+  ]
+ },
+ "since_ts": 1704067200,
+ "n_rows_used": 49762
+}

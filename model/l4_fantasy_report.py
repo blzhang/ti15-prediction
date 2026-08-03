@@ -109,11 +109,17 @@ def load_blob_joined_df(csv_path, blob_path, account_ids, since_ts):
     """
     df = load_player_games(csv_path, account_ids, since_ts)
     if not os.path.exists(blob_path):
-        print(f"[警告] 找不到 {blob_path}，smokes/tormentor/courier 三项将无法计算"
-              f"（需要先按 06-fantasy-rules.md §F.5 的查询重新跑一遍）", file=sys.stderr)
-        for c in ("smokes", "tormentor", "courier"):
-            df[c] = 0
-        return df
+        # 【修复【3】，见 .superpowers/sdd/fix-final-report.md】：曾经只打一句
+        # stderr 警告、把 smokes/tormentor/courier 三项全部填 0 继续跑完——
+        # 产出物看起来完全正常，没人会发现这三项计分项其实是假的。改成显式
+        # 抛异常，不允许静默降级；tests/test_l4_fantasy_report.py 的
+        # test_load_blob_joined_df_raises_when_blob_csv_missing 锁定。
+        raise FileNotFoundError(
+            "找不到 %s：smokes/tormentor/courier 三项需要这份 OpenDota JSON blob "
+            "左连接数据，缺失时不能静默填 0 继续跑——那样产出物会看起来完全正常，"
+            "但这三项计分项其实是假的。请先按 06-fantasy-rules.md §F.5 的查询"
+            "重新跑一遍生成这份文件。" % blob_path
+        )
     blob = pd.read_csv(blob_path)
     df = df.merge(blob, on=["match_id", "account_id"], how="left")
     for c in ("smokes", "tormentor", "courier"):

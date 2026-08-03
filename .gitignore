@@ -1,5 +1,13 @@
 # 数据集：350MB+，可用 fetch_pro_all.py 重新拉取
-data/
+# 用 data/* 而不是 data/：git 对「目录本身被排除」不会再进去看目录内的
+# 反向例外（!data/pro_blob_stats.csv 会被静默忽略），必须排除目录内容
+# 而不是目录本身，反向例外才生效。
+data/*
+# pro_blob_stats.csv 只有约 1.4MB（不是上面 350MB 数据集的量级），且
+# model/l4_fantasy_report.py::load_blob_joined_df 现在缺它就直接抛异常
+# 中止（见 fix-final-report.md【3】），入库避免 clone 后立刻在这道硬门上
+# 卡住；需要重新生成时仍按 06-fantasy-rules.md §F.5 的查询重新跑。
+!data/pro_blob_stats.csv
 
 # 调研过程中抓取的原始响应（体积大、可重取）
 html_*.json

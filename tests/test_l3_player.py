@@ -86,17 +86,74 @@ def test_tail_heavy_weight_still_monotone_in_sample_size():
 
 
 def test_fit_rate_model_stratifies_by_position():
+    """按号位分层：同一号位内的选手共享同一个先验均值/先验方差/局内方差池，
+    不同号位互不共享。
+
+    【测出这条测试原本测不出分层】的修复：原 fixture 每个号位只放 1 名
+    选手（{1: 1, 2: 5}），此时 prior_mean 恰好就是这名选手自己的均值、
+    between-player 方差恒为 0（`len(per_player) > 1` 为 False），收缩
+    因此几乎不动——`out[1]["rate"] > out[2]["rate"]` 这条断言测的只是
+    "谁的原始数据更高"，跟有没有真的按位置分组完全无关。评审做过变异
+    验证：把 `fit_rate_model` 内部的 `positions` 参数强制替换成
+    `{a: 1 for a in positions}`（所有人塞进同一个分组），只在返回值里把
+    真实号位塞回去，原来这条测试的三条断言照样全部通过（见
+    .superpowers/sdd/fix-final-report.md 的复现记录）。
+
+    改法：每个号位放 2 名选手，1 号位「核心」两人 Poisson 均值高
+    （20/22，局内方差天生也大，量级~20+）、5 号位「辅助」两人均值低
+    （2/3，局内方差天生也小，量级~2-3）——现在两个号位都满足
+    `len(per_player) > 1`，between-player 方差不再恒为 0，分层是否
+    生效会真正改变每个号位的先验均值与局内方差池。
+
+    核心断言：用同一份 df，只把 `positions` 参数从「真实分组」换成
+    上面那条变异会在内部强制产生的「collapsed」分组（`{a: 1 for a in
+    positions}`——四名选手全部映射到同一个组），5 号位两名选手的 se
+    必须显著变大。原因：他们本来很稳的低局内方差，被错误地并进 1 号位
+    两名高方差选手的方差池里估计，方差被稀释/抬高，不确定性遭到虚报。
+    这个手法直接对应上面那条变异——如果实现真的做了那个替换，「用真实
+    positions 调一次」在数值上会等同于「用这里构造的 collapsed_positions
+    调一次」（内部分组已经一样），下面的断言就会失败。
+
+    变异验证的真实输出（.superpowers/sdd/fix-final-report.md 完整记录）：
+    seed=0、每人 10 局时，5 号位两名选手 real se≈0.527/0.527，
+    collapsed se≈1.062/1.062，比值≈0.496——把 model/l3_player.py 里的
+    `fit_rate_model` 临时改成上述变异后重跑这条测试，两次调用数值完全
+    相同，下面的 `< 0.7 *` 断言按预期变红。
+    """
     rng = np.random.default_rng(0)
     rows = []
-    for acct, pos, lam in [(1, 1, 9.0), (2, 5, 3.0)]:
-        for g in range(40):
-            rows.append({"account_id": acct, "match_id": g, "position": pos,
-                         "kills": rng.poisson(lam), "duration_min": 38.0})
+    # 1 号位「核心」：高产出、Poisson 方差本身就大（~20-22）
+    for acct, lam in [(1, 20.0), (2, 22.0)]:
+        for g in range(10):
+            rows.append({"account_id": acct, "match_id": f"{acct}-{g}", "position": 1,
+                         "kills": rng.poisson(lam)})
+    # 5 号位「辅助」：低产出、Poisson 方差本身就小（~2-3）
+    for acct, lam in [(3, 2.0), (4, 3.0)]:
+        for g in range(10):
+            rows.append({"account_id": acct, "match_id": f"{acct}-{g}", "position": 5,
+                         "kills": rng.poisson(lam)})
     df = pd.DataFrame(rows)
-    out = fit_rate_model(df, "kills", positions={1: 1, 2: 5})
-    assert out[1]["rate"] > out[2]["rate"], "1 号位击杀率应显著高于 5 号位"
-    assert out[1]["position"] == 1 and out[2]["position"] == 5
-    assert out[1]["n_games"] == 40
+
+    real_positions = {1: 1, 2: 1, 3: 5, 4: 5}
+    out = fit_rate_model(df, "kills", positions=real_positions)
+
+    # 基本正确性（原测试的精神保留）：号位标签、样本量、核心击杀率高于辅助
+    assert out[1]["position"] == 1 and out[2]["position"] == 1
+    assert out[3]["position"] == 5 and out[4]["position"] == 5
+    assert out[1]["n_games"] == 10 and out[3]["n_games"] == 10
+    assert out[1]["rate"] > out[3]["rate"], "1 号位击杀率应显著高于 5 号位"
+
+    # 核心：分层 vs collapsed（全部人塞进同一组，即评审变异会强制产生的
+    # 分组）必须给出不同的 se——5 号位选手本来很小的局内方差，被错误并入
+    # 1 号位大方差池后，se 应显著被抬高。
+    collapsed_positions = {a: 1 for a in real_positions}
+    out_collapsed = fit_rate_model(df, "kills", positions=collapsed_positions)
+    for acct in (3, 4):
+        assert out[acct]["se"] < 0.7 * out_collapsed[acct]["se"], (
+            "5 号位选手正确分层后的 se 应明显小于「被错误并入 1 号位大方差池」"
+            "的 se——如果两者接近甚至相等，说明 positions 参数根本没有真正"
+            "影响分组（例如内部被替换成了单一分组）"
+        )
 
 
 def test_fit_rate_model_rejects_unknown_item():

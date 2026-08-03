@@ -176,6 +176,31 @@ def test_slot_aggregate_excludes_missing_item_from_denominator_not_zero_fills():
     )
 
 
+def test_slot_aggregate_orders_items_deterministically_not_by_set_hash():
+    """【2】slot_aggregate 原来用
+    `items = set().union(*(matrix[a].keys() for a in members))`
+    决定输出 item 的遍历/插入顺序——Python 字符串哈希在不同进程里被
+    PYTHONHASHSEED 随机打散，导致同一份输入每次重新起一个进程跑，产出的
+    dict 键序都可能不同（值不变）。后果：`reports/p1_fantasy_matrix.json`
+    连跑两次值一样但键序不同，`git diff` 全是"键序变了"的噪声，也没法给
+    P1 做哈希存证（哈希会跟着键序一起变，见 fix-final-report.md【2】）。
+
+    这里故意用 10 个刻意打乱插入顺序、又不是字母序的 item 名字——如果
+    实现又换回 `set()` 遍历顺序，10 个字符串在 CPython 里撞上恰好等于
+    sorted() 顺序的概率约为 1/10!（约 1/3,628,800），这条断言在绝大多数
+    进程里都会失败，足以稳定抓回归。"""
+    unsorted_items = ["mango", "kiwi", "fig", "date", "apple",
+                       "grape", "lemon", "olive", "peach", "quince"]
+    matrix = {
+        11: {name: float(i) for i, name in enumerate(unsorted_items)},
+        13: {name: float(i) + 1 for i, name in enumerate(unsorted_items)},
+    }
+    agg = slot_aggregate(matrix, ROSTER, POS, slot="core")
+    assert list(agg["T1"].keys()) == sorted(unsorted_items), (
+        "item 顺序必须是确定性的 sorted 顺序，不能依赖 set 的哈希遍历顺序"
+    )
+
+
 def test_expected_slot_score_branch_a_uses_total_series_across_both_stages():
     """分支 A"全程只取最好的一个系列赛"：应该是把 group+playoff 的系列赛数
     合并后一起抽最大值，而不是只看其中一段。用一个几乎必赢的场景验证：

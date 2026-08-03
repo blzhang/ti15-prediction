@@ -91,6 +91,27 @@ def run_one(theta, rng):
     return rec, swiss_rank, place, set(direct) | set(elim_win), group_series, playoff_series
 
 
+def place_dist_from_counts(place_c, n_sim, teams):
+    """把累计名次计数矩阵（16×17，列 0 恒为 0——名次从 1 开始编号，
+    没有队伍会落在"第 0 名"）按 n_sim 归一化成
+    {队名: {"1": 概率, ..., "16": 概率}} 的名次分布，按全局约束保 6 位
+    小数（task-7-brief.md 起一直沿用的输出精度约定）。
+
+    这是 00-DESIGN.md §2.1 T2「最终名次分布 / 16×名次档 概率矩阵」的
+    落盘形式——§8 验收标准第 3 条「名次分布行列和自洽」在这里体现为：
+    每支队伍的 16 个名次概率恰好和为 1（每次模拟每队必然落在恰好一个
+    名次，见 test_place_assigns_exact_multiset_of_placements_every_single_simulation
+    锁定的"名次赋值本身就是结构性恒等式，不是靠平均凑出来的"），全部
+    队伍的概率总和恰好等于队伍数（16）。只输出第 1-16 名（列 0 从不会
+    被任何队伍命中，不落盘）。
+    """
+    dist = {}
+    for t, team in enumerate(teams):
+        row = place_c[t]
+        dist[team] = {str(p): round(float(row[p]) / n_sim, 6) for p in range(1, 17)}
+    return dist
+
+
 # ---------- 跑 ----------
 # 用 `if __name__ == "__main__":` 包住（Task 7 新增）：run_one 本身是纯函数
 # （只依赖形参 theta/rng 与本模块顶部已经算好的 n/TEAMS 等常量，不依赖这个循环
@@ -161,6 +182,16 @@ if __name__ == "__main__":
     print(f"\n每队分阶段期望系列赛数合计核对：group={series_group.sum()/N_SIM:.6f}（应为 90）"
           f"  playoff={series_playoff.sum()/N_SIM:.6f}（应为 28）")
 
+    # T2「最终名次分布」矩阵（00-DESIGN.md §2.1；task-final-fix【4】新增）：
+    # place_c 之前只被拆出 top4（1-4 名求和）落盘，完整的 16×名次档矩阵本身
+    # 从未写进 l2_predictions.json，§8 验收标准第 3 条"名次分布行列和自洽"
+    # 因此无从核对。place_dist_from_counts 详见其 docstring。
+    place_dist = place_dist_from_counts(place_c, N_SIM, TEAMS)
+    row_sums = [sum(place_dist[t].values()) for t in TEAMS]
+    col_sum_total = sum(row_sums)
+    print(f"\nT2 名次分布行列和自洽核对：行和范围=[{min(row_sums):.6f}, {max(row_sums):.6f}]"
+          f"（应约为 1）  列和之和={col_sum_total:.6f}（应约为 {n}）")
+
     json.dump({"champion": {TEAMS[t]: float(P(champ_c[t])) for t in range(n)},
                "top4": {TEAMS[t]: float(P(place_c[t,1:5].sum())) for t in range(n)},
                "advance_playoffs": {TEAMS[t]: float(P(adv_c[t])) for t in range(n)},
@@ -169,6 +200,7 @@ if __name__ == "__main__":
                "record_4_1": {TEAMS[t]: float(P(r41[t])) for t in range(n)},
                "n_5_0_dist": {str(k): v / N_SIM for k, v in n50_hist.items()},
                "n_4_1_dist": {str(k): v / N_SIM for k, v in n41_hist.items()},
+               "place_dist": place_dist,
                "series_dist": {TEAMS[t]: {"group": round(float(series_group[t] / N_SIM), 6),
                                            "playoff": round(float(series_playoff[t] / N_SIM), 6)}
                                for t in range(n)},

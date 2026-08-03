@@ -22,7 +22,7 @@ task-7-report.md），使这里的单测能秒级跑完。
 import numpy as np
 import pytest
 
-from model.l2_simulate import run_one, n as N_TEAMS
+from model.l2_simulate import run_one, place_dist_from_counts, n as N_TEAMS
 
 
 def _theta(seed):
@@ -106,3 +106,92 @@ def test_playoff_series_matches_bracket_series_count_invariants():
                 assert playoff_series[t] == 4
             else:
                 assert 4 <= playoff_series[t] <= 6
+
+
+# ---- 补充测试：修复【4】T2「最终名次分布」矩阵从未落盘 ----
+#
+# model/l2_simulate.py 的 __main__ 已经在算 place_c（16×17 累计计数矩阵），
+# 但只写出了 top4（1-4 名求和）——00-DESIGN.md §2.1 把「T2 最终名次分布/
+# 16×名次档 概率矩阵」列为交付物，§8 验收标准第 3 条要求"名次分布行列和
+# 自洽"，矩阵本身不存在，这条无从核对（见 fix-final-report.md【4】）。
+# 新增 place_dist_from_counts()：把 place_c 归一化成
+# {队名: {"1": 概率, ..., "16": 概率}}，main 块写进 l2_predictions.json
+# 的新字段 place_dist。
+
+def test_place_assigns_exact_multiset_of_placements_every_single_simulation():
+    """place_dist 行列和自洽的真正原因：名次赋值不是"随机凑出来的"，而是
+    结构上保证的——8 支打进主赛事的队伍名次由 model/bracket.py::run_playoffs
+    互不重叠地覆盖 1/2/3/4/5/5/7/7（tests/test_bracket.py::
+    test_placements_are_structurally_valid 已锁定这 8 队的子集），另外 5 支
+    附加轮出局队恒为 9、3 支瑞士轮垫底队恒为 14。16 队的名次多重集合因此
+    每一次模拟都精确等于同一个固定集合——不是多次模拟取平均才近似成立
+    的东西，任何一次算错都能被单次调用直接抓到（跟 group_series 恒为 90、
+    playoff_series 恒为 28 是同一类"每次模拟单独成立"的恒等式）。"""
+    rng = np.random.default_rng(6)
+    expected = sorted([1, 2, 3, 4, 5, 5, 7, 7, 9, 9, 9, 9, 9, 14, 14, 14])
+    assert len(expected) == N_TEAMS
+    for seed in range(20):
+        _, _, place, _, _, _ = run_one(_theta(seed), rng)
+        assert sorted(place) == expected
+
+
+def test_place_dist_from_counts_normalises_and_rounds_to_six_decimals():
+    """纯变换函数：给定累计计数矩阵和总模拟次数，归一化成概率并保 6 位
+    小数，覆盖第 1-16 名全部名次档（未出现的档位显式记 0，不是缺键）。
+    用一个手算好的 2 队合成矩阵验证，不需要真的跑模拟。"""
+    place_c = np.zeros((2, 17))
+    place_c[0, 1] = 3   # 队 A：10 次模拟里 3 次拿第 1 名
+    place_c[0, 3] = 7   #        7 次拿第 3 名
+    place_c[1, 1] = 1   # 队 B：1 次拿第 1 名
+    place_c[1, 3] = 9   #        9 次拿第 3 名
+    n_sim = 10
+
+    dist = place_dist_from_counts(place_c, n_sim, teams=["A", "B"])
+
+    assert set(dist) == {"A", "B"}
+    assert set(dist["A"]) == {str(p) for p in range(1, 17)}, (
+        "应覆盖第 1-16 名全部名次档，未出现的档位显式记 0 而不是缺键"
+    )
+    assert dist["A"]["1"] == pytest.approx(0.3)
+    assert dist["A"]["3"] == pytest.approx(0.7)
+    assert dist["A"]["2"] == 0.0
+    assert dist["B"]["1"] == pytest.approx(0.1)
+    assert dist["B"]["3"] == pytest.approx(0.9)
+    # 6 位小数：1/3 除不尽，验证确实做了 round(..., 6) 而不是原样吐浮点噪声
+    place_c2 = np.zeros((1, 17))
+    place_c2[0, 1] = 1
+    rounded = place_dist_from_counts(place_c2, 3, teams=["C"])
+    assert rounded["C"]["1"] == round(1.0 / 3.0, 6)
+
+
+def test_place_dist_pipeline_row_sums_to_one_and_grand_total_equals_team_count():
+    """结构性恒等式（00-DESIGN.md §8 验收标准第 3 条「名次分布行列和
+    自洽」）：接上真实 run_one（不是手造的合成矩阵）跑一段小规模模拟
+    （不需要跑满 20 万次），验证每队的名次概率恰好和为 1（行和），
+    全部队伍、全部名次概率加总恰好等于队伍数（列和之和）。"""
+    rng = np.random.default_rng(20260802)
+    n_sim = 300
+    place_c = np.zeros((N_TEAMS, 17))
+    for _ in range(n_sim):
+        theta = rng.standard_normal(N_TEAMS)
+        _, _, place, _, _, _ = run_one(theta, rng)
+        for t in range(N_TEAMS):
+            place_c[t, place[t]] += 1
+
+    teams = [str(t) for t in range(N_TEAMS)]
+    dist = place_dist_from_counts(place_c, n_sim, teams=teams)
+
+    # 容差取法跟 tests/test_market.py::test_l2_blended_json_sum_within_documented_tolerance
+    # 同一个道理：每个概率都先各自 round() 到 6 位小数再相加，16 个数各带最多
+    # 5e-7 的四舍五入误差，理论偏差上界 16*5e-7=8e-6——不应该为了凑成精确的
+    # 1 而在四舍五入后再归一化，只校验偏差在 1e-5 容差内。
+    for team in teams:
+        assert sum(dist[team].values()) == pytest.approx(1.0, abs=1e-5), (
+            "每队的名次概率必须（在 6 位小数四舍五入的容差内）和为 1——"
+            "每次模拟每队必然落在恰好一个名次"
+        )
+    # 16 队 × 16 个名次档 = 256 个四舍五入后的数相加，理论偏差上界 256*5e-7=1.28e-4。
+    grand_total = sum(sum(d.values()) for d in dist.values())
+    assert grand_total == pytest.approx(N_TEAMS, abs=2e-4), (
+        "全部队伍全部名次概率加总应（在四舍五入容差内）恰好等于队伍数"
+    )
