@@ -21,7 +21,7 @@ BASE = "/dota2"
 # 站点要打包的产出物：(源路径, 站内文件名, 人类可读说明, 是否进搜索索引)
 ASSETS = [
     ("model/l2_blended.json", "l2_blended.json", "最终夺冠概率（已与博彩赔率融合，w_market=0.7）"),
-    ("model/l2_predictions.json", "l2_predictions.json", "赛制模拟全量输出：夺冠/前四/晋级/瑞前3/5-0/4-1/名次矩阵/系列赛数"),
+    ("model/l2_predictions.json", "l2_predictions.json", "赛制模拟全量输出：夺冠/前四/晋级/逐队六档战绩分布/附加轮生还/名次矩阵/系列赛数"),
     ("model/l1_rating.json", "l1_rating.json", "16 队 Bradley-Terry 实力评分 θ 与后验标准误，含样本外检验指标"),
     ("model/lineage.json", "lineage.json", "实体对齐：各队现役五人反查出的历史 team_id 血统"),
     ("reports/ti15_matches.csv", "ti15_matches.csv", "120 个候选配对的赛前 BO3 胜率（赛后回填结果用）"),
@@ -88,7 +88,7 @@ def team_table(blended, pred, rating):
             "top4": pred["top4"][t],
             "advance": pred["advance_playoffs"][t],
             "swiss_top3": pred["swiss_top3"][t],
-            "r50": pred["record_5_0"][t],
+            "r40": pred["record_4_0"][t],
             "r41": pred["record_4_1"][t],
             "theta": rating["rating"][t],
             "se": rating["rating_se"][t],
@@ -125,16 +125,17 @@ def main():
         "generated_utc": pred.get("generated_utc", ""),
         "n_sim": pred.get("n_sim"),
         "teams": team_table(blended, pred, rating),
-        "n_5_0": pred["n_5_0_dist"],
-        "n_4_1": pred["n_4_1_dist"],
+        
         "oos": rating.get("oos_test", {}),
         "half_life_days": rating.get("half_life_days"),
         "ridge": rating.get("ridge"),
         "cross_region": rating.get("cross_region", {}),
+        "raw_pred": pred,
         "manifest": manifest,
         "full_data": [{"file": f, "size": s, "desc": d} for f, s, d in FULL_DATA],
     }
-    json.dump(payload, open(os.path.join(DIST, "data", "site.json"), "w"),
+    json.dump({k: v for k, v in payload.items() if k != "raw_pred"},
+              open(os.path.join(DIST, "data", "site.json"), "w"),
               ensure_ascii=False, separators=(",", ":"))
     json.dump(build_search_index(players, rating),
               open(os.path.join(DIST, "data", "search_index.json"), "w"),

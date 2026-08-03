@@ -153,3 +153,14 @@ footer { border-top: 1px solid var(--grid); margin-top: 56px; padding: 22px 0 40
   h1 { font-size: 23px; }
   .nav-in { height: auto; padding: 10px 0; gap: 14px; }
 }
+
+/* 作业页 */
+.hwgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; margin: 18px 0; }
+.hwcard { background: var(--surface-1); border: 1px solid var(--grid); border-radius: 10px; padding: 16px 18px; }
+.hwhead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+          padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--grid); }
+.hwhead b { font-size: 17px; letter-spacing: -.3px; }
+.hwhead span { color: var(--ink-muted); font-size: 12px; text-align: right; }
+.pick { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
+.pick .t { color: var(--ink); font-weight: 600; }
+.pick .p { color: var(--ink-muted); font-variant-numeric: tabular-nums; }

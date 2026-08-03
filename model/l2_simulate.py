@@ -20,7 +20,7 @@ import numpy as np
 # 否则下面两行裸导入在"当包导入"这条路径下会 ModuleNotFoundError。
 # 写法与 model/l3_player.py 已经用的 shim 一致。
 sys.path.insert(0, os.path.dirname(__file__))
-from swiss import SwissState, pair_round, rank_teams
+from swiss import SwissState, pair_round, rank_teams, active_teams
 from bracket import loser_games_prob, run_playoffs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,8 +41,13 @@ def run_one(theta, rng):
 
     s = SwissState(n)
     s.group = list(rng.permutation([0] * 8 + [1] * 8))   # 分组未公布，随机化
+    # 打到 4 胜或 4 负即停（见 swiss.active_teams 的说明）。最多 5 轮：
+    # 第 5 轮只有 3-1 / 2-2 / 1-3 三组共 14 队 = 7 场，4-0 与 0-4 已停赛。
     for rnd in range(5):
-        for a, b in pair_round(s, rnd, rng):
+        act = active_teams(s)
+        if len(act) < 2:
+            break
+        for a, b in pair_round(s, rnd, rng, active=act):
             a_wins = rng.random() < p3[a, b]
             pg = p1[a, b] if a_wins else p1[b, a]      # 赢方单局胜率，喂给让分小局公式
             s.record(a, b, a_wins, 1 if rng.random() < loser_games_prob(pg) else 0)
@@ -50,9 +55,19 @@ def run_one(theta, rng):
     swiss_rank = rank_teams(s, rng)
     rec = [(s.wins[t], s.losses[t]) for t in range(n)]
 
-    direct = swiss_rank[:3]                       # 前 3 直接进淘汰赛
-    elim_pool = swiss_rank[3:13]                  # 4–13 名进附加轮
-    out3 = swiss_rank[13:]                        # 14–16 出局
+    # 分档**直接由战绩决定**，不再用排名硬凑——这是本模型的赛制修正：
+    # 预测面板问的就是「哪支 4-0 / 哪两支 4-1 / …」，而战绩分档在
+    # 「4 胜或 4 负即停」的赛制下是结构性恒等式（恒为 1/2/5/5/2/1）。
+    by_rec = collections.defaultdict(list)
+    for t in range(n):
+        by_rec["%d-%d" % rec[t]].append(t)
+    rank_of = {t: i for i, t in enumerate(swiss_rank)}
+    key = lambda g: sorted(g, key=lambda t: rank_of[t])
+
+    direct = key(by_rec["4-0"]) + key(by_rec["4-1"])   # 3 队直通淘汰赛
+    hi, lo = key(by_rec["3-2"]), key(by_rec["2-3"])    # 各 5 队，进附加轮
+    out3 = key(by_rec["1-4"]) + key(by_rec["0-4"])     # 3 队直接出局
+    elim_pool = hi + lo
 
     # 每队瑞士轮 + 附加轮系列赛数（task-7-brief.md Step 5）：瑞士轮固定 5 场
     # （model/swiss.py 没有提前淘汰，16 队全部打满 5 轮），4-13 名多打 1 场
@@ -60,12 +75,15 @@ def run_one(theta, rng):
     # （tests/test_l2_simulate.py::test_group_series_sums_to_ninety_every_single_simulation
     # 锁了 sum(group_series)==90 这条恒等式）。
     elim_pool_set = set(elim_pool)
-    group_series = [5 + (1 if t in elim_pool_set else 0) for t in range(n)]
+    group_series = [s.wins[t] + s.losses[t] + (1 if t in elim_pool_set else 0)
+                    for t in range(n)]
 
     # 附加淘汰轮：高排位 vs 低排位（对应 Liquipedia 的 3-2 vs 2-3）
+    # 附加淘汰轮：Liquipedia 原文「Teams with a 3-2 record will be paired
+    # against teams with a 2-3 record」——3-2 组内按名次 vs 2-3 组内按名次
     elim_win, elim_lose = [], []
     for k in range(5):
-        a, b = elim_pool[k], elim_pool[9 - k]
+        a, b = hi[k], lo[4 - k]
         if rng.random() < p3[a, b]:
             elim_win.append(a); elim_lose.append(b)
         else:
@@ -135,8 +153,8 @@ if __name__ == "__main__":
     champ_c = np.zeros(n); place_c = np.zeros((n, 17)); rec_c = collections.Counter()
     rec_dist = [collections.Counter() for _ in range(n)]   # 逐队完整瑞士轮战绩分布
     elim_survive = np.zeros(n); elim_out = np.zeros(n)     # 附加轮生还 / 出局
-    adv_c = np.zeros(n); top3_c = np.zeros(n); r50 = np.zeros(n); r41 = np.zeros(n)
-    n50_hist = collections.Counter(); n41_hist = collections.Counter()
+    adv_c = np.zeros(n); top3_c = np.zeros(n); r40 = np.zeros(n); r41 = np.zeros(n)
+    n40_hist = collections.Counter(); n41_hist = collections.Counter()
     series_group = np.zeros(n)      # 瑞士轮 + 附加轮系列赛数（Task 7 Step 5）
     series_playoff = np.zeros(n)    # 主赛事系列赛数（Task 7 Step 5）
 
@@ -149,9 +167,9 @@ if __name__ == "__main__":
             rec_c[(t, rec[t])] += 1
             rec_dist[t]["%d-%d" % rec[t]] += 1
             place_c[t, place[t]] += 1
-            if rec[t] == (5, 0): r50[t] += 1
+            if rec[t] == (4, 0): r40[t] += 1
             if rec[t] == (4, 1): r41[t] += 1
-        n50_hist[sum(1 for t in range(n) if rec[t] == (5, 0))] += 1
+        n40_hist[sum(1 for t in range(n) if rec[t] == (4, 0))] += 1
         n41_hist[sum(1 for t in range(n) if rec[t] == (4, 1))] += 1
         for t in advanced: adv_c[t] += 1
         for t in srank[:3]: top3_c[t] += 1
@@ -164,32 +182,29 @@ if __name__ == "__main__":
 
     print(f"TI15 蒙特卡洛模拟  N={N_SIM:,}  （实力参数每次按后验 N(θ,se) 重抽）")
     print("=" * 96)
-    print(f"{'队':<17}{'夺冠':>7}{'进前四':>8}{'进淘汰赛':>9}{'瑞前3':>7}{'5-0':>7}{'4-1':>7}{'瑞士轮出局':>10}")
+    print(f"{'队':<17}{'夺冠':>7}{'进前四':>8}{'进淘汰赛':>9}{'瑞前3':>7}{'4-0':>7}{'4-1':>7}{'瑞士轮出局':>10}")
     print("-" * 96)
     for t in order:
         top4 = P(place_c[t, 1:5].sum())
         print(f"{TEAMS[t]:<17}{P(champ_c[t]):>6.1%}{top4:>8.1%}{P(adv_c[t]):>9.1%}"
-              f"{P(top3_c[t]):>7.1%}{P(r50[t]):>7.1%}{P(r41[t]):>7.1%}{1-P(adv_c[t]):>10.1%}")
+              f"{P(top3_c[t]):>7.1%}{P(r40[t]):>7.1%}{P(r41[t]):>7.1%}{1-P(adv_c[t]):>10.1%}")
     print("-" * 96)
     print(f"{'合计':<17}{P(champ_c.sum()):>6.1%}{P(place_c[:,1:5].sum()):>8.1%}{P(adv_c.sum()):>9.1%}")
 
     se_champ = np.sqrt(P(champ_c) * (1 - P(champ_c)) / N_SIM)
     print(f"\n夺冠概率蒙特卡洛标准误：最大 {se_champ.max():.4f}（{se_champ.max()*100:.2f}pp）")
 
-    print(f"\n本届出现 k 支 5-0 队的概率：")
-    for k in sorted(n50_hist):
-        print(f"  {k} 支：{n50_hist[k]/N_SIM:>6.1%}")
-    print(f"本届出现 k 支 4-1 队的概率：")
-    for k in sorted(n41_hist):
-        if n41_hist[k] / N_SIM > 0.005:
-            print(f"  {k} 支：{n41_hist[k]/N_SIM:>6.1%}")
-
+    # 分档是结构性恒等式（恒为 1/2/5/5/2/1），不是分布——留作回归自检
+    assert list(n40_hist) == [1] and list(n41_hist) == [2], (
+        "4-0 必恒为 1 支、4-1 必恒为 2 支，实为 %s / %s" % (dict(n40_hist), dict(n41_hist)))
+    print("\n分档结构自检：4-0 恒 1 支、4-1 恒 2 支、3-2/2-3 各恒 5 支、1-4 恒 2 支、0-4 恒 1 支 ✓")
+    
     # 每队分阶段期望系列赛数（Task 7 Step 5，供 model/l4_fantasy.py 的
     # expected_slot_score 消费）。两条与结果无关的精确自洽校验（见
     # tests/test_l2_simulate.py 与 task-7-report.md）：
     #   sum(series_group)   == 90（16 队 ×5 瑞士轮 + 10 队 ×1 附加轮，恒定）
     #   sum(series_playoff) == 28（14 场主赛事系列赛 × 每场 2 支队伍，恒定）
-    print(f"\n每队分阶段期望系列赛数合计核对：group={series_group.sum()/N_SIM:.6f}（应为 90）"
+    print(f"\n每队分阶段期望系列赛数合计核对：group={series_group.sum()/N_SIM:.6f}（应为 88）"
           f"  playoff={series_playoff.sum()/N_SIM:.6f}（应为 28）")
 
     # T2「最终名次分布」矩阵（00-DESIGN.md §2.1；task-final-fix【4】新增）：
@@ -210,9 +225,9 @@ if __name__ == "__main__":
                            for t in range(n)},
            "elim_round_survive": {TEAMS[t]: float(P(elim_survive[t])) for t in range(n)},
            "elim_round_out": {TEAMS[t]: float(P(elim_out[t])) for t in range(n)},
-           "record_5_0": {TEAMS[t]: float(P(r50[t])) for t in range(n)},
+           "record_4_0": {TEAMS[t]: float(P(r40[t])) for t in range(n)},
                "record_4_1": {TEAMS[t]: float(P(r41[t])) for t in range(n)},
-               "n_5_0_dist": {str(k): v / N_SIM for k, v in n50_hist.items()},
+               "n_4_0_dist": {str(k): v / N_SIM for k, v in n40_hist.items()},
                "n_4_1_dist": {str(k): v / N_SIM for k, v in n41_hist.items()},
                "place_dist": place_dist,
                "series_dist": {TEAMS[t]: {"group": round(float(series_group[t] / N_SIM), 6),

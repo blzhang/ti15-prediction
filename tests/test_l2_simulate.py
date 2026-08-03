@@ -54,32 +54,45 @@ def test_run_one_return_contract_is_positionally_stable():
     assert elim_win <= advanced, "附加轮晋级的队必然在 advanced 里"
 
 
-def test_group_series_is_five_for_direct_and_out_teams_six_for_playin_teams():
-    """瑞士轮固定 5 轮（model/swiss.py 无提前淘汰），只有 4-13 名要多打
-    1 场附加轮，所以 group_series 的取值只能是 5 或 6，不能是别的数。
+def test_group_series_matches_the_stop_at_four_format():
+    """小组赛场次由「4 胜或 4 负即停」的赛制唯一决定：
+
+        4-0 → 打 4 场（第 4 轮clinch，停赛），不进附加轮        = 4
+        4-1 → 打 5 场，直通淘汰赛，不进附加轮                  = 5
+        3-2 / 2-3 → 打 5 场 + 附加轮 1 场                      = 6
+        1-4 → 打 5 场，已淘汰                                  = 5
+        0-4 → 打 4 场（第 4 轮被淘汰，停赛）                    = 4
+
+    旧版断言的是「一律 5 或 6」，那是「固定 5 轮人人打满」的产物——
+    该赛制会产出现实中不存在的 5-0 / 0-5（官方预测面板的档位是 4-0/0-4）。
     """
     rng = np.random.default_rng(1)
-    for seed in range(15):
-        _, swiss_rank, place, advanced, group_series, playoff_series, *_ = run_one(_theta(seed), rng)
-        assert set(group_series) <= {5, 6}
-        direct_and_out = [t for t in range(N_TEAMS) if place[t] == 14 or t in swiss_rank[:3]]
-        for t in direct_and_out:
-            assert group_series[t] == 5, "瑞士轮前 3（直接晋级）和 14-16 名（出局）都不打附加轮"
-        playin_teams = [t for t in range(N_TEAMS) if t not in direct_and_out]
-        assert len(playin_teams) == 10
-        for t in playin_teams:
-            assert group_series[t] == 6, "4-13 名进附加轮，多打 1 场"
+    for seed in range(30):
+        rec, _, _, _, group_series, _, *_ = run_one(_theta(seed), rng)
+        for t in range(N_TEAMS):
+            w, l = rec[t]
+            played = w + l
+            expect = played + (1 if (w, l) in ((3, 2), (2, 3)) else 0)
+            assert group_series[t] == expect, (
+                "%s 队战绩 %d-%d 应打 %d 场，实为 %d" % (t, w, l, expect, group_series[t]))
+            assert played in (4, 5), "任何队小组赛只可能打 4 或 5 场"
 
 
-def test_group_series_sums_to_ninety_every_single_simulation():
-    """跟 tests/test_bracket.py 的 28 恒等式是同一类校验：16 队 ×5 瑞士轮
-    + 10 队 ×1 附加轮 = 90，这是每一次模拟单独成立的恒等式，不是要多次
-    模拟取平均才近似成立的东西——任何一次算错都能被单次调用直接抓到。
+def test_group_series_sums_to_eighty_eight_every_single_simulation():
+    """跟 test_bracket.py 的 28 恒等式同类：本届小组赛场次和是结构性常数。
+
+        瑞士轮：1×4 + 2×5 + 5×5 + 5×5 + 2×5 + 1×4 = 78 → 39 场比赛
+        附加轮：10 队各 1 场                        = 10 → 5 场比赛
+        合计 group_series = 88（对应 44 场比赛）
+
+    注意瑞士轮是 **39 场不是 40 场**——第 5 轮只有 7 场，因为 4-0 与 0-4
+    两支已经停赛（Liquipedia 的 TI2025 分组标签可直接核对：R5 只有
+    3-1 / 2-2 / 1-3 三组共 2+3+2 场）。
     """
     rng = np.random.default_rng(2)
     for seed in range(30):
         _, _, _, _, group_series, _, *_ = run_one(_theta(seed), rng)
-        assert sum(group_series) == 90
+        assert sum(group_series) == 88
 
 
 def test_playoff_series_is_zero_for_teams_that_never_reached_playoffs():

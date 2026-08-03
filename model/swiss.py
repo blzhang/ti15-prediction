@@ -111,16 +111,56 @@ def _pair_pool(pool, state, must_differ_group=None):
     return list(zip(top, bot))     # 兜底；level=2 图完全连通，理论上到不了这里
 
 
-def pair_round(state, rnd, rng):
-    """rnd 从 0 计。返回 [(a,b), ...]。"""
-    order = rank_teams(state, rng)
+WIN_TARGET = 4      # 4 胜晋级，停赛
+LOSS_LIMIT = 4      # 4 负淘汰，停赛
 
-    if rnd == 0:                       # R1：跨组，赛事方指定，用同组内随机近似
-        g0 = [t for t in order if state.group[t] == 0]
-        g1 = [t for t in order if state.group[t] == 1]
-        rng.shuffle(g0)
-        rng.shuffle(g1)
-        return list(zip(g0, g1))
+
+def active_teams(state):
+    """还在打的队：未达 4 胜、也未达 4 负。
+
+    TI 的瑞士轮**不是固定 5 轮人人打满**，而是打到 4 胜或 4 负即停
+    （与 CS Major 同制）。这一条由客户端预测面板的档位反证：
+    面板给的是 4-0 / 4-1 / 1-4 / 0-4，而固定 5 轮制下这四种战绩
+    **在数学上不可能出现**（人人打满 5 场，只会有 5-0 / 0-5）。
+    Liquipedia 的 TI2025 分组标签也印证：第 5 轮只有 7 场（3-1 组 2 场 +
+    2-2 组 3 场 + 1-3 组 2 场），因为 4-0 和 0-4 那两支已经打完了。
+
+    结构性后果（每届必然成立，不是概率）：
+        R4 后 3-0 组恰好 2 队互打 → 恰好 1 支 4-0；0-3 组同理 → 恰好 1 支 0-4
+        R5 后 3-1 组 4 队 → 恰好 2 支 4-1；1-3 组 4 队 → 恰好 2 支 1-4
+        剩下 3-2 五支、2-3 五支进附加轮
+    即最终分档恒为 1 / 2 / 5 / 5 / 2 / 1 —— 这正是预测面板槽位数固定的原因。
+    """
+    return [t for t in range(state.n)
+            if state.wins[t] < WIN_TARGET and state.losses[t] < LOSS_LIMIT]
+
+
+def pair_round(state, rnd, rng, active=None):
+    """rnd 从 0 计。返回 [(a,b), ...]。
+
+    active 为 None 时对全部队伍配对（保留旧行为，供既有测试使用）；
+    传入队伍集合时只在其中配对——TI 赛制下应传 active_teams(state)。
+    """
+    order = rank_teams(state, rng)
+    if active is not None:
+        act = set(active)
+        order = [t for t in order if t in act]
+        if len(order) < 2:
+            return []
+
+    if rnd == 0:
+        # R1：**组内**配对，各组 8 队打 4 场（对阵由赛事方指定，此处组内随机）。
+        # 必须是组内而非跨组——跨组会让两个组的胜者数不确定（可能 5:3），
+        # 后续 R2/R3 的组内配对就会出现奇数战绩组、触发下浮，破坏结构。
+        # 只有 R1-R3 组内、R4 跨组，才能推出每届必然的 1/2/5/5/2/1 分档：
+        #   R1 后每组 4 胜 4 负 → R3 后每组 3-0:1 / 2-1:3 / 1-2:3 / 0-3:1
+        #   → R4 跨组时 3-0 那两队（每组各 1）互打 → 恰好 1 支 4-0
+        pairs = []
+        for g in (0, 1):
+            pool = [t for t in order if state.group[t] == g]
+            rng.shuffle(pool)
+            pairs += list(zip(pool[0::2], pool[1::2]))
+        return pairs
 
     if rnd in (1, 2):                  # R2/R3：只在组内
         pairs = []

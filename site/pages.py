@@ -3,7 +3,7 @@ import html
 import os
 import shutil
 
-NAV = [("index.html", "结论"), ("predictions.html", "预测详情"),
+NAV = [("index.html", "结论"), ("homework.html", "作业"), ("predictions.html", "预测详情"),
        ("methodology.html", "方法论"), ("data.html", "数据与检索")]
 
 
@@ -91,7 +91,6 @@ def page_index(base, p):
     falcons = next(x for x in t if x["team"] == "Team Falcons")
     spirit = next(x for x in t if x["team"] == "Team Spirit")
     oos = p["oos"]
-    r41 = max(p["n_4_1"].items(), key=lambda kv: kv[1])
     body = """
 <h1>TI15 谁会赢：一个可被证伪的预测</h1>
 <p class="lede">用 2020–2026 的 145,974 场职业比赛，对 The International 2026（8/13–8/23，上海，16 队）
@@ -100,14 +99,14 @@ def page_index(base, p):
 
 <div class="tiles">
   <div class="tile"><div class="k">夺冠概率最高</div><div class="v">%s</div><div class="s">%.1f%%（已融合市场赔率）</div></div>
-  <div class="tile"><div class="k">出现 5-0 战绩</div><div class="v">%.1f%%</div><div class="s">结构上最多只可能有 1 支</div></div>
-  <div class="tile"><div class="k">最可能的 4-1 队数</div><div class="v">%s 支</div><div class="s">概率 %.1f%%</div></div>
+  <div class="tile"><div class="k">官方预测面板</div><div class="v">16 格</div><div class="s">已出建议填法</div></div>
+  <div class="tile"><div class="k">分档结构</div><div class="v">1·2·5·5·2·1</div><div class="s">每届恒定，非概率</div></div>
   <div class="tile"><div class="k">模型样本外准确率</div><div class="v">%.1f%%</div><div class="s">2,546 场未见过的比赛</div></div>
 </div>
 
 <h2>结论一：没有真正的大热门</h2>
 <p>头名 %s 只有 %.1f%%，前八名挤在 7%%–18%% 之间。这不是模型不敢下判断，而是 16 队水平确实接近——
-瑞士轮 5 轮 BO3 之后还要打双败，路径太长，任何单一队伍的夺冠概率都被稀释。</p>
+瑞士轮打到 4 胜或 4 负、之后还要打双败，路径太长，任何单一队伍的夺冠概率都被稀释。</p>
 <div class="note"><b>历史支持这个判断。</b>TI9–TI14 六届里，赛前赔率头名只夺冠 1 次，冠军的赛前赔率排名中位数是第 4.5 名。
 我们一度以为这说明市场错价，但二项检验推翻了它：头名真实概率 25%% 时，六届只赢一次的概率是 53%%——
 <b>这完全符合一份校准良好的赔率</b>。所以不要指望靠偏离市场赚钱。</div>
@@ -144,8 +143,6 @@ def page_index(base, p):
 所有报告 &gt;80%% 准确率的 Dota 预测论文，用的都是实时游戏内数据而非赛前数据。</p>
 <p><a href="%s/predictions.html">→ 看完整预测详情</a> ｜ <a href="%s/methodology.html">→ 方法论与已知限制</a></p>
 """ % (esc(top["team"]), top["champ_blended"] * 100,
-       p["n_5_0"].get("1", 0) * 100,
-       r41[0], r41[1] * 100,
        oos.get("acc", 0) * 100,
        esc(top["team"]), top["champ_blended"] * 100,
        falcons["champ_model"] * 100, falcons["champ_blended"] * 100,
@@ -165,7 +162,7 @@ def page_pred(base, p):
         "<td class=num>%.1f%%</td><td class=num>%.1f%%</td><td class=num>%.1f%%</td>"
         "<td class=num>%.3f</td><td class=num>%d</td></tr>"
         % (esc(r["team"]), r["champ_blended"] * 100, r["champ_model"] * 100, r["top4"] * 100,
-           r["advance"] * 100, r["swiss_top3"] * 100, r["r50"] * 100, r["theta"], r["games"])
+           r["advance"] * 100, r["swiss_top3"] * 100, r["r40"] * 100, r["theta"], r["games"])
         for r in t)
     body = """
 <h1>预测详情</h1>
@@ -182,20 +179,14 @@ def page_pred(base, p):
 <h2>全量指标</h2>
 <div class="tbl-wrap"><table>
 <thead><tr><th>队伍</th><th>夺冠(融合)</th><th>夺冠(纯模型)</th><th>进前四</th><th>进淘汰赛</th>
-<th>瑞士轮前3</th><th>打出5-0</th><th>实力θ</th><th>样本场次</th></tr></thead>
+<th>瑞士轮前3</th><th>打出4-0</th><th>实力θ</th><th>样本场次</th></tr></thead>
 <tbody>%s</tbody></table></div>
 <p class="hint">θ 是 Bradley-Terry 实力参数，越高越强；样本场次指「该队现役五人中 ≥3 人同场」的比赛数，
 不是队伍存在多久——所以拼装队（如 Vici、OG）的数字反映的是新阵容的磨合样本。</p>
 
-<h2>官方预测题：瑞士轮战绩分布</h2>
-<p>模型自动复现出一条结构性事实：<b>最多只可能有一支队打出 5-0</b>。
-同分配对会强制所有不败队互相碰面，4 轮之后必然只剩 1 支 4-0。</p>
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
-<div>%s</div>
-<div>%s</div>
-</div>
-<div class="note"><b>这两问必须一起答。</b>4-0 那支若赢下第 5 轮 → 出现 5-0，此时 4-1 通常只有 1–2 支；
-若它输掉 → 没有 5-0，它自己掉进 4-1，该档变成 3–4 支。两问强相关，独立猜会内部矛盾。</div>
+<h2>官方预测题</h2>
+<p>官方预测面板要把 16 支队分配到 <b>4-0 / 4-1 / 淘汰赛胜者 / 淘汰赛败者 / 1-4 / 0-4</b> 六个档位，槽位数恒为 <b>1·2·5·5·2·1</b>——这是赛制推出来的恒等式，不是概率。</p>
+<p><a href="%s/homework.html">→ 看建议填法与完整概率表</a></p>
 
 <h2>逐场对阵胜率</h2>
 <p>瑞士轮的配对是<b>内生</b>的——第 3 轮谁打谁取决于前两轮结果，赛前列不出具体对阵。
@@ -204,8 +195,7 @@ def page_pred(base, p):
 <div class="note good"><b>为什么这不是「挑好的算」：</b>概率生成只读赛前数据（固定种子重跑逐格一致）；
 评分时是无条件「有结果就收录」，没有任何挑拣分支；哪些配对会发生由赛果决定，与我们预测得准不准无关。
 这与 FiveThirtyEight 处理赛程的方式一致。</div>
-""" % ("{:,}".format(p.get("n_sim") or 0), dual_bars(t), rows,
-       dist_table(p["n_5_0"], "本届 5-0 队数"), dist_table(p["n_4_1"], "本届 4-1 队数"), base)
+""" % ("{:,}".format(p.get("n_sim") or 0), dual_bars(t), rows, base, base)
     return shell(base, "predictions.html", "预测详情", body)
 
 
@@ -386,8 +376,12 @@ def write_all(dist, base, payload):
     src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets_src")
     for f in ("style.css", "app.js", "px.js"):
         shutil.copyfile(os.path.join(src, f), os.path.join(dist, "assets", f))
+    import homework
+    hw = homework.compute(payload["raw_pred"])
     pages = {
         "index.html": page_index(base, payload),
+        "homework.html": shell(base, "homework.html", "作业",
+                               homework.render(base, hw, payload["raw_pred"])),
         "predictions.html": page_pred(base, payload),
         "methodology.html": page_method(base, payload),
         "data.html": page_data(base, payload),
