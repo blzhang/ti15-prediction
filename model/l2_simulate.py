@@ -88,7 +88,12 @@ def run_one(theta, rng):
     for t, p in bracket_place.items():
         place[t] = p
     playoff_series = [playoff_sc.get(t, 0) for t in range(n)]
-    return rec, swiss_rank, place, set(direct) | set(elim_win), group_series, playoff_series
+    # ⚠️ 新增返回字段一律追加在末尾，不要插在中间——本函数的返回值已被追加过两次
+    # （Task 7 加 group/playoff_series，本次加附加轮生还/出局集合），每次插在中间
+    # 都撞坏了 tests/test_l2_simulate.py 的位置解包。测试侧已改用 `, *_` 尾部星号
+    # 解包，只要新字段追加在末尾就不会再破。
+    return (rec, swiss_rank, place, set(direct) | set(elim_win),
+            group_series, playoff_series, set(elim_win), set(elim_lose))
 
 
 def place_dist_from_counts(place_c, n_sim, teams):
@@ -128,6 +133,8 @@ def place_dist_from_counts(place_c, n_sim, teams):
 #     （task-7-report.md 有实测记录）。
 if __name__ == "__main__":
     champ_c = np.zeros(n); place_c = np.zeros((n, 17)); rec_c = collections.Counter()
+    rec_dist = [collections.Counter() for _ in range(n)]   # 逐队完整瑞士轮战绩分布
+    elim_survive = np.zeros(n); elim_out = np.zeros(n)     # 附加轮生还 / 出局
     adv_c = np.zeros(n); top3_c = np.zeros(n); r50 = np.zeros(n); r41 = np.zeros(n)
     n50_hist = collections.Counter(); n41_hist = collections.Counter()
     series_group = np.zeros(n)      # 瑞士轮 + 附加轮系列赛数（Task 7 Step 5）
@@ -135,9 +142,12 @@ if __name__ == "__main__":
 
     for s in range(N_SIM):
         theta = TH + SE * rng.standard_normal(n)        # 后验重抽
-        rec, srank, place, advanced, g_series, p_series = run_one(theta, rng)
+        rec, srank, place, advanced, g_series, p_series, ew, el = run_one(theta, rng)
+        for t in ew: elim_survive[t] += 1
+        for t in el: elim_out[t] += 1
         for t in range(n):
             rec_c[(t, rec[t])] += 1
+            rec_dist[t]["%d-%d" % rec[t]] += 1
             place_c[t, place[t]] += 1
             if rec[t] == (5, 0): r50[t] += 1
             if rec[t] == (4, 1): r41[t] += 1
@@ -196,7 +206,11 @@ if __name__ == "__main__":
                "top4": {TEAMS[t]: float(P(place_c[t,1:5].sum())) for t in range(n)},
                "advance_playoffs": {TEAMS[t]: float(P(adv_c[t])) for t in range(n)},
                "swiss_top3": {TEAMS[t]: float(P(top3_c[t])) for t in range(n)},
-               "record_5_0": {TEAMS[t]: float(P(r50[t])) for t in range(n)},
+               "record_dist": {TEAMS[t]: {k: round(v / N_SIM, 6) for k, v in sorted(rec_dist[t].items(), reverse=True)}
+                           for t in range(n)},
+           "elim_round_survive": {TEAMS[t]: float(P(elim_survive[t])) for t in range(n)},
+           "elim_round_out": {TEAMS[t]: float(P(elim_out[t])) for t in range(n)},
+           "record_5_0": {TEAMS[t]: float(P(r50[t])) for t in range(n)},
                "record_4_1": {TEAMS[t]: float(P(r41[t])) for t in range(n)},
                "n_5_0_dist": {str(k): v / N_SIM for k, v in n50_hist.items()},
                "n_4_1_dist": {str(k): v / N_SIM for k, v in n41_hist.items()},

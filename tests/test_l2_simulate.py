@@ -30,13 +30,28 @@ def _theta(seed):
     return rng.standard_normal(N_TEAMS)
 
 
-def test_run_one_returns_six_values_including_two_series_arrays():
+def test_run_one_return_contract_is_positionally_stable():
+    """锁住 run_one 的返回契约：**前 6 个字段的位置不许变**，新字段只许追加在末尾。
+
+    这条契约不是形式主义——本函数的返回值已经被追加过两次
+    （Task 7 加 group/playoff_series，后来加附加轮生还/出局集合），
+    头一次是插在中间的，直接撞坏了本文件里 8 处位置解包。
+    所以这里既钉死前 6 位的语义，也允许末尾继续追加。
+    """
     rng = np.random.default_rng(0)
     out = run_one(_theta(0), rng)
-    assert len(out) == 6, "brief Step 5 要求 run_one 额外带上 group/playoff 两个系列赛数组"
-    rec, swiss_rank, place, advanced, group_series, playoff_series = out
+    assert len(out) >= 6, "前 6 个字段是既有契约，不许减少"
+    rec, swiss_rank, place, advanced, group_series, playoff_series = out[:6]
+    assert len(rec) == N_TEAMS and len(swiss_rank) == N_TEAMS
+    assert len(place) == N_TEAMS and isinstance(advanced, set)
     assert len(group_series) == N_TEAMS
     assert len(playoff_series) == N_TEAMS
+
+    # 末尾新增的附加轮两个集合：5 队晋级 / 5 队出局，且互不相交
+    elim_win, elim_lose = out[6], out[7]
+    assert len(elim_win) == 5 and len(elim_lose) == 5
+    assert not (elim_win & elim_lose), "同一支队不可能既晋级又出局"
+    assert elim_win <= advanced, "附加轮晋级的队必然在 advanced 里"
 
 
 def test_group_series_is_five_for_direct_and_out_teams_six_for_playin_teams():
@@ -45,7 +60,7 @@ def test_group_series_is_five_for_direct_and_out_teams_six_for_playin_teams():
     """
     rng = np.random.default_rng(1)
     for seed in range(15):
-        _, swiss_rank, place, advanced, group_series, playoff_series = run_one(_theta(seed), rng)
+        _, swiss_rank, place, advanced, group_series, playoff_series, *_ = run_one(_theta(seed), rng)
         assert set(group_series) <= {5, 6}
         direct_and_out = [t for t in range(N_TEAMS) if place[t] == 14 or t in swiss_rank[:3]]
         for t in direct_and_out:
@@ -63,14 +78,14 @@ def test_group_series_sums_to_ninety_every_single_simulation():
     """
     rng = np.random.default_rng(2)
     for seed in range(30):
-        _, _, _, _, group_series, _ = run_one(_theta(seed), rng)
+        _, _, _, _, group_series, _, *_ = run_one(_theta(seed), rng)
         assert sum(group_series) == 90
 
 
 def test_playoff_series_is_zero_for_teams_that_never_reached_playoffs():
     rng = np.random.default_rng(3)
     for seed in range(15):
-        _, _, place, advanced, _, playoff_series = run_one(_theta(seed), rng)
+        _, _, place, advanced, _, playoff_series, *_ = run_one(_theta(seed), rng)
         for t in range(N_TEAMS):
             if t not in advanced:
                 assert playoff_series[t] == 0, "没打进主赛事的队伍不应该有主赛事系列赛数"
@@ -84,7 +99,7 @@ def test_playoff_series_sums_to_twenty_eight_every_single_simulation():
     成立（不是平均意义上的近似）。"""
     rng = np.random.default_rng(4)
     for seed in range(30):
-        _, _, _, _, _, playoff_series = run_one(_theta(seed), rng)
+        _, _, _, _, _, playoff_series, *_ = run_one(_theta(seed), rng)
         assert sum(playoff_series) == 28
 
 
@@ -95,7 +110,7 @@ def test_playoff_series_matches_bracket_series_count_invariants():
     而不是漏接、接错索引，或者只接了部分队伍。"""
     rng = np.random.default_rng(5)
     for seed in range(20):
-        _, _, place, advanced, _, playoff_series = run_one(_theta(seed), rng)
+        _, _, place, advanced, _, playoff_series, *_ = run_one(_theta(seed), rng)
         for t in advanced:
             p = place[t]
             if p == 7:
@@ -131,7 +146,7 @@ def test_place_assigns_exact_multiset_of_placements_every_single_simulation():
     expected = sorted([1, 2, 3, 4, 5, 5, 7, 7, 9, 9, 9, 9, 9, 14, 14, 14])
     assert len(expected) == N_TEAMS
     for seed in range(20):
-        _, _, place, _, _, _ = run_one(_theta(seed), rng)
+        _, _, place, _, _, _, *_ = run_one(_theta(seed), rng)
         assert sorted(place) == expected
 
 
@@ -174,7 +189,7 @@ def test_place_dist_pipeline_row_sums_to_one_and_grand_total_equals_team_count()
     place_c = np.zeros((N_TEAMS, 17))
     for _ in range(n_sim):
         theta = rng.standard_normal(N_TEAMS)
-        _, _, place, _, _, _ = run_one(theta, rng)
+        _, _, place, _, _, _, *_ = run_one(theta, rng)
         for t in range(N_TEAMS):
             place_c[t, place[t]] += 1
 
