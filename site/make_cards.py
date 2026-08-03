@@ -64,6 +64,23 @@ li b{color:#fff}
 .foot{margin-top:%(gap)dpx;padding-top:26px;border-top:1px solid #2c2c2a}
 .url{font-size:%(fs_url)dpx;font-weight:800;color:#3987e5;letter-spacing:-.5px}
 .promise{color:#c3c2b7;font-size:%(fs_note)dpx;margin-top:12px;line-height:1.6}
+.cover{width:%(W)dpx;height:%(H)dpx;background:#0d0d0d;padding:88px 96px;
+       display:flex;gap:80px;align-items:center;position:relative;overflow:hidden}
+.cover .L{flex:1.05;min-width:0}
+.cover .R{flex:1;min-width:0}
+.cover .eyebrow{font-size:26px;letter-spacing:4px;margin-bottom:22px}
+.cover h1{font-size:104px;line-height:1.08;letter-spacing:-3px;margin-bottom:26px}
+.cover .promise{font-size:34px;line-height:1.5;color:#c3c2b7;margin-top:0}
+.cover .promise b{color:#fff}
+.cover .urlbig{position:absolute;left:96px;bottom:64px;font-size:36px;font-weight:800;
+               color:#3987e5;letter-spacing:-.5px}
+.cover .rt{color:#898781;font-size:24px;letter-spacing:1px;margin-bottom:26px}
+.cover .row{margin:14px 0;gap:20px}
+.cover .row .nm{width:230px;font-size:30px}
+.cover .row .track{height:28px;border-radius:7px}
+.cover .row .v{width:120px;font-size:30px}
+.cover .glow{position:absolute;right:-320px;top:-260px;width:900px;height:900px;
+             background:radial-gradient(circle,#1d4d8c66 0%%,transparent 62%%);pointer-events:none}
 .badge{display:inline-block;background:#1a1a19;border:1px solid #3987e5;color:#3987e5;
        border-radius:999px;padding:7px 18px;font-size:%(fs_note)dpx;margin-bottom:20px}
 """
@@ -71,6 +88,7 @@ li b{color:#fff}
 SIZES_LONG = dict(W=1080, H=0, PAD=64, fs_eye=22, fs_h1=62, fs_sub=27, fs_tag=22, fs_h2=40,
                   fs_row=25, fs_big=64, fs_note=22, fs_li=25, fs_tile=48, fs_url=34,
                   namew=210, valw=105, barh=22, gap=54, gap2=20, boxpad=26, kvpad=13)
+SIZES_COVER = dict(W=1920, H=1080, PAD=0, fs_eye=26, fs_h1=104, fs_sub=34, fs_tag=24, fs_h2=48, fs_row=30, fs_big=80, fs_note=26, fs_li=29, fs_tile=64, fs_url=36, namew=230, valw=120, barh=28, gap=48, gap2=24, boxpad=32, kvpad=16)
 SIZES_CARD = dict(W=1242, H=1656, PAD=76, fs_eye=24, fs_h1=76, fs_sub=32, fs_tag=25, fs_h2=48,
                   fs_row=30, fs_big=80, fs_note=25, fs_li=29, fs_tile=60, fs_url=38,
                   namew=250, valw=125, barh=26, gap=56, gap2=24, boxpad=32, kvpad=16)
@@ -176,6 +194,28 @@ def long_image(p):
     return html(body, SIZES_LONG)
 
 
+def cover(p):
+    t = p["teams"][:6]
+    body = """
+<div class="cover"><div class="glow"></div>
+  <div class="L">
+    <div class="eyebrow">THE INTERNATIONAL 2026 · 8/13 上海</div>
+    <h1>TI15<br>谁会赢</h1>
+    <div class="promise"><b>一个赛后要认账的预测</b><br>
+    14.6 万场比赛 · 赛前已哈希存证</div>
+  </div>
+  <div class="R">
+    <div class="rt">夺冠概率（已融合博彩赔率）</div>
+    %s
+  </div>
+  <div class="urlbig">shadowjacob.shop/dota2</div>
+</div>
+""" % bars(t, "champ_blended")
+    return ("<!doctype html><html><head><meta charset=utf-8><style>%s"
+            ".page{padding:0;width:%dpx}</style></head><body><div class=page>%s</div></body></html>"
+            % (CSS % SIZES_COVER, SIZES_COVER["W"], body))
+
+
 def cards(p):
     t = p["teams"]
     fal = next(x for x in t if x["team"] == "Team Falcons")
@@ -275,6 +315,7 @@ def main():
     p = json.load(open(SITE))
     os.makedirs(OUT, exist_ok=True)
     made = []
+    made.append(shoot(cover(p), "ti15-cover.png", 1920, min_h=1080))
     made.append(shoot(long_image(p), "ti15-long.png", 1080))
     for i, c in enumerate(cards(p), 1):
         made.append(shoot(c, "ti15-card-%d.png" % i, 1242, min_h=1656))
