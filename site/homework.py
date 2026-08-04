@@ -242,5 +242,13 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
 
 <div class="note good"><b>这份作业也会被打分。</b>8 月 23 日打完，我会公布这 16 格实际对了几格、
 梦幻阵容拿了多少分——跟夺冠预测一起，好看不好看都发。</div>
+
+<div class="cta">
+  <div>
+    <b>想跟别人比填法？进「TI15 抄作业群」</b>
+    <span>群里可以互相看填法、开赛后跟进，8/23 一起对分数。</span>
+  </div>
+  <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
+</div>
 """ % (hw["expected_correct"], hw["random_baseline"],
-       detail, ftable, hw["cost_of_intuition"])
+       detail, ftable, hw["cost_of_intuition"], base)

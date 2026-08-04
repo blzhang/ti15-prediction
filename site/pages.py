@@ -4,7 +4,12 @@ import os
 import shutil
 
 NAV = [("homework.html", "抄作业"), ("index.html", "结论"), ("predictions.html", "预测详情"),
-       ("odds.html", "市场怎么看"), ("methodology.html", "方法论"), ("data.html", "数据与检索")]
+       ("odds.html", "市场怎么看"), ("methodology.html", "方法论"), ("data.html", "数据与检索"),
+       ("group.html", "进群")]
+
+# 微信群二维码 7 天一换。换码只需替换 assets_src/group-qr.jpg 并改这个日期，
+# 知乎/NGA 帖子里挂的始终是 group.html 这个永久链接，不用跟着改。
+QR_EXPIRY = "2026-08-11"
 
 
 def esc(s):
@@ -143,6 +148,14 @@ def page_index(base, p):
 用的其实是<b>比赛打到一半的实时数据</b>——那当然准，但那不叫预测。
 只用赛前信息的话，六成到七成就是天花板。<b>看到有人说赛前能做到八成五，基本可以断定是把赛后信息漏进模型了。</b></div>
 <p><a href="%s/predictions.html">→ 看完整预测详情</a> ｜ <a href="%s/methodology.html">→ 方法论与已知限制</a></p>
+
+<div class="cta">
+  <div>
+    <b>建了个微信群：TI15 抄作业群</b>
+    <span>一起填预测面板，8/23 一起给这套预测打分。</span>
+  </div>
+  <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
+</div>
 """ % (esc(top["team"]), top["champ_blended"] * 100,
        oos.get("acc", 0) * 100,
        esc(top["team"]), top["champ_blended"] * 100,
@@ -152,8 +165,50 @@ def page_index(base, p):
        (spirit["champ_blended"] - spirit["champ_model"]) * 100,
        "{:,}".format(oos.get("n", 0)),
        oos.get("acc", 0) * 100, oos.get("brier", 0),
-       base, base)
+       base, base, base)
     return shell(base, "index.html", "结论", body)
+
+
+def page_group(base, p):
+    body = """
+<h1>TI15 抄作业群</h1>
+<p class="lede">一个微信群，干三件事：一起填官方预测面板、开赛后跟进赛果、8 月 23 日结束时一起给这套预测打分。</p>
+<p class="meta">扫码进群 · 群名「TI15 抄作业群」</p>
+
+<div class="qr-card">
+  <img class="qr" src="%s/assets/group-qr.jpg" alt="微信群二维码：TI15 抄作业群" width="350" height="522">
+  <div class="qr-side">
+    <h3>进来能得到什么</h3>
+    <ul>
+      <li><b>预测面板怎么填</b>——<a href="%s/homework.html">抄作业页</a>给的是期望最优解，群里可以讨论要不要赌一把偏离它</li>
+      <li><b>赛程开打后的跟进</b>——瑞士轮每轮结束后，模型的概率会怎么变</li>
+      <li><b>8/23 的对账</b>——用同一套代码给赛前预测打分，好看不好看都在群里先发</li>
+    </ul>
+    <p class="hint">不发广告、不荐赌。这套预测<b>不提供任何投注建议</b>，群里同样不聊这个。</p>
+  </div>
+</div>
+
+<div class="note" id="qr-note">
+  <b>二维码有效期到 %s。</b>微信群码 7 天一换，过期了这个页面会换上新的——
+  所以请把这一页存进收藏夹，不要保存二维码图片本身。
+</div>
+
+<h2>为什么进群入口在这里，而不在帖子里</h2>
+<p>微信群码 7 天就失效，而 TI15 打到 8 月 23 日。如果把码直接贴在知乎和 NGA 帖子里，
+每周都得回去编辑一次帖子，中间还会有人扫到死码。放在这一页，换码只需要换一张图，
+帖子里挂的链接永远有效。</p>
+""" % (base, base, esc(QR_EXPIRY))
+    # 静态页无法知道访客何时打开，所以过期判断放到客户端：码一旦过期，
+    # 访客看到的是明确提示，而不是扫了个死码不知道为什么进不去。
+    js = ("<script>(function(){var d=new Date('%sT23:59:59+08:00');"
+          "if(Date.now()>d.getTime()){var n=document.getElementById('qr-note');"
+          "if(n){n.className='note crit';"
+          "n.innerHTML='<b>这张二维码可能已经过期了。</b>'+"
+          "'群码 7 天一换，这一页还没来得及更新。'+"
+          "'稍后再来刷新一次，或者在知乎文章下留言提醒作者换码。';}"
+          "var q=document.querySelector('.qr');if(q){q.style.opacity='.35';}}})();</script>"
+          % esc(QR_EXPIRY))
+    return shell(base, "group.html", "进群", body, extra_js=js)
 
 
 def page_pred(base, p):
@@ -377,7 +432,7 @@ def _sz(b):
 
 def write_all(dist, base, payload):
     src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets_src")
-    for f in ("style.css", "app.js", "px.js", "picker.js"):
+    for f in ("style.css", "app.js", "px.js", "picker.js", "group-qr.jpg"):
         shutil.copyfile(os.path.join(src, f), os.path.join(dist, "assets", f))
     import homework
     hw = homework.compute(payload["raw_pred"])
@@ -401,6 +456,7 @@ def write_all(dist, base, payload):
         "predictions.html": page_pred(base, payload),
         "methodology.html": page_method(base, payload),
         "data.html": page_data(base, payload),
+        "group.html": page_group(base, payload),
     }
     for name, htmlstr in pages.items():
         with open(os.path.join(dist, name), "w") as fh:

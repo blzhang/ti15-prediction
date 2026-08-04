@@ -216,3 +216,31 @@ footer { border-top: 1px solid var(--grid); margin-top: 56px; padding: 22px 0 40
 @media (max-width: 680px) {
   .pkopts { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
+
+/* 进群入口 */
+.cta { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+       flex-wrap: wrap; margin: 26px 0 8px; padding: 16px 18px;
+       background: var(--surface-1); border: 1px solid var(--grid);
+       border-left: 3px solid var(--s2); border-radius: 8px; }
+.cta b { display: block; font-size: 15px; }
+.cta span { color: var(--ink-2); font-size: 13.5px; }
+/* 反色按钮：橙底白字在两种主题下对比度只有 3.2:1 / 3.9:1，达不到 4.5:1。
+   用 ink/page 反色，明暗模式都远超标准，橙色留给左边框做点缀。 */
+.cta-btn { flex-shrink: 0; background: var(--ink); color: var(--page); font-weight: 600;
+           font-size: 14px; padding: 9px 16px; border-radius: 6px; white-space: nowrap; }
+.cta-btn:hover { text-decoration: none; opacity: .82; }
+
+.qr-card { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start;
+           margin: 20px 0; padding: 22px; background: var(--surface-1);
+           border: 1px solid var(--grid); border-radius: 8px; }
+/* 二维码始终配白底：暗色模式下深色背景会让部分扫码器识别失败 */
+.qr { width: 350px; max-width: 100%; height: auto; border-radius: 6px;
+      background: #fff; padding: 10px; }
+.qr-side { flex: 1; min-width: 260px; }
+.qr-side h3 { margin: 0 0 10px; font-size: 16px; }
+.qr-side ul { margin: 0 0 14px; padding-left: 20px; color: var(--ink-2); }
+.qr-side li { margin-bottom: 7px; }
+@media (max-width: 680px) {
+  .qr-card { gap: 18px; padding: 16px; justify-content: center; }
+  .cta-btn { width: 100%; text-align: center; }
+}
