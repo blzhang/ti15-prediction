@@ -37,7 +37,13 @@ if [ -n \"\$ORPHAN\" ]; then
   echo \"\$ORPHAN\" | sed 's|^|     |'
 fi"
 
+# 验证清单从构建产物现取，不写死——写死的清单会随新页面悄悄过期。
 echo "验证："
-for p in "" predictions.html methodology.html data.html data/search_index.json; do
-  printf "  /dota2/%-26s %s\n" "$p" "$(curl -s -o /dev/null -w '%{http_code}' "https://shadowjacob.shop/dota2/$p")"
+FAIL=0
+for p in "" $(cd "$ROOT/site/dist" && ls *.html) data/site.json data/search_index.json; do
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://shadowjacob.shop/dota2/$p")
+  printf "  /dota2/%-26s %s\n" "$p" "$CODE"
+  [ "$CODE" = "200" ] || FAIL=1
 done
+[ "$FAIL" = "0" ] || { echo "❌ 有页面不是 200，部署未通过验证"; exit 1; }
+echo "✅ 全部 200"

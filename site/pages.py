@@ -5,7 +5,7 @@ import shutil
 
 NAV = [("homework.html", "抄作业"), ("index.html", "结论"), ("predictions.html", "预测详情"),
        ("odds.html", "市场怎么看"), ("methodology.html", "方法论"), ("data.html", "数据与检索"),
-       ("group.html", "进群")]
+       ("group.html", "进群"), ("changelog.html", "更新日志")]
 
 # 微信群二维码 7 天一换。换码只需替换 assets_src/group-qr.jpg 并改这个日期，
 # 知乎/NGA 帖子里挂的始终是 group.html 这个永久链接，不用跟着改。
@@ -38,14 +38,14 @@ def shell(base, cur, title, body, extra_js=""):
 %s
 </div></main>
 <footer><div class="wrap">
-所有预测在开赛前生成并加了防篡改校验，之后没有再改过。比赛数据来自 OpenDota 和 Liquipedia。<br>
+所有预测在开赛前生成并加了防篡改校验。改过的地方全部记在<a href="%s/changelog.html">更新日志</a>里，包括读者指出来的错。比赛数据来自 OpenDota 和 Liquipedia。<br>
 页面上每一个数字都是程序直接算出来的，没有人工誊抄——所以不会出现「模型改了、网页忘了同步」这种事。<br>
 本站不提供任何投注建议。
 </div></footer>
 <script src="%s/assets/app.js"></script>
 <script src="%s/assets/px.js" defer></script>
 %s
-</body></html>""" % (esc(title), base, base, nav, body, base, base, extra_js)
+</body></html>""" % (esc(title), base, base, nav, body, base, base, base, extra_js)
 
 
 def bars(rows, key, fmt=lambda v: "%.1f%%" % (v * 100), alt=False):
@@ -435,11 +435,16 @@ def write_all(dist, base, payload):
     for f in ("style.css", "app.js", "px.js", "picker.js", "group-qr.jpg"):
         shutil.copyfile(os.path.join(src, f), os.path.join(dist, "assets", f))
     import homework
-    hw = homework.compute(payload["raw_pred"])
+    hw = homework.compute(payload["raw_pred"],
+                          {r["team"]: r["theta"] for r in payload["teams"]})
     fan = payload["raw_fantasy"]
     fan_rec = homework.fantasy(fan, payload["raw_pred"])
     import odds as _odds
+    import changelog as _changelog
+    payload = dict(payload, homework_full=hw)
     pages = {
+        "changelog.html": shell(base, "changelog.html", "更新日志",
+                                _changelog.render(base, payload)),
         "odds.html": shell(base, "odds.html", "市场怎么看",
                            _odds.render(base, payload["raw_pred"],
                                         {r["team"]: r["champ_blended"] for r in payload["teams"]},

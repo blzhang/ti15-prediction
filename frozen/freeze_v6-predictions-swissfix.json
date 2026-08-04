@@ -1,0 +1,9 @@
+{
+ "label": "v6-predictions-swissfix",
+ "frozen_at_utc": "2026-08-03T14:26:26Z",
+ "sha256": "5719946a44d36cc6b6d343ffbe9d046650614e33c3b263f99d61af965cc6ec54",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l2_predictions.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v6-predictions-swissfix.json",
+ "src_rel": "../model/l2_predictions.json",
+ "frozen_path_rel": "frozen_v6-predictions-swissfix.json"
+}

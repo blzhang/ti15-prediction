@@ -81,6 +81,14 @@ li b{color:#fff}
 .cover .row .v{width:120px;font-size:30px}
 .cover .glow{position:absolute;right:-320px;top:-260px;width:900px;height:900px;
              background:radial-gradient(circle,#1d4d8c66 0%%,transparent 62%%);pointer-events:none}
+.hwgrid{display:grid;grid-template-columns:1fr 1fr;gap:%(gap2)dpx;margin:20px 0}
+.hwb{background:#1a1a19;border:1px solid #2c2c2a;border-radius:14px;padding:%(boxpad)dpx}
+.hwt{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+     padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid #2c2c2a}
+.hwt b{font-size:%(fs_h2)dpx;letter-spacing:-1px}
+.hwt span{color:#898781;font-size:%(fs_note)dpx}
+.hwp{display:flex;justify-content:space-between;padding:5px 0;font-size:%(fs_row)dpx;color:#fff}
+.hwp span{color:#898781;font-variant-numeric:tabular-nums}
 .badge{display:inline-block;background:#1a1a19;border:1px solid #3987e5;color:#3987e5;
        border-radius:999px;padding:7px 18px;font-size:%(fs_note)dpx;margin-bottom:20px}
 """
@@ -116,6 +124,24 @@ def dist_kv(d, unit="支"):
         for k in sorted(d, key=int) if d[k] > 0.005)
 
 
+HW_ORDER = [("4-0", "一支全胜"), ("4-1", "两支四胜一负"),
+            ("淘汰赛胜者", "五支淘汰赛胜出"), ("淘汰赛败者", "五支淘汰赛失败"),
+            ("1-4", "两支一胜四负"), ("0-4", "一支全败")]
+
+
+def hw_block(p):
+    """抄作业六档，两列排布。"""
+    ans = p["homework"]["answer"]
+    cells = []
+    for nm, desc in HW_ORDER:
+        picks = ans.get(nm, [])
+        names = "".join('<div class="hwp">%s<span>%.0f%%</span></div>' % (t, v * 100)
+                        for t, v in picks)
+        cells.append('<div class="hwb"><div class="hwt"><b>%s</b><span>%s</span></div>%s</div>'
+                     % (nm, desc, names))
+    return '<div class="hwgrid">%s</div>' % "".join(cells)
+
+
 def html(body, sizes, cls=""):
     return ("<!doctype html><html><head><meta charset=utf-8><style>%s</style></head>"
             "<body class='%s'><div class=page>%s</div></body></html>"
@@ -127,13 +153,14 @@ def long_image(p):
     fal = next(x for x in t if x["team"] == "Team Falcons")
     spi = next(x for x in t if x["team"] == "Team Spirit")
     oos = p["oos"]
+    ep = p["homework"]["elim"]
     body = """
-<div class="badge">赛前已哈希存证 · v4-blended-final</div>
+<div class="badge">赛前已哈希存证 · 2026-08-04</div>
 <div class="eyebrow">THE INTERNATIONAL 2026 · 8/13–8/23 上海</div>
 <h1>TI15 谁会赢<br><em>一个赛后要认账的预测</em></h1>
 <div class="sub">用 2020–2026 的 <b>145,974 场</b>职业比赛跑出来的量化预测。<br>
 所有结果赛前冻结留证，8/23 赛后用同一套代码打分——好看不好看都发。</div>
-<div class="tagline">蒙特卡洛 20 万次 · 生成于 2026-08-03</div>
+<div class="tagline">蒙特卡洛 20 万次 · 含赛制修正后重算</div>
 
 <h2><span class="n">01</span>夺冠概率</h2>
 <div class="h2sub">已与博彩赔率融合（市场权重 0.7）</div>
@@ -150,21 +177,19 @@ def long_image(p):
     <div class="note"><b>模型看淡，市场看好。</b><br>队长兼指挥 Miposhka 转任教练。</div></div>
 </div>
 
-<h2><span class="n">03</span>官方预测题</h2>
-<div class="h2sub">瑞士轮结构决定：最多只可能有一支队 5-0</div>
-<div class="split">
-  <div class="box"><div class="lbl">本届出现 5-0 的队数</div>%s</div>
-  <div class="box"><div class="lbl">本届 4-1 的队数</div>%s</div>
-</div>
+<h2><span class="n">03</span>官方预测题·抄作业</h2>
+<div class="h2sub">游戏内「赛事预测」小组赛那 16 格的建议填法</div>
+%s
 <div class="note" style="color:#898781;font-size:%dpx;line-height:1.6">
-两问强相关，必须一起答：4-0 那支若赢下第 5 轮 → 出现 5-0，4-1 通常 1–2 支；<br>
-若它输掉 → 没有 5-0，它自己掉进 4-1，该档变成 3–4 支。</div>
+期望答对 %.2f / 16 格，随机乱填 %.2f 格——只多约 %.1f 格。够到保底奖励有用，冲榜不够。<br>
+<b style="color:#c3c2b7">最贵的两格：</b>「淘汰赛胜者」实力前八全挤在 %.1f%%–%.1f%%，填谁都一样，
+坑是填垫底队（低到 %.1f%%）；「淘汰赛败者」反过来，最该躲开的是最强的那支（%.1f%%，比最优低 %.1f 个百分点）——它根本打不到这一轮。</div>
 
 <h2><span class="n">04</span>凭什么信</h2>
 <div class="h2sub">训练只用 2026-03 之前的数据，在之后没见过的比赛上实测</div>
 <div class="tiles">
   <div class="tile"><div class="v">%.1f%%</div><div class="k">样本外准确率<br>%s 场未见过的比赛</div></div>
-  <div class="tile"><div class="v">%.4f</div><div class="k">Brier 分数<br>健康区间 0.21–0.24</div></div>
+  <div class="tile"><div class="v">%.4f</div><div class="k">预测校准分<br>健康区间 0.21–0.24，越低越好</div></div>
   <div class="tile"><div class="v">145,974</div><div class="k">训练用的<br>职业比赛场次</div></div>
 </div>
 <div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
@@ -173,22 +198,25 @@ def long_image(p):
 
 <h2><span class="n">05</span>我把自己的错也写上去了</h2>
 <ul>
-<li>初版用<b>裸泊松假定</b>估方差，导致 GPM 和补刀的置信区间<b>窄了 4–8 倍</b>。已修正。</li>
+<li><b>抄作业那两格的填法说反了</b>：我写「淘汰赛胜者别填最强的」，那条只值 1.9 个百分点；真正值 24 个百分点的「别填垫底队」我没写。NGA 读者指出的。</li>
+<li><b>赛制一开始就建错了</b>：按「固定 5 轮人人打满」建模，产出了现实中不存在的 5-0。真实是打到 4 胜或 4 负即停。读者在评论区抓到的，已重写。</li>\n<li><b>算错了波动幅度</b>：以为选手每局的发挥比实际稳定得多，导致每分钟经济和补刀的<b>误差范围窄了 4–8 倍</b>。已修正。</li>
 <li>发现过 <b>7 次「测试写了但测不到」</b>——比如一条声称锁住号位分层的测试，把所有人塞进同一组照样通过。</li>
-<li>调研文档明确要求过「先量一遍 Var/Mean」，这条要求在传导中<b>丢失了，从未被执行</b>。</li>
-<li>Watcher 和 Lotus 两项数据取不到，<b>辅助槽的预测能力结构性偏弱</b>，补不上。</li>
+<li>调研阶段明确写过「别假设，先在自己的数据上量一遍」——<b>这条要求在层层传递中弄丢了，从没执行过</b>。</li>
+<li>梦幻挑战里有两项计分数据拿不到，而它们恰好都算在辅助身上——<b>辅助那一栏的预测天生偏弱</b>，补不上。</li>
 </ul>
 
 <div class="foot">
   <div class="url">%s</div>
-  <div class="promise">全部数据可下载 · 120 个对阵的赛前胜率全公开 · 80 名选手数据可检索<br>
+  <div class="promise">全部数据可下载 · 120 个对阵的赛前胜率全公开 · 改过什么全记在站内「更新日志」<br>
   <b style="color:#fff">8 月 23 日赛后，我会用同一套代码打分，好看不好看都发。</b></div>
 </div>
 """ % (bars(t, "champ_blended"),
        fal["champ_model"] * 100, fal["champ_blended"] * 100,
        spi["champ_model"] * 100, spi["champ_blended"] * 100,
-       dist_kv(p["n_5_0"]), dist_kv(p["n_4_1"]),
-       SIZES_LONG["fs_note"],
+       hw_block(p), SIZES_LONG["fs_note"],
+       p["homework"]["expected"], p["homework"]["random"],
+       p["homework"]["expected"] - p["homework"]["random"],
+       ep["sv_lo8"], ep["sv_hi8"], ep["sv_min"], ep["ou_min"], ep["ou_gap"],
        oos.get("acc", 0) * 100, "{:,}".format(oos.get("n", 0)), oos.get("brier", 0),
        SIZES_LONG["fs_note"], URL)
     return html(body, SIZES_LONG)
@@ -257,7 +285,7 @@ def cards(p):
 <div class="box"><div class="lbl">Team Spirit</div>
   <div class="big up">%.1f%% → %.1f%%</div>
   <div class="note"><b>模型看淡，市场看好。</b><br>队长兼指挥 Miposhka 转任教练——<br>
-  这种变动按 team_id 记分的模型看不见。</div></div>
+  只认队名不认人的模型，看不见这种变动。</div></div>
 </div></div><div class="foot"><div class="url">%s</div></div>
 """ % (S["fs_h1"] - 10, fal["champ_model"] * 100, fal["champ_blended"] * 100,
        spi["champ_model"] * 100, spi["champ_blended"] * 100, URL)
@@ -267,12 +295,12 @@ def cards(p):
 <h1 style="font-size:%dpx">我把自己的错<br>也写上去了</h1>
 <div class="tiles" style="margin:34px 0">
   <div class="tile"><div class="v">%.1f%%</div><div class="k">样本外准确率</div></div>
-  <div class="tile"><div class="v">%.4f</div><div class="k">Brier 分数</div></div>
+  <div class="tile"><div class="v">%.4f</div><div class="k">预测校准分<br>越低越好</div></div>
 </div>
 <div class="sub" style="font-size:%dpx;margin-bottom:26px">赛前预测现实上限 65–70%%。<br>
 <b>做到 85%% 一定是数据泄漏。</b></div>
 <ul>
-<li>初版用裸泊松估方差，<b>区间窄了 4–8 倍</b></li>
+<li>算错了波动幅度，<b>误差范围窄了 4–8 倍</b></li>
 <li>发现 <b>7 次「测试写了但测不到」</b></li>
 <li>Watcher/Lotus 取不到，<b>辅助槽结构性偏弱</b></li>
 </ul>

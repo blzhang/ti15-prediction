@@ -1,0 +1,9 @@
+{
+ "label": "v6-blended-swissfix",
+ "frozen_at_utc": "2026-08-03T14:26:26Z",
+ "sha256": "a8b5c149cb1ba4fac58c05ed76544dbcf2f4750969e3929bb2e3eb7234ecccc1",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l2_blended.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v6-blended-swissfix.json",
+ "src_rel": "../model/l2_blended.json",
+ "frozen_path_rel": "frozen_v6-blended-swissfix.json"
+}

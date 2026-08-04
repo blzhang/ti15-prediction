@@ -94,7 +94,33 @@ def picker_data(pred, hw, fan_rec):
     }
 
 
-def compute(pred):
+def elim_pitfalls(pred, strength):
+    """「淘汰赛胜者 / 败者」两格的真实落差。
+
+    两格的概率都 = P(打得上附加轮) × P(打上了赢 / 输)。前一项随实力先升后降
+    （太强直接晋级、太弱直接出局，两头都碰不到这一轮），后一项随实力单调。
+    乘出来是两个形状不同的曲线：胜者格在实力前八几乎持平，败者格被最强的压到最低。
+
+    早先的文案两格都挑了落差小的那一头讲。所以这里把形状钉成断言——
+    重算后若形状变了，构建直接失败，而不是继续印一句错话。
+    """
+    # 必须按实力参数排序。用模拟出来的夺冠概率当代理会在末尾翻转——
+    # 垫底两队的夺冠概率都是 0.1%~0.2% 量级，差异纯粹是蒙特卡洛噪声。
+    order = sorted(strength, key=lambda t: -strength[t])
+    sv = [pred["elim_round_survive"][t] for t in order]
+    ou = [pred["elim_round_out"][t] for t in order]
+    assert sv.index(min(sv)) >= 11, "胜者格最低的不再是垫底队，文案需重写"
+    assert ou.index(min(ou)) == 0, "败者格最低的不再是最强队，文案需重写"
+    return {"sv_lo8": min(sv[:8]) * 100, "sv_hi8": max(sv[:8]) * 100,
+            "sv_min": min(sv) * 100, "sv_gap": (max(sv) - min(sv)) * 100,
+            "ou_min": min(ou) * 100, "ou_gap": (max(ou) - min(ou)) * 100,
+            # 「避开最强的那支」在两格里各值多少——更新日志要用这两个数
+            # 来说明早先的建议为什么等于没说。
+            "sv_cost_top": (max(sv) - sv[0]) * 100,
+            "ou_cost_bot": (max(ou) - ou[-1]) * 100}
+
+
+def compute(pred, strength):
     """产出推荐答案（直觉版）与纯最优版的对照。"""
     best, _ = solve(pred)
     teams = list(pred["record_dist"])
@@ -109,10 +135,13 @@ def compute(pred):
         "expected_correct_optimal": best,
         "random_baseline": random_baseline,
         "cost_of_intuition": best - intuit,
+        "elim": elim_pitfalls(pred, strength),
     }
 
 
 def render(base, hw, pred, fan, fan_rec):
+    ep = hw["elim"]
+
     def esc(s):
         import html as _h
         return _h.escape(str(s), quote=True)
@@ -197,10 +226,13 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
 <p class="hint">数字都不高很正常——16 支队水平太接近，任何一格都谈不上稳。
 <b>底色条</b>表示相对高低，方便一眼看出哪几个是同一档。</p>
 
-<div class="note"><b>最容易填错的是「淘汰赛胜者」那 5 格：别填最强的队。</b><br>
-听起来反直觉，但道理很简单——<b>越强的队越可能直接全胜或一负出线，压根不打淘汰赛那一轮。</b>
-这 5 格奖励的是中游队：强到能赢，但没强到能直接晋级。<br>
-同理，「淘汰赛败者」也别填最弱的两支，它们更可能直接垫底出局，也进不了那一轮。</div>
+<div class="note"><b>这两格最贵，而且方向相反。</b><br>
+两格的概率都等于「打得上那一轮」乘「打上了赢还是输」。前一项随实力先升后降——太强的直接晋级，
+太弱的直接出局，两头都碰不到这一轮；后一项则随实力一路走高。两项乘出来是两个完全不同的形状。<br>
+<b>「淘汰赛胜者」：实力前八全挤在 %.1f%%–%.1f%%，填哪支都一样，别在这纠结。</b>
+真正的坑是填垫底队——最低只有 %.1f%%，比最优的一格差 %.1f 个百分点。<br>
+<b>「淘汰赛败者」：反过来，最该躲开的是最强的那支。</b>它只有 %.1f%%，比最优低 %.1f 个百分点——
+强队根本打不到附加轮就直通了，填在这格几乎是白给。</div>
 
 <h2>二、梦幻挑战（3 个位置）</h2>
 <p>这三格选的都是<b>队伍</b>不是选手。核心格算这支队两个核心的分，辅助格算两个辅助的分，中单格只算中单一个人。</p>
@@ -251,4 +283,6 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
   <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
 </div>
 """ % (hw["expected_correct"], hw["random_baseline"],
+       ep["sv_lo8"], ep["sv_hi8"], ep["sv_min"], ep["sv_gap"],
+       ep["ou_min"], ep["ou_gap"],
        detail, ftable, hw["cost_of_intuition"], base)

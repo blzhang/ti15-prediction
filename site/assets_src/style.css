@@ -244,3 +244,22 @@ footer { border-top: 1px solid var(--grid); margin-top: 56px; padding: 22px 0 40
   .qr-card { gap: 18px; padding: 16px; justify-content: center; }
   .cta-btn { width: 100%; text-align: center; }
 }
+
+/* 更新日志 */
+.clcard { background: var(--surface-1); border: 1px solid var(--grid);
+          border-left: 3px solid var(--s1); border-radius: 0 8px 8px 0;
+          padding: 18px 22px; margin: 18px 0; }
+.clcard.crit { border-left-color: var(--crit); }
+.clhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+          padding-bottom: 12px; margin-bottom: 6px; border-bottom: 1px solid var(--grid); }
+.clhead b { font-size: 16px; letter-spacing: -.2px; }
+.cldate { color: var(--ink-muted); font-size: 12.5px; font-variant-numeric: tabular-nums;
+          white-space: nowrap; }
+.clrow { display: grid; grid-template-columns: 104px 1fr; gap: 16px; padding: 7px 0; }
+.clrow .clk { color: var(--ink-muted); font-size: 13px; text-align: right; }
+.clrow .clv { color: var(--ink-2); font-size: 14px; line-height: 1.65; }
+.clrow .clv b { color: var(--ink); }
+@media (max-width: 680px) {
+  .clrow { grid-template-columns: 1fr; gap: 2px; }
+  .clrow .clk { text-align: left; font-weight: 600; }
+}
