@@ -171,7 +171,7 @@ footer { border-top: 1px solid var(--grid); margin-top: 56px; padding: 22px 0 40
 
 /* ---- 作业页互动选择器 ---- */
 .pkbar { background: var(--surface-1); border: 1px solid var(--grid); border-radius: 10px;
-         padding: 16px 18px; margin: 18px 0 22px; position: sticky; top: 62px; z-index: 10; }
+         padding: 16px 18px; margin: 18px 0 22px; }
 .pkstats { display: flex; gap: 30px; flex-wrap: wrap; align-items: baseline; }
 .pklab { color: var(--ink-muted); font-size: 12px; margin-right: 8px; }
 .pkbig { font-size: 26px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
@@ -214,6 +214,5 @@ footer { border-top: 1px solid var(--grid); margin-top: 56px; padding: 22px 0 40
 .pkopt.taken { opacity: .38; }
 .pkopt.taken:hover { opacity: .7; }
 @media (max-width: 680px) {
-  .pkbar { position: static; }
   .pkopts { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
