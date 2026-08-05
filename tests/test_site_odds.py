@@ -27,6 +27,12 @@ def test_render_shows_both_sources_and_dashes_for_unpriced_bookmaker():
     assert "2026-08-01" in html              # 庄家抓取时间
     assert "2026-08-05T09:00:00Z" in html    # Polymarket 抓取时间
     assert "不提供任何投注建议" in html
+    # 部分覆盖盘上不成立的旧「抽水」解释不得回归
+    assert "公平市场应该正好等于" not in html
+    # 覆盖数字必须来自数据，不是手抄：3 队 fixture、1 队有盘 → 1 与 2
+    assert "只开了 1 支队的盘" in html
+    assert "缺了 2 支队" in html
+    assert "不过 3 份合约" in html
 
 
 def test_render_orders_rows_by_blended_probability_desc():
