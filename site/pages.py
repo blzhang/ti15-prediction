@@ -236,6 +236,7 @@ def page_group(base, p, qr="group-qr.jpg"):
 
 def page_pred(base, p):
     t = p["teams"]
+    falcons = next(x for x in t if x["team"] == "Team Falcons")
     rows = "".join(
         "<tr><td>%s</td><td class='num hi'>%.1f%%</td><td class=num>%.1f%%</td><td class=num>%.1f%%</td>"
         "<td class=num>%.1f%%</td><td class=num>%.1f%%</td><td class=num>%.1f%%</td>"
@@ -250,7 +251,7 @@ def page_pred(base, p):
 
 <div class="note"><b>读表前必看：</b>只有「夺冠」一列做了市场融合。
 「进淘汰赛 / 瑞士轮前3 / 5-0」全部是纯模型，<b>各列并非同一个联合分布</b>。
-例：Falcons 夺冠 10.3%%（融合后），但进淘汰赛 73.8%%——后者出自一个认为它夺冠 14.8%% 的模型。横向比较需谨慎。</div>
+例：Falcons 夺冠 %.1f%%（融合后），但进淘汰赛 %.1f%%——后者出自一个认为它夺冠 %.1f%% 的模型。横向比较需谨慎。</div>
 
 <h2>夺冠概率：模型 vs 融合后</h2>
 %s
@@ -274,7 +275,9 @@ def page_pred(base, p):
 <div class="note good"><b>为什么这不是「挑好的算」：</b>概率生成只读赛前数据（固定种子重跑逐格一致）；
 评分时是无条件「有结果就收录」，没有任何挑拣分支；哪些配对会发生由赛果决定，与我们预测得准不准无关。
 这与 FiveThirtyEight 处理赛程的方式一致。</div>
-""" % ("{:,}".format(p.get("n_sim") or 0), dual_bars(t), rows, base, base)
+""" % ("{:,}".format(p.get("n_sim") or 0),
+       falcons["champ_blended"] * 100, falcons["advance"] * 100, falcons["champ_model"] * 100,
+       dual_bars(t), rows, base, base)
     return shell(base, "predictions.html", "预测详情", body)
 
 
