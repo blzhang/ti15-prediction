@@ -114,6 +114,7 @@ def dist_table(d, label):
 def page_index(base, p):
     t = p["teams"]
     top = t[0]
+    eighth = t[7]
     falcons = next(x for x in t if x["team"] == "Team Falcons")
     spirit = next(x for x in t if x["team"] == "Team Spirit")
     oos = p["oos"]
@@ -131,7 +132,7 @@ def page_index(base, p):
 </div>
 
 <h2>结论一：没有真正的大热门</h2>
-<p>头名 %s 只有 %.1f%%，前八名挤在 7%%–18%% 之间。这不是模型不敢下判断，而是 16 队水平确实接近——
+<p>头名 %s 只有 %.1f%%，前八名挤在 %.0f%%–%.0f%% 之间。这不是模型不敢下判断，而是 16 队水平确实接近——
 瑞士轮打到 4 胜或 4 负、之后还要打双败，路径太长，任何单一队伍的夺冠概率都被稀释。</p>
 <div class="note"><b>历史支持这个判断。</b>TI9–TI14 六届里，赛前赔率头名只夺冠 1 次，冠军的赛前赔率排名中位数是第 4.5 名。
 我们一度以为这说明市场错价，但二项检验推翻了它：头名真实概率 25%% 时，六届只赢一次的概率是 53%%——
@@ -180,6 +181,7 @@ def page_index(base, p):
 """ % (esc(top["team"]), top["champ_blended"] * 100,
        oos.get("acc", 0) * 100,
        esc(top["team"]), top["champ_blended"] * 100,
+       eighth["champ_blended"] * 100, top["champ_blended"] * 100,
        falcons["champ_model"] * 100, falcons["champ_blended"] * 100,
        (falcons["champ_blended"] - falcons["champ_model"]) * 100,
        spirit["champ_model"] * 100, spirit["champ_blended"] * 100,

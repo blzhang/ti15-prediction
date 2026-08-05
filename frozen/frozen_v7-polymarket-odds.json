@@ -1,0 +1,114 @@
+{
+ "source": "Polymarket Gamma API",
+ "event_slug": "the-international-2026-winner-20260629212545745",
+ "captured_utc": "2026-08-05T09:32:03Z",
+ "event_liquidity": 902053.10414,
+ "event_volume": 61614.83472,
+ "prices": {
+  "Aurora Gaming": {
+   "mid": 0.075,
+   "bid": 0.06,
+   "ask": 0.09,
+   "last": 0.09
+  },
+  "BoomBoys": {
+   "mid": 0.085,
+   "bid": 0.07,
+   "ask": 0.1,
+   "last": 0.09
+  },
+  "Team Falcons": {
+   "mid": 0.095,
+   "bid": 0.09,
+   "ask": 0.1,
+   "last": 0.12
+  },
+  "Team Liquid": {
+   "mid": 0.065,
+   "bid": 0.05,
+   "ask": 0.08,
+   "last": 0.05
+  },
+  "Iron Wing": {
+   "mid": 0.065,
+   "bid": 0.05,
+   "ask": 0.08,
+   "last": 0.09
+  },
+  "Xtreme Gaming": {
+   "mid": 0.051,
+   "bid": 0.042,
+   "ask": 0.06,
+   "last": 0.061
+  },
+  "Team Yandex": {
+   "mid": 0.225,
+   "bid": 0.21,
+   "ask": 0.24,
+   "last": 0.25
+  },
+  "Team Spirit": {
+   "mid": 0.095,
+   "bid": 0.09,
+   "ask": 0.1,
+   "last": 0.12
+  },
+  "TEAM VISION": {
+   "mid": 0.235,
+   "bid": 0.22,
+   "ask": 0.25,
+   "last": 0.25
+  },
+  "Nigma Galaxy": {
+   "mid": 0.0185,
+   "bid": 0.014,
+   "ask": 0.023,
+   "last": 0.026
+  },
+  "HULIGANI": {
+   "mid": 0.004,
+   "bid": 0.001,
+   "ask": 0.007,
+   "last": 0.002
+  },
+  "Team Resilience": {
+   "mid": 0.041,
+   "bid": 0.032,
+   "ask": 0.05,
+   "last": 0.067
+  },
+  "Vici Gaming": {
+   "mid": 0.054,
+   "bid": 0.039,
+   "ask": 0.069,
+   "last": 0.055
+  },
+  "OG": {
+   "mid": 0.0265,
+   "bid": 0.009,
+   "ask": 0.044,
+   "last": 0.039
+  },
+  "GamerLegion": {
+   "mid": 0.01,
+   "bid": 0.004,
+   "ask": 0.016,
+   "last": 0.002
+  },
+  "LGD Gaming": {
+   "mid": 0.0285,
+   "bid": 0.025,
+   "ask": 0.032,
+   "last": 0.027
+  }
+ },
+ "name_map_applied": {
+  "1w Team": "Iron Wing"
+ },
+ "excluded_markets": [
+  "Will A Win The International 2026?",
+  "Will B Win The International 2026?",
+  "Will C Win The International 2026?",
+  "Will another team Win The International 2026?"
+ ]
+}
