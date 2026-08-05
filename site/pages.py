@@ -470,7 +470,7 @@ def write_all(dist, base, payload):
         "odds.html": shell(base, "odds.html", "市场怎么看",
                            _odds.render(base, payload["raw_pred"],
                                         {r["team"]: r["champ_blended"] for r in payload["teams"]},
-                                        payload["raw_market"])),
+                                        payload["raw_market"], payload["raw_pm"])),
         "index.html": page_index(base, payload),
         "homework.html": shell(
             base, "homework.html", "抄作业",
