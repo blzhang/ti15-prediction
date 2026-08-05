@@ -33,6 +33,12 @@ def test_render_shows_both_sources_and_dashes_for_unpriced_bookmaker():
     assert "只开了 1 支队的盘" in html
     assert "缺了 2 支队" in html
     assert "不过 3 份合约" in html
+    assert "完整 3 队的夺冠盘" in html
+    # 注：模板里「内部」两字被 <b> 包住（"这 %d 支队<b>内部</b>按比例去掉抽水"，
+    # 该 <b> 标签是第二轮修复时按 Controller 原文写入的），字面串 "这 1 支队内部"
+    # 不会连续出现，故按实际标签结构断言，验证同一处的数字仍是算出来的 1。
+    assert "这 1 支队<b>内部</b>" in html
+    assert "只影响这 1 队内部的排序" in html
 
 
 def test_render_orders_rows_by_blended_probability_desc():

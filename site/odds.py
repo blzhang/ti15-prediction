@@ -70,7 +70,7 @@ Polymarket 的冠军盘 <b>%d 支队全有价</b>（盘内资金约 <b>%.0f 万�
 <thead><tr><th>队伍</th><th>庄家赔率</th><th>庄家胜率</th><th>Polymarket 胜率</th><th>本站预测</th></tr></thead>
 <tbody>%s</tbody></table></div>
 <p class="hint">「本站预测」已经融合了市场信息：两个市场源先<b>等权</b>合成一个「市场共识价」
-（庄家只开了 5 支队的盘，所以它只影响这 5 队内部的排序），
+（庄家只开了 %d 支队的盘，所以它只影响这 %d 队内部的排序），
 共识价再占<b>七成</b>权重与纯模型融合。所以最后一列和前面两列不会差太多——
 这是有意的，不是巧合。</p>
 
@@ -99,4 +99,5 @@ Polymarket 的价格在它官网的冠军盘页面就能看到，本站的快照
        len(priced), len(mids), (pm.get("event_liquidity") or 0) / 1e4,
        len(blended), len(priced), overround, len(blended) - len(priced),
        len(priced),
-       len(mids), pm_sum, rows)
+       len(mids), pm_sum, rows,
+       len(priced), len(priced))
