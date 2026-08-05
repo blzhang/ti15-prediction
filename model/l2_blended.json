@@ -1,21 +1,53 @@
 {
  "champion_blended": {
-  "Aurora Gaming": 0.106205,
-  "BoomBoys": 0.082275,
-  "Iron Wing": 0.104383,
-  "Team Falcons": 0.103453,
-  "Team Liquid": 0.071255,
-  "Team Yandex": 0.126453,
-  "Xtreme Gaming": 0.02031,
-  "Team Spirit": 0.141547,
-  "TEAM VISION": 0.182308,
-  "Nigma Galaxy": 0.005265,
-  "HULIGANI": 0.002265,
-  "Team Resilience": 0.0068,
-  "Vici Gaming": 0.02334,
-  "OG": 0.006845,
-  "GamerLegion": 0.00143,
-  "LGD Gaming": 0.015865
+  "Aurora Gaming": 0.076205,
+  "BoomBoys": 0.076877,
+  "Iron Wing": 0.081868,
+  "Team Falcons": 0.100621,
+  "Team Liquid": 0.061043,
+  "Team Yandex": 0.145661,
+  "Xtreme Gaming": 0.035403,
+  "Team Spirit": 0.1126,
+  "TEAM VISION": 0.191576,
+  "Nigma Galaxy": 0.011603,
+  "HULIGANI": 0.00308,
+  "Team Resilience": 0.021955,
+  "Vici Gaming": 0.038408,
+  "OG": 0.016157,
+  "GamerLegion": 0.005102,
+  "LGD Gaming": 0.02184
  },
- "w_market": 0.7
+ "w_market": 0.7,
+ "market_consensus": {
+  "Aurora Gaming": 0.063911,
+  "BoomBoys": 0.072433,
+  "Team Falcons": 0.081997,
+  "Team Liquid": 0.05539,
+  "Iron Wing": 0.077446,
+  "Xtreme Gaming": 0.04346,
+  "Team Yandex": 0.155965,
+  "Team Spirit": 0.111031,
+  "TEAM VISION": 0.182848,
+  "Nigma Galaxy": 0.015765,
+  "HULIGANI": 0.003409,
+  "Team Resilience": 0.034938,
+  "Vici Gaming": 0.046016,
+  "OG": 0.022582,
+  "GamerLegion": 0.008522,
+  "LGD Gaming": 0.024286
+ },
+ "sources": {
+  "book": {
+   "file": "market_odds.json",
+   "captured_utc": "2026-08-01",
+   "teams_priced": 5
+  },
+  "polymarket": {
+   "file": "polymarket_odds.json",
+   "captured_utc": "2026-08-05T09:32:03Z",
+   "event_slug": "the-international-2026-winner-20260629212545745",
+   "teams_priced": 16
+  },
+  "w_book": 0.5
+ }
 }
