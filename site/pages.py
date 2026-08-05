@@ -12,6 +12,27 @@ NAV = [("homework.html", "抄作业"), ("index.html", "结论"), ("predictions.h
 QR_EXPIRY = "2026-08-11"
 
 
+PLACEHOLDER_QR = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 522">
+<rect width="350" height="522" fill="#e1e0d9"/>
+<text x="175" y="246" text-anchor="middle" font-family="sans-serif" font-size="19" fill="#52514e">
+微信群二维码未包含在</text>
+<text x="175" y="276" text-anchor="middle" font-family="sans-serif" font-size="19" fill="#52514e">
+开源仓库中</text>
+<text x="175" y="316" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#898781">
+放一张 assets_src/group-qr.jpg 即可启用</text></svg>"""
+
+
+def qr_asset(src, dest):
+    """二维码是私人邀请码，不入库。缺失时落占位图，保证 clone 后能构建。"""
+    real = os.path.join(src, "group-qr.jpg")
+    if os.path.exists(real):
+        shutil.copyfile(real, os.path.join(dest, "group-qr.jpg"))
+        return "group-qr.jpg"
+    with open(os.path.join(dest, "group-qr.svg"), "w") as fh:
+        fh.write(PLACEHOLDER_QR)
+    return "group-qr.svg"
+
+
 def esc(s):
     return html.escape(str(s), quote=True)
 
@@ -169,14 +190,14 @@ def page_index(base, p):
     return shell(base, "index.html", "结论", body)
 
 
-def page_group(base, p):
+def page_group(base, p, qr="group-qr.jpg"):
     body = """
 <h1>TI15 抄作业群</h1>
 <p class="lede">一个微信群，干三件事：一起填官方预测面板、开赛后跟进赛果、8 月 23 日结束时一起给这套预测打分。</p>
 <p class="meta">扫码进群 · 群名「TI15 抄作业群」</p>
 
 <div class="qr-card">
-  <img class="qr" src="%s/assets/group-qr.jpg" alt="微信群二维码：TI15 抄作业群" width="350" height="522">
+  <img class="qr" src="%s/assets/%s" alt="微信群二维码：TI15 抄作业群" width="350" height="522">
   <div class="qr-side">
     <h3>进来能得到什么</h3>
     <ul>
@@ -197,7 +218,7 @@ def page_group(base, p):
 <p>微信群码 7 天就失效，而 TI15 打到 8 月 23 日。如果把码直接贴在知乎和 NGA 帖子里，
 每周都得回去编辑一次帖子，中间还会有人扫到死码。放在这一页，换码只需要换一张图，
 帖子里挂的链接永远有效。</p>
-""" % (base, base, esc(QR_EXPIRY))
+""" % (base, qr, base, esc(QR_EXPIRY))
     # 静态页无法知道访客何时打开，所以过期判断放到客户端：码一旦过期，
     # 访客看到的是明确提示，而不是扫了个死码不知道为什么进不去。
     js = ("<script>(function(){var d=new Date('%sT23:59:59+08:00');"
@@ -432,8 +453,9 @@ def _sz(b):
 
 def write_all(dist, base, payload):
     src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets_src")
-    for f in ("style.css", "app.js", "px.js", "picker.js", "group-qr.jpg"):
+    for f in ("style.css", "app.js", "px.js", "picker.js"):
         shutil.copyfile(os.path.join(src, f), os.path.join(dist, "assets", f))
+    qr = qr_asset(src, os.path.join(dist, "assets"))
     import homework
     hw = homework.compute(payload["raw_pred"],
                           {r["team"]: r["theta"] for r in payload["teams"]})
@@ -461,7 +483,7 @@ def write_all(dist, base, payload):
         "predictions.html": page_pred(base, payload),
         "methodology.html": page_method(base, payload),
         "data.html": page_data(base, payload),
-        "group.html": page_group(base, payload),
+        "group.html": page_group(base, payload, qr),
     }
     for name, htmlstr in pages.items():
         with open(os.path.join(dist, name), "w") as fh:
