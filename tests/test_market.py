@@ -140,3 +140,71 @@ def test_l2_blended_json_sum_within_documented_tolerance():
         champ = json.load(f)["champion_blended"]
     deviation = abs(sum(champ.values()) - 1.0)
     assert deviation < 1e-5
+
+
+from model.market import normalize, W_BOOK_DEFAULT
+
+
+def test_w_book_default_is_half():
+    """源间权重 0.5 的单一定义（设计文档 2026-08-05 §3：等权最不武断）。"""
+    assert W_BOOK_DEFAULT == 0.5
+
+
+def test_normalize_scales_to_unit_sum_preserving_ratios():
+    out = normalize({"A": 0.6, "B": 0.6})
+    assert abs(sum(out.values()) - 1.0) < 1e-12
+    assert out["A"] == pytest.approx(0.5)
+    # 已归一的输入 → 原样
+    out2 = normalize({"A": 0.5, "B": 0.25, "C": 0.25})
+    assert out2 == pytest.approx({"A": 0.5, "B": 0.25, "C": 0.25})
+
+
+def test_normalize_rejects_empty_and_non_positive():
+    with pytest.raises(ValueError):
+        normalize({})
+    with pytest.raises(ValueError):
+        normalize({"A": 0.5, "B": 0.0})
+    with pytest.raises(ValueError):
+        normalize({"A": 0.5, "B": -0.1})
+
+
+def test_consensus_equal_weight_is_symmetric_on_priced_subset():
+    """等权对称性（设计文档 §6）：在庄家覆盖的子集上把两侧条件概率对换，
+    共识价不变。blend_partial(主向量, 赔率, 0.5) 内部是 log-odds 等权，
+    等权融合对两个输入对称——这条测试把「0.5 的含义就是两源地位对等」钉死。"""
+    pm = {"A": 0.4, "B": 0.3, "C": 0.2, "D": 0.1}
+    odds = {"A": 2.0, "B": 3.0, "C": None, "D": None}
+    fwd = blend_partial(pm, odds, w_market=0.5)
+
+    # 反向：主向量位置放庄家条件概率（乘回质量 0.7），赔率位置放 pm 条件概率的倒数
+    book_p = devig({"A": 2.0, "B": 3.0})
+    swapped_main = {"A": book_p["A"] * 0.7, "B": book_p["B"] * 0.7, "C": 0.2, "D": 0.1}
+    swapped_odds = {"A": 1 / (0.4 / 0.7), "B": 1 / (0.3 / 0.7), "C": None, "D": None}
+    rev = blend_partial(swapped_main, swapped_odds, w_market=0.5)
+
+    for t in "ABCD":
+        assert rev[t] == pytest.approx(fwd[t]), t
+
+
+def test_consensus_w_book_extremes_reduce_to_single_source():
+    """w_book=0 → 纯 Polymarket；w_book=1 → 庄家完全决定其 5 队内部排序，
+    但质量分配仍由 Polymarket 决定（设计文档 §2）。"""
+    pm = {"A": 0.4, "B": 0.3, "C": 0.3}
+    odds = {"A": 3.0, "B": 2.0, "C": None}
+    out0 = blend_partial(pm, odds, w_market=0.0)
+    for t in pm:
+        assert out0[t] == pytest.approx(pm[t]), t
+    out1 = blend_partial(pm, odds, w_market=1.0)
+    book_p = devig({"A": 3.0, "B": 2.0})
+    assert out1["A"] / out1["B"] == pytest.approx(book_p["A"] / book_p["B"])
+    assert out1["C"] == pytest.approx(pm["C"])
+
+
+def test_consensus_preserves_mass_share_of_pm_only_teams():
+    """庄家没开盘的队，其共识概率精确等于 Polymarket 概率（质量份额保持）。"""
+    pm = {"A": 0.4, "B": 0.3, "C": 0.2, "D": 0.1}
+    odds = {"A": 1.5, "B": 6.0, "C": None, "D": None}
+    out = blend_partial(pm, odds, w_market=0.5)
+    assert out["C"] == pytest.approx(0.2)
+    assert out["D"] == pytest.approx(0.1)
+    assert out["A"] + out["B"] == pytest.approx(0.7)
