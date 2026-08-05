@@ -91,13 +91,11 @@ def main(argv=None):
     ap.add_argument("--out", default=DEFAULT_OUT, help="输出路径")
     args = ap.parse_args(argv)
 
-    # 清掉会破坏 TLS 的本地代理（od_sql.py 的既有惯例），然后才 import requests。
-    # requests 放到函数内懒加载，纯解析测试不需要装它。
-    for _v in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
-               "ALL_PROXY", "all_proxy", "REQUESTS_CA_BUNDLE"):
-        os.environ.pop(_v, None)
-    os.environ["NO_PROXY"] = "*"
-    os.environ["no_proxy"] = "*"
+    # requests 放到函数内懒加载，纯解析测试不需要装它。不做代理清理：
+    # od_sql.py 清代理是因为本地代理会破坏 OpenDota 的 TLS；gamma-api.polymarket.com
+    # 正相反——在需要代理出网的环境里，直连会被 SSL EOF 掐断（curl 用同样的
+    # HTTP(S)_PROXY 能通，实测验证过），所以这里尊重用户 shell 里已有的
+    # HTTP_PROXY/HTTPS_PROXY，让 requests 按其默认行为自动使用。
     import requests
 
     resp = requests.get(GAMMA_API, params={"slug": args.slug}, timeout=30)

@@ -1,8 +1,8 @@
 {
  "source": "Polymarket Gamma API",
  "event_slug": "the-international-2026-winner-20260629212545745",
- "captured_utc": "2026-08-05T09:27:27Z",
- "event_liquidity": 904076.81221,
+ "captured_utc": "2026-08-05T09:32:03Z",
+ "event_liquidity": 902053.10414,
  "event_volume": 61614.83472,
  "prices": {
   "Aurora Gaming": {
@@ -60,9 +60,9 @@
    "last": 0.25
   },
   "Nigma Galaxy": {
-   "mid": 0.0195,
+   "mid": 0.0185,
    "bid": 0.014,
-   "ask": 0.025,
+   "ask": 0.023,
    "last": 0.026
   },
   "HULIGANI": {
@@ -72,21 +72,21 @@
    "last": 0.002
   },
   "Team Resilience": {
-   "mid": 0.0385,
-   "bid": 0.031,
-   "ask": 0.046,
+   "mid": 0.041,
+   "bid": 0.032,
+   "ask": 0.05,
    "last": 0.067
   },
   "Vici Gaming": {
-   "mid": 0.048,
+   "mid": 0.054,
    "bid": 0.039,
-   "ask": 0.057,
+   "ask": 0.069,
    "last": 0.055
   },
   "OG": {
-   "mid": 0.0135,
-   "bid": 0.008,
-   "ask": 0.019,
+   "mid": 0.0265,
+   "bid": 0.009,
+   "ask": 0.044,
    "last": 0.039
   },
   "GamerLegion": {
