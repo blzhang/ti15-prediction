@@ -96,3 +96,19 @@ def test_validate_accepts_real_snapshot(event, teams):
     # 2026-08-01 快照的 16 队 mid 之和 ≈1.31，应落在 [0.8, 1.5] 哨兵区间内
     prices, _ = parse_event(event, teams)
     validate_prices(prices)
+
+
+from fetch_polymarket import build_output
+
+
+def test_build_output_schema_and_provenance(event, teams):
+    prices, excluded = parse_event(event, teams)
+    out = build_output(event, prices, excluded, "2026-08-05T09:00:00Z")
+    assert out["source"] == "Polymarket Gamma API"
+    assert out["event_slug"] == event["slug"]
+    assert out["captured_utc"] == "2026-08-05T09:00:00Z"
+    assert out["event_liquidity"] == event["liquidity"]
+    assert out["event_volume"] == event["volume"]
+    assert set(out["prices"]) == teams
+    assert out["name_map_applied"] == {"1w Team": "Iron Wing"}
+    assert len(out["excluded_markets"]) == 4
