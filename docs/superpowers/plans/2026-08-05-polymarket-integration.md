@@ -1117,4 +1117,4 @@ git commit -m "docs: 更新日志与 README 跟进 Polymarket 双源融合；冻
 ## 收尾（不在本计划内、由用户决定）
 
 - 线上部署：`site/deploy.sh` 是发布到 shadowjacob.shop 的动作，属对外发布，由用户手动执行。
-- 赛前刷新：开赛前重跑 `python3 fetch_polymarket.py && python3 model/l2_blend.py && python3 site/build_site.py`，并用新 label（如 v8）重新存证即可，无需改代码。
+- 赛前刷新：开赛前重跑 `python3 fetch_polymarket.py && python3 model/l2_blend.py && python3 site/build_site.py`，并用新 label（如 v8）重新存证即可，无需改代码。刷新后别忘了 README 结果概览表与 site/copy.md 是仅存的手抄数字，需要手动同步。

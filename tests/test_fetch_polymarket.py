@@ -1,7 +1,8 @@
 """fetch_polymarket.py 解析层测试。全部走 fixture，不打网。
 
-fixture 是 pm.json（2026-08-01 的 Gamma API 快照，已入库）裁剪出的 20 个市场：
-16 支真实队 + 4 个占位盘（A/B/C/another team）。
+fixture 裁剪自 pm.json（2026-08-01 的 Gamma API 快照）：20 个市场，
+16 支真实队 + 4 个占位盘（A/B/C/another team）。pm.json 本体未入库
+（被 .gitignore 排除），入库的是它的裁剪版 fixture（tests/fixtures/polymarket_event.json）。
 """
 import copy
 import json

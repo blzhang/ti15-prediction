@@ -87,7 +87,7 @@ def dual_bars(rows):
     mx = max(max(r["champ_model"], r["champ_blended"]) for r in rows) or 1
     out = ['<div class="legend">',
            '<span><i style="background:var(--s1)"></i>纯模型</span>',
-           '<span><i style="background:var(--s2)"></i>融合市场赔率后（交付值）</span>',
+           '<span><i style="background:var(--s2)"></i>融合市场共识价后（交付值）</span>',
            '</div><div class="bars dual">']
     for r in rows:
         out.append(
@@ -125,7 +125,7 @@ def page_index(base, p):
 <p class="meta">开赛前生成，已加防篡改校验 · 模拟了 20 万届 TI</p>
 
 <div class="tiles">
-  <div class="tile"><div class="k">夺冠概率最高</div><div class="v">%s</div><div class="s">%.1f%%（已融合市场赔率）</div></div>
+  <div class="tile"><div class="k">夺冠概率最高</div><div class="v">%s</div><div class="s">%.1f%%（已融合市场共识价）</div></div>
   <div class="tile"><div class="k">官方预测面板</div><div class="v">16 格</div><div class="s">已出建议填法</div></div>
   <div class="tile"><div class="k">分档结构</div><div class="v">1·2·5·5·2·1</div><div class="s">每届恒定，非概率</div></div>
   <div class="tile"><div class="k">模型样本外准确率</div><div class="v">%.1f%%</div><div class="s">2,546 场未见过的比赛</div></div>
@@ -246,7 +246,7 @@ def page_pred(base, p):
         for r in t)
     body = """
 <h1>预测详情</h1>
-<p class="lede">全部数字由构建脚本从冻结产出物读出。夺冠一列已与博彩赔率融合，其余各列是纯模型。</p>
+<p class="lede">全部数字由构建脚本从冻结产出物读出。夺冠一列已与市场共识价融合（Polymarket ✕ 庄家赔率，市场占七成权重），其余各列是纯模型。</p>
 <p class="meta">蒙特卡洛 %s 次 · 夺冠概率标准误 ≤ 0.09pp</p>
 
 <div class="note"><b>读表前必看：</b>只有「夺冠」一列做了市场融合。
