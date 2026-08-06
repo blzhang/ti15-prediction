@@ -38,12 +38,25 @@ if [ -n \"\$ORPHAN\" ]; then
 fi"
 
 # 验证清单从构建产物现取，不写死——写死的清单会随新页面悄悄过期。
-echo "验证："
+#
+# ⚠️ 只看 HTTP 200 是验不出东西的：这台服务器对 /dota2/ 下任何不存在的路径
+# 都返回站点落地页并给 200（实测 /dota2/zzz-not-exist.html → 200）。
+# 也就是说，一个页面根本没传上去，旧版的「全部 200」照样打勾——
+# 新增 window.html 那次就是这么差点蒙混过去的。
+# 改为拿线上内容与本地构建产物**逐字节比对**：漏页、旧版、截断一次全抓。
+echo "验证：逐页与本地构建产物逐字节比对"
 FAIL=0
-for p in "" $(cd "$ROOT/site/dist" && ls *.html) data/site.json data/search_index.json; do
-  CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://shadowjacob.shop/dota2/$p")
-  printf "  /dota2/%-26s %s\n" "$p" "$CODE"
-  [ "$CODE" = "200" ] || FAIL=1
+check() {  # check <URL 路径> <本地文件>
+  if curl -fsS --max-time 30 "https://shadowjacob.shop/dota2/$1" | cmp -s - "$2"; then
+    printf "  /dota2/%-26s 一致\n" "$1"
+  else
+    printf "  /dota2/%-26s ❌ 与本地构建不一致（漏传 / 旧版 / 截断）\n" "$1"
+    FAIL=1
+  fi
+}
+for p in $(cd "$ROOT/site/dist" && ls *.html) data/site.json data/search_index.json; do
+  check "$p" "$ROOT/site/dist/$p"
 done
-[ "$FAIL" = "0" ] || { echo "❌ 有页面不是 200，部署未通过验证"; exit 1; }
-echo "✅ 全部 200"
+check "" "$ROOT/site/dist/index.html"   # 目录根须落到 index.html
+[ "$FAIL" = "0" ] || { echo "❌ 部署未通过验证"; exit 1; }
+echo "✅ 全部与本地构建逐字节一致"
