@@ -151,11 +151,11 @@ def html(body, sizes, cls=""):
 def long_image(p):
     t = p["teams"]
     fal = next(x for x in t if x["team"] == "Team Falcons")
-    spi = next(x for x in t if x["team"] == "Team Spirit")
+    yan = next(x for x in t if x["team"] == "Team Yandex")
     oos = p["oos"]
     ep = p["homework"]["elim"]
     body = """
-<div class="badge">赛前已哈希存证 · 2026-08-04</div>
+<div class="badge">赛前已哈希存证 · 2026-08-05</div>
 <div class="eyebrow">THE INTERNATIONAL 2026 · 8/13–8/23 上海</div>
 <h1>TI15 谁会赢<br><em>一个赛后要认账的预测</em></h1>
 <div class="sub">用 2020–2026 的 <b>145,974 场</b>职业比赛跑出来的量化预测。<br>
@@ -163,7 +163,7 @@ def long_image(p):
 <div class="tagline">蒙特卡洛 20 万次 · 含赛制修正后重算</div>
 
 <h2><span class="n">01</span>夺冠概率</h2>
-<div class="h2sub">已与博彩赔率融合（市场权重 0.7）</div>
+<div class="h2sub">已与市场共识价融合：Polymarket ✕ 庄家赔率（市场权重 0.7）</div>
 %s
 
 <h2><span class="n">02</span>模型和市场吵起来了</h2>
@@ -172,9 +172,9 @@ def long_image(p):
   <div class="box"><div class="lbl">Team Falcons</div>
     <div class="big dn">%.1f%% → %.1f%%</div>
     <div class="note"><b>模型看好，市场不认。</b><br>16 队中唯一阵容零变动的卫冕冠军。</div></div>
-  <div class="box"><div class="lbl">Team Spirit</div>
+  <div class="box"><div class="lbl">Team Yandex</div>
     <div class="big up">%.1f%% → %.1f%%</div>
-    <div class="note"><b>模型看淡，市场看好。</b><br>队长兼指挥 Miposhka 转任教练。</div></div>
+    <div class="note"><b>模型看淡，市场看好。</b><br>Polymarket 上真金白银把它买到了第二。</div></div>
 </div>
 
 <h2><span class="n">03</span>官方预测题·抄作业</h2>
@@ -212,7 +212,7 @@ def long_image(p):
 </div>
 """ % (bars(t, "champ_blended"),
        fal["champ_model"] * 100, fal["champ_blended"] * 100,
-       spi["champ_model"] * 100, spi["champ_blended"] * 100,
+       yan["champ_model"] * 100, yan["champ_blended"] * 100,
        hw_block(p), SIZES_LONG["fs_note"],
        p["homework"]["expected"], p["homework"]["random"],
        p["homework"]["expected"] - p["homework"]["random"],
@@ -233,7 +233,7 @@ def cover(p):
     14.6 万场比赛 · 赛前已哈希存证</div>
   </div>
   <div class="R">
-    <div class="rt">夺冠概率（已融合博彩赔率）</div>
+    <div class="rt">夺冠概率（已融合市场共识价）</div>
     %s
   </div>
   <div class="urlbig">shadowjacob.shop/dota2</div>
@@ -247,7 +247,7 @@ def cover(p):
 def cards(p):
     t = p["teams"]
     fal = next(x for x in t if x["team"] == "Team Falcons")
-    spi = next(x for x in t if x["team"] == "Team Spirit")
+    yan = next(x for x in t if x["team"] == "Team Yandex")
     oos = p["oos"]
     S = SIZES_CARD
     c1 = """
@@ -269,10 +269,12 @@ def cards(p):
     c2 = """
 <div class="grow"><div><div class="eyebrow">01 · 夺冠概率</div>
 <h1 style="font-size:%dpx">16 支队<br>没有真正的大热门</h1>
-<div class="sub" style="margin-bottom:30px">头名只有 %.1f%%，前八名挤在 7%%–18%%</div>
+<div class="sub" style="margin-bottom:30px">头名只有 %.1f%%，前八名挤在 %.0f%%–%.0f%%</div>
 %s
 </div></div><div class="foot"><div class="url">%s</div></div>
-""" % (S["fs_h1"] - 10, t[0]["champ_blended"] * 100, bars(t, "champ_blended", top_n=12), URL)
+""" % (S["fs_h1"] - 10, t[0]["champ_blended"] * 100,
+       t[7]["champ_blended"] * 100, t[0]["champ_blended"] * 100,
+       bars(t, "champ_blended", top_n=12), URL)
 
     c3 = """
 <div class="grow"><div><div class="eyebrow">02 · 最大分歧</div>
@@ -282,13 +284,13 @@ def cards(p):
   <div class="big dn">%.1f%% → %.1f%%</div>
   <div class="note"><b>模型看好，市场不认。</b><br>16 队中唯一阵容零变动的卫冕冠军。<br>
   我们按「当前这五个人」算历史战绩，<br>阵容连续性直接兑现成样本量。</div></div>
-<div class="box"><div class="lbl">Team Spirit</div>
+<div class="box"><div class="lbl">Team Yandex</div>
   <div class="big up">%.1f%% → %.1f%%</div>
-  <div class="note"><b>模型看淡，市场看好。</b><br>队长兼指挥 Miposhka 转任教练——<br>
-  只认队名不认人的模型，看不见这种变动。</div></div>
+  <div class="note"><b>模型看淡，市场看好。</b><br>Polymarket 上真金白银把它买到了第二——<br>
+  只看历史战绩的模型给不出这个价。</div></div>
 </div></div><div class="foot"><div class="url">%s</div></div>
 """ % (S["fs_h1"] - 10, fal["champ_model"] * 100, fal["champ_blended"] * 100,
-       spi["champ_model"] * 100, spi["champ_blended"] * 100, URL)
+       yan["champ_model"] * 100, yan["champ_blended"] * 100, URL)
 
     c4 = """
 <div class="grow"><div><div class="eyebrow">03 · 凭什么信</div>
