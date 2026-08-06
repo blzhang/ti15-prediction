@@ -6,6 +6,9 @@ docs/superpowers/specs/2026-08-06-fantasy-patch-window-design.md）。
 本模块只放不碰磁盘、不碰网络的纯函数，方便全部用小 fixture 测；读真实
 CSV、跑四届 holdout、出报告在 model/l5_window_backtest.py。
 """
+import numpy as np
+from scipy.stats import spearmanr
+
 from model.patches import patch_ts, previous_patch
 
 DAY = 86400
@@ -72,3 +75,44 @@ def derive_positions(df):
 def coarsen(positions):
     """5 组 -> core(1-3) / support(4-5) 两组（spec §4 稳健口径）。"""
     return {a: ("core" if p <= 3 else "support") for a, p in positions.items()}
+
+
+MIN_CANDIDATES = 3   # Spearman 至少要 3 个点才有意义
+
+SKIP_TOO_FEW = "候选人不足%d" % MIN_CANDIDATES
+SKIP_CONSTANT_PRED = "预测值全同"
+SKIP_CONSTANT_ACTUAL = "实际值全同"
+
+
+def score_arm(rates, actual, positions):
+    """按号位组算 Spearman(预测速率, 该届实际每局均值)。
+
+    rates:     {account_id: 预测速率}（fit_rate_model 输出里的 "rate"）
+    actual:    {account_id: 该届实际每局均值}
+    positions: {account_id: 号位组}，组标签可以是 1..5，也可以是
+               coarsen() 给出的 "core"/"support"
+
+    返回 (scores, skipped)：scores = {号位组: rho}，skipped = {号位组: 原因}。
+    算不出来的组必须落到 skipped 里带原因，不能记成 0——把「算不出来」
+    混进「预测力为零」会直接污染下游的配对符号检验。
+    """
+    scores, skipped = {}, {}
+    for pos in sorted({positions[a] for a in positions}, key=str):
+        accts = sorted(a for a in rates if a in actual and positions.get(a) == pos)
+        if len(accts) < MIN_CANDIDATES:
+            skipped[pos] = SKIP_TOO_FEW
+            continue
+        x = [float(rates[a]) for a in accts]
+        y = [float(actual[a]) for a in accts]
+        if len(set(x)) == 1:
+            skipped[pos] = SKIP_CONSTANT_PRED
+            continue
+        if len(set(y)) == 1:
+            skipped[pos] = SKIP_CONSTANT_ACTUAL
+            continue
+        rho = float(spearmanr(x, y)[0])
+        if not np.isfinite(rho):
+            skipped[pos] = SKIP_CONSTANT_PRED
+            continue
+        scores[pos] = rho
+    return scores, skipped

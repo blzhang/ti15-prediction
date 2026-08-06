@@ -108,3 +108,82 @@ def test_coarsen_splits_core_1_to_3_from_support_4_to_5():
     100% 吻合（15 处不一致全部落在 core 内部或 support 内部）。"""
     assert coarsen({1: 1, 2: 2, 3: 3, 4: 4, 5: 5}) == {
         1: "core", 2: "core", 3: "core", 4: "support", 5: "support"}
+
+
+from model.l5_window import (score_arm, SKIP_TOO_FEW, SKIP_CONSTANT_PRED,
+                             SKIP_CONSTANT_ACTUAL)
+
+
+def test_score_arm_returns_perfect_correlation_when_ranking_matches():
+    rates = {1: 1.0, 2: 2.0, 3: 3.0, 4: 4.0}
+    actual = {1: 10.0, 2: 20.0, 3: 30.0, 4: 40.0}
+    positions = {1: 1, 2: 1, 3: 1, 4: 1}
+    scores, skipped = score_arm(rates, actual, positions)
+    assert scores[1] == pytest.approx(1.0)
+    assert skipped == {}
+
+
+def test_score_arm_returns_minus_one_when_ranking_is_reversed():
+    rates = {1: 1.0, 2: 2.0, 3: 3.0, 4: 4.0}
+    actual = {1: 40.0, 2: 30.0, 3: 20.0, 4: 10.0}
+    positions = {1: 1, 2: 1, 3: 1, 4: 1}
+    scores, _ = score_arm(rates, actual, positions)
+    assert scores[1] == pytest.approx(-1.0)
+
+
+def test_score_arm_scores_each_position_group_separately():
+    """同号位内排序是主判据——绝不能把 1 号位和 5 号位混在一起算，
+    那样算出来的高相关只反映"核心补刀比辅助多"，跟选人决策无关。"""
+    rates = {1: 1.0, 2: 2.0, 3: 3.0, 4: 30.0, 5: 20.0, 6: 10.0}
+    actual = {1: 10.0, 2: 20.0, 3: 30.0, 4: 1.0, 5: 2.0, 6: 3.0}
+    positions = {1: 1, 2: 1, 3: 1, 4: 5, 5: 5, 6: 5}
+    scores, _ = score_arm(rates, actual, positions)
+    assert scores[1] == pytest.approx(1.0)
+    assert scores[5] == pytest.approx(-1.0)
+
+
+def test_score_arm_skips_groups_with_fewer_than_three_candidates():
+    """候选人不足 3 人的组算不出有意义的 Spearman，跳过——但必须带原因
+    出现在 skipped 里，不许静默丢掉。"""
+    rates = {1: 1.0, 2: 2.0}
+    actual = {1: 10.0, 2: 20.0}
+    positions = {1: 1, 2: 1}
+    scores, skipped = score_arm(rates, actual, positions)
+    assert scores == {}
+    assert skipped == {1: SKIP_TOO_FEW}
+
+
+def test_score_arm_skips_constant_prediction_instead_of_scoring_zero():
+    """预测值全同时 Spearman 未定义（NaN）。必须计入跳过，不能当成 0——
+    记成 0 会把"算不出来"混进"预测力为零"，直接污染配对检验。"""
+    rates = {1: 5.0, 2: 5.0, 3: 5.0}
+    actual = {1: 10.0, 2: 20.0, 3: 30.0}
+    positions = {1: 1, 2: 1, 3: 1}
+    scores, skipped = score_arm(rates, actual, positions)
+    assert scores == {}
+    assert skipped == {1: SKIP_CONSTANT_PRED}
+
+
+def test_score_arm_skips_constant_actual():
+    rates = {1: 1.0, 2: 2.0, 3: 3.0}
+    actual = {1: 7.0, 2: 7.0, 3: 7.0}
+    positions = {1: 1, 2: 1, 3: 1}
+    scores, skipped = score_arm(rates, actual, positions)
+    assert scores == {}
+    assert skipped == {1: SKIP_CONSTANT_ACTUAL}
+
+
+def test_score_arm_only_uses_players_present_in_both_rates_and_actual():
+    rates = {1: 1.0, 2: 2.0, 3: 3.0, 99: 9.0}
+    actual = {1: 10.0, 2: 20.0, 3: 30.0}
+    positions = {1: 1, 2: 1, 3: 1, 99: 1}
+    scores, skipped = score_arm(rates, actual, positions)
+    assert scores[1] == pytest.approx(1.0)
+
+
+def test_score_arm_works_with_string_position_labels_from_coarsen():
+    rates = {1: 1.0, 2: 2.0, 3: 3.0}
+    actual = {1: 10.0, 2: 20.0, 3: 30.0}
+    positions = coarsen({1: 1, 2: 2, 3: 3})
+    scores, _ = score_arm(rates, actual, positions)
+    assert scores["core"] == pytest.approx(1.0)
