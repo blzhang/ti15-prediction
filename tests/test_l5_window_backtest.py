@@ -408,3 +408,83 @@ def test_render_markdown_states_item_coverage_is_12_of_15():
     md = render_markdown(_minimal_report())
     assert "12/15" in md
     assert "smokes" in md
+
+
+from model.l5_window_backtest import (ROBUSTNESS_MIN_GAMES, run_robustness,
+                                      aggregate_robustness)
+
+
+def test_robustness_min_games_are_the_preregistered_three_and_eight():
+    assert ROBUSTNESS_MIN_GAMES == (3, 8)
+
+
+def _tiny_holdout_frames():
+    """三名选手、训练侧各 30 局、TI 侧各 8 局，12 个计分项列齐。"""
+    train_rows = []
+    for a, base in [(1, 1.0), (2, 5.0), (3, 9.0)]:
+        train_rows += _train_rows(a, list(range(100, 130)), base)
+    pm_rows = []
+    for a, base in [(1, 2.0), (2, 6.0), (3, 10.0)]:
+        for _ in range(8):
+            pm_rows.append(dict(_stat_row(base), match_date="2025-09-05",
+                                account_id=a))
+    return pd.DataFrame(train_rows), pd.DataFrame(pm_rows)
+
+
+def test_run_robustness_produces_exactly_three_variants():
+    train, pm = _tiny_holdout_frames()
+    arms = {"L955d": (0, 200), "patch": (110, 200), "all": (0, 200)}
+    out = run_robustness(train, pm, {"year": "2025", "patch": "7.39"},
+                         {1: 1, 2: 1, 3: 1}, arms)
+    assert [r["variant"] for r in out] == ["coarse_position", "min_games=3",
+                                           "min_games=8"]
+
+
+def test_run_robustness_only_uses_the_treatment_and_baseline_arms():
+    """变体只为交叉验证主结论，不需要另外五个臂——跑全套是三倍的成本
+    换不来信息。"""
+    train, pm = _tiny_holdout_frames()
+    arms = {"L955d": (0, 200), "patch": (110, 200), "all": (0, 200)}
+    out = run_robustness(train, pm, {"year": "2025", "patch": "7.39"},
+                         {1: 1, 2: 1, 3: 1}, arms)
+    arms_seen = {a for r in out for u in r["units"] for a in u["spearman"]}
+    assert arms_seen == {BASELINE_ARM, TREATMENT_ARM}
+
+
+def test_run_robustness_coarse_variant_groups_by_core_and_support():
+    train, pm = _tiny_holdout_frames()
+    arms = {"L955d": (0, 200), "patch": (110, 200)}
+    out = run_robustness(train, pm, {"year": "2025", "patch": "7.39"},
+                         {1: 1, 2: 2, 3: 3}, arms)
+    coarse = next(r for r in out if r["variant"] == "coarse_position")
+    assert {u["position"] for u in coarse["units"]} == {"core"}
+
+
+def test_aggregate_robustness_merges_units_by_variant_and_decides_each():
+    runs = [
+        {"variant": "coarse_position",
+         "units": [{"holdout": "2022", "item": "kills", "position": "core",
+                    "diff": 0.4}]},
+        {"variant": "coarse_position",
+         "units": [{"holdout": "2023", "item": "kills", "position": "core",
+                    "diff": 0.2}]},
+        {"variant": "min_games=3",
+         "units": [{"holdout": "2022", "item": "kills", "position": 1,
+                    "diff": -0.1}]},
+    ]
+    out = aggregate_robustness(runs)
+    assert set(out) == {"coarse_position", "min_games=3"}
+    assert out["coarse_position"]["n_units_compared"] == 2
+    assert out["min_games=3"]["sign_test"]["n_neg"] == 1
+
+
+def test_render_markdown_includes_a_robustness_section_when_present():
+    report = _minimal_report()
+    report["robustness"] = {
+        "coarse_position": {"sign_test": {"p": 0.42, "median": -0.01,
+                                          "n_pos": 30, "n_neg": 34, "n_zero": 0},
+                            "median_diff_by_holdout": {}, "n_holdouts_positive": 1,
+                            "n_units_compared": 64, "supported": False}}
+    md = render_markdown(report)
+    assert "稳健性" in md
+    assert "coarse_position" in md

@@ -55,6 +55,10 @@ ITEMS = ["kills", "deaths", "creep_score", "gpm", "tower_kills", "roshan",
 
 MIN_HOLDOUT_GAMES = 4
 
+# 稳健性变体的入选门槛（spec §4「敏感性另跑 3 和 8」）。主判据仍用
+# MIN_HOLDOUT_GAMES = 4，这两个只用来交叉验证结论对门槛是否敏感。
+ROBUSTNESS_MIN_GAMES = (3, 8)
+
 
 def _year_rows(pm, year):
     return pm[pm["match_date"].astype(str).str[:4] == str(year)]
@@ -204,7 +208,7 @@ def build_report(csv_path=DEFAULT_CSV, ti_pm_path=DEFAULT_TI_PM):
                             low_memory=False)
     pm = pd.read_csv(ti_pm_path, low_memory=False)
 
-    units, coverage, skipped, sliding = [], [], [], []
+    units, coverage, skipped, sliding, robustness_runs = [], [], [], [], []
     per_holdout_meta = []
     for h in HOLDOUTS:
         year = h["year"]
@@ -223,6 +227,7 @@ def build_report(csv_path=DEFAULT_CSV, ti_pm_path=DEFAULT_TI_PM):
         coverage += res["coverage"]
         skipped += res["skipped"]
         sliding += run_sliding(train, pm, h, positions, event_start)
+        robustness_runs += run_robustness(train, pm, h, positions, arms)
         per_holdout_meta.append({
             "holdout": year, "patch": h["patch"], "event_start_ts": event_start,
             "n_participants": len(participants),
@@ -242,6 +247,7 @@ def build_report(csv_path=DEFAULT_CSV, ti_pm_path=DEFAULT_TI_PM):
         "holdout_meta": per_holdout_meta,
         "decision": decide(units),
         "units": units, "coverage": coverage, "skipped": skipped, "sliding": sliding,
+        "robustness": aggregate_robustness(robustness_runs),
     }
 
 
@@ -306,7 +312,50 @@ def render_markdown(report):
         L.append("| TI%s | %s | %s | %s |"
                  % (s["holdout"], s["arm"], ms,
                     "、".join(s["patch_boundaries"]) or "无"))
+    rb = report.get("robustness") or {}
+    if rb:
+        L.append("\n## 稳健性变体\n")
+        L.append("不参与主判定，只用来看结论是不是靠某一个口径撑起来的。"
+                 "变体只跑 treatment 与 baseline 两个臂。\n")
+        L.append("| 变体 | 配对单元 | 正/负 | 中位差 | p | 结论同向？ |")
+        L.append("|---|---|---|---|---|---|")
+        for name, dv in rb.items():
+            tv = dv["sign_test"]
+            L.append("| %s | %d | %d/%d | %+.4f | %.4f | %s |"
+                     % (name, dv["n_units_compared"], tv["n_pos"], tv["n_neg"],
+                        tv["median"], tv["p"],
+                        "是" if dv["supported"] == d["supported"] else "否"))
     return "\n".join(L) + "\n"
+
+
+def run_robustness(train, pm, holdout, positions, arms):
+    """稳健性变体（spec §4），只跑 treatment 与 baseline 两个臂。
+
+      coarse_position —— 号位换成 core(1-3)/support(4-5)。这个划分在 TI15 的
+                         80 名人工策展选手上与净资产排名 100% 吻合，是最不
+                         依赖号位推导准确性的口径。
+      min_games=3     —— 门槛放宽，多收小组赛就出局的队。
+      min_games=8     —— 门槛收紧，只留打得深的队。
+
+    三个变体都不参与主判定，作用是暴露"结论是不是靠某一个口径撑起来的"。
+    只跑两个臂：另外五个臂对交叉验证没有增量信息，跑全套是三倍成本。
+    """
+    pair = {a: w for a, w in arms.items() if a in (BASELINE_ARM, TREATMENT_ARM)}
+    out = [{"variant": "coarse_position",
+            "units": run_holdout(train, pm, holdout, coarsen(positions), pair)["units"]}]
+    for mg in ROBUSTNESS_MIN_GAMES:
+        out.append({"variant": "min_games=%d" % mg,
+                    "units": run_holdout(train, pm, holdout, positions, pair,
+                                         min_games=mg)["units"]})
+    return out
+
+
+def aggregate_robustness(all_variant_runs):
+    """把各届的变体结果按变体名合并，各自跑一遍 decide。"""
+    by_variant = {}
+    for run in all_variant_runs:
+        by_variant.setdefault(run["variant"], []).extend(run["units"])
+    return {v: decide(u) for v, u in by_variant.items()}
 
 
 def main():
