@@ -399,9 +399,10 @@ def test_render_markdown_always_reports_dropped_and_skipped_counts():
     """静默截断是这个项目最容易再被读者抓的地方——交集丢掉的人数和
     跳过的单元数必须出现在报告正文里。"""
     md = render_markdown(_minimal_report())
-    assert "6" in md          # n_dropped_by_intersection
-    assert "跳过" in md
-    assert "预测值全同" in md
+    # 光断言 "6" in md 是没用的：一个裸数字在任何一版渲染里几乎都能撞上。
+    assert "共丢弃 **6** 人次" in md
+    assert "跳过的单元 **1** 个" in md
+    assert "预测值全同：1" in md
 
 
 def test_render_markdown_states_item_coverage_is_12_of_15():
@@ -594,3 +595,426 @@ def test_render_markdown_shows_per_variant_skip_counts_and_reasons():
     assert "预测值全同：1" in md
     assert "min_games=8" in md
     assert "跳过 0 个" in md
+
+
+# ---- 复审整改：报告必须把七个臂的对照与窗口长度分解带给读者 -----------------
+
+from model.l5_window_backtest import (CONTROL_ARM, PROPOSAL_PATCH,
+                                      arm_diff_units, compare_arms_to_baseline,
+                                      median_diff_by_holdout,
+                                      identical_units_by_holdout,
+                                      window_sample_profile, baseline_overlap,
+                                      proposal_window_days, build_exploratory,
+                                      participant_game_counts)
+
+
+def _spearman_units(rows):
+    """rows = [(holdout, item, position, {arm: rho})] -> units 形状。"""
+    return [{"holdout": h, "item": it, "position": p, "spearman": dict(s),
+             "diff": (None if (s.get(TREATMENT_ARM) is None or s.get(BASELINE_ARM) is None)
+                      else float(s[TREATMENT_ARM] - s[BASELINE_ARM]))}
+            for h, it, p, s in rows]
+
+
+def test_arm_diff_units_pairs_each_arm_against_the_baseline():
+    units = _spearman_units([
+        ("2022", "kills", 1, {"L955d": 0.10, "patch": 0.30, "L180d": 0.50}),
+    ])
+    assert [u["diff"] for u in arm_diff_units(units, "L180d")] == [pytest.approx(0.40)]
+    assert [u["diff"] for u in arm_diff_units(units, "patch")] == [pytest.approx(0.20)]
+
+
+def test_arm_diff_units_leaves_diff_none_when_either_side_is_missing():
+    """某臂在该单元被跳过时不能记成 0——那会把"算不出来"混进"没有差异"。"""
+    units = _spearman_units([("2022", "kills", 1, {"L955d": 0.1, "patch": None,
+                                                   "L180d": 0.5})])
+    units[0]["spearman"]["L180d"] = None
+    assert arm_diff_units(units, "L180d")[0]["diff"] is None
+    units[0]["spearman"]["L180d"] = 0.5
+    units[0]["spearman"]["L955d"] = None
+    assert arm_diff_units(units, "L180d")[0]["diff"] is None
+
+
+def test_compare_arms_to_baseline_covers_every_arm_except_the_baseline_itself():
+    """报告里五个臂一个数字都没有，是这次复审的头号问题：读者只看得到
+    treatment 输了，看不到别的臂赢了多少。"""
+    units = _spearman_units([
+        ("2022", "kills", 1, {"L955d": 0.1, "patch": 0.2, "L180d": 0.3, "all": 0.0}),
+    ])
+    out = compare_arms_to_baseline(units)
+    assert set(out) == {"patch", "L180d", "all"}
+    assert BASELINE_ARM not in out
+
+
+def test_compare_arms_to_baseline_reuses_the_headline_decide_rule_exactly():
+    """探索性对照必须跟主判定跑同一套 decide()，否则"同一把尺子"这句话
+    就是假的。treatment 那一格必须与主判定逐位相同。"""
+    rows = []
+    for h in ("2022", "2023", "2024", "2025"):
+        for i in range(6):
+            rows.append((h, "kills", i, {"L955d": 0.1, "patch": 0.1 + 0.01 * (i - 2),
+                                         "L180d": 0.4}))
+    units = _spearman_units(rows)
+    out = compare_arms_to_baseline(units)
+    assert out[TREATMENT_ARM] == decide(units)
+
+
+def test_median_diff_by_holdout_compares_two_arbitrary_arms_per_holdout():
+    units = _spearman_units([
+        ("2022", "kills", 1, {"L955d": 0.0, "patch": 0.1, "L105d": 0.5}),
+        ("2022", "kills", 2, {"L955d": 0.0, "patch": 0.3, "L105d": 0.5}),
+        ("2025", "kills", 1, {"L955d": 0.0, "patch": 0.5, "L105d": 0.5}),
+    ])
+    out = median_diff_by_holdout(units, "patch", "L105d")
+    assert out["2022"] == pytest.approx(-0.3)
+    assert out["2025"] == pytest.approx(0.0)
+
+
+def test_identical_units_by_holdout_counts_exact_ties_between_two_arms():
+    """all 与 baseline 在最早那届几乎重合（spec §3 的已知弱点）——"几乎重合"
+    必须能用数字讲出来，不能只靠一句话。"""
+    units = _spearman_units([
+        ("2022", "kills", 1, {"L955d": 0.4, "all": 0.4, "patch": 0.1}),
+        ("2022", "kills", 2, {"L955d": 0.4, "all": 0.2, "patch": 0.1}),
+        ("2025", "kills", 1, {"L955d": 0.4, "all": 0.1, "patch": 0.1}),
+    ])
+    out = identical_units_by_holdout(units, "all", BASELINE_ARM)
+    assert out["2022"]["n_units"] == 2 and out["2022"]["n_identical"] == 1
+    assert out["2025"]["n_identical"] == 0
+
+
+def test_window_sample_profile_counts_only_players_present_in_the_window():
+    """窗内一局都没有的选手根本进不了该臂的预测，也就进不了配对交集。
+    把他们按 0 局混进中位数，会把"样本稀薄"和"人直接消失"两件事搅在一起
+    ——两个数都要分开报。"""
+    rows = _train_rows(1, [100, 110, 120], 1.0) + _train_rows(2, [10], 5.0)
+    train = pd.DataFrame(rows)
+    prof = window_sample_profile(train, (50, 50 + 4 * 86400), n_players_total=3)
+    assert prof["window_days"] == 4
+    assert prof["n_players_total"] == 3
+    assert prof["n_players_in_window"] == 1          # 只有 1 号在窗内
+    assert prof["n_players_absent_from_window"] == 2
+    assert prof["median_games_in_window"] == pytest.approx(3.0)
+
+
+def test_window_sample_profile_reports_share_below_l3_players_own_variance_floor():
+    """低于 l3_player.MIN_N_FOR_OWN_GAME_VAR 的选手拿不到自身局内方差估计，
+    只能退回号位先验——这是版本臂真正的代价，必须量化。"""
+    from model.l3_player import MIN_N_FOR_OWN_GAME_VAR
+    rows = _train_rows(1, list(range(100, 100 + MIN_N_FOR_OWN_GAME_VAR + 5)), 1.0)
+    rows += _train_rows(2, [100, 110], 5.0)
+    train = pd.DataFrame(rows)
+    prof = window_sample_profile(train, (0, 10 ** 6), n_players_total=2)
+    assert prof["min_n_for_own_game_var"] == MIN_N_FOR_OWN_GAME_VAR
+    assert prof["pct_below_min_n"] == pytest.approx(50.0)
+
+
+def test_window_sample_profile_on_an_empty_window_is_none_not_zero():
+    train = pd.DataFrame(_train_rows(1, [100], 1.0))
+    prof = window_sample_profile(train, (10 ** 6, 2 * 10 ** 6), n_players_total=1)
+    assert prof["n_players_in_window"] == 0
+    assert prof["median_games_in_window"] is None
+    assert prof["pct_below_min_n"] is None
+
+
+def test_baseline_overlap_measures_how_much_of_all_the_baseline_already_covers():
+    train = pd.DataFrame(_train_rows(1, [10, 20, 30, 40], 1.0))
+    arms = {"all": (0, 100), BASELINE_ARM: (25, 100)}
+    out = baseline_overlap(train, arms)
+    assert out["n_rows_all"] == 4
+    assert out["n_rows_baseline"] == 2
+    assert out["baseline_share_of_all"] == pytest.approx(0.5)
+
+
+def test_proposal_window_days_is_derived_from_the_patch_table_not_typed_in():
+    """读者提的是 7.41（142 天），比本次回测里任何一届的版本窗口都长——
+    这个天数必须从 patches.py 推出来，改了版本表就跟着变。"""
+    assert proposal_window_days() == 142
+    assert PROPOSAL_PATCH == "7.41"
+
+
+def test_participant_game_counts_returns_games_per_participant():
+    rows = ([{"match_date": "2025-09-05", "account_id": 1, "kills": 5}] * 6
+            + [{"match_date": "2025-09-05", "account_id": 2, "kills": 5}] * 2)
+    assert participant_game_counts(_pm(rows), "2025", min_games=4) == {1: 6}
+
+
+def _exploratory_holdout_meta():
+    return [
+        {"holdout": "2022", "patch": "7.32", "min_games_among_participants": 18,
+         "patch_window": {"window_days": 52, "n_players_total": 100,
+                          "n_players_in_window": 69,
+                          "n_players_absent_from_window": 31,
+                          "median_games_in_window": 20.0,
+                          "min_n_for_own_game_var": 20, "pct_below_min_n": 43.5},
+         "baseline_overlap": {"n_rows_all": 50620, "n_rows_baseline": 48295,
+                              "baseline_share_of_all": 0.954}},
+        {"holdout": "2025", "patch": "7.39", "min_games_among_participants": 10,
+         "patch_window": {"window_days": 104, "n_players_total": 80,
+                          "n_players_in_window": 80,
+                          "n_players_absent_from_window": 0,
+                          "median_games_in_window": 55.0,
+                          "min_n_for_own_game_var": 20, "pct_below_min_n": 6.2},
+         "baseline_overlap": {"n_rows_all": 80162, "n_rows_baseline": 44709,
+                              "baseline_share_of_all": 0.558}},
+    ]
+
+
+def test_build_exploratory_bundles_every_arm_and_the_control_comparison():
+    units = _spearman_units([
+        ("2022", "kills", 1, {"L955d": 0.1, "patch": 0.0, "L180d": 0.4, "L105d": 0.3}),
+        ("2025", "kills", 1, {"L955d": 0.1, "patch": 0.3, "L180d": 0.4, "L105d": 0.3}),
+    ])
+    ex = build_exploratory(units, _exploratory_holdout_meta())
+    assert ex["control_arm"] == CONTROL_ARM
+    assert set(ex["arm_vs_baseline"]) == {"patch", "L180d", "L105d"}
+    assert ex["median_diff_vs_control_by_holdout"]["2022"] == pytest.approx(-0.3)
+    assert ex["median_diff_vs_control_by_holdout"]["2025"] == pytest.approx(0.0)
+    assert ex["proposal"]["window_days"] == proposal_window_days()
+    assert ex["historical_patch_window_days"] == {"min": 52, "max": 104}
+
+
+def _report_with_exploratory(supported=False):
+    report = _minimal_report(supported=supported)
+    report["holdout_meta"] = _exploratory_holdout_meta()
+    units = _spearman_units([
+        ("2022", "kills", 1, {"L955d": 0.10, "patch": 0.00, "L180d": 0.40,
+                              "L105d": 0.30, "all": 0.10}),
+        ("2025", "kills", 1, {"L955d": 0.10, "patch": 0.30, "L180d": 0.40,
+                              "L105d": 0.30, "all": 0.20}),
+    ])
+    report["exploratory"] = build_exploratory(units, report["holdout_meta"])
+    return report
+
+
+def test_render_markdown_puts_every_arm_in_the_report_body():
+    """复审的头号问题：七个臂里只有 treatment 的数字到得了读者眼前。"""
+    md = render_markdown(_report_with_exploratory())
+    for arm in ("L180d", "L105d", "all", "patch"):
+        assert arm in md
+
+
+def test_render_markdown_renders_the_arm_table_from_the_data_not_from_a_constant():
+    """表格必须由产出物算出来。把某个臂的中位差改掉，渲染必须跟着变——
+    手抄一张表能骗过"臂名出现在正文里"这种断言，骗不过这一条。"""
+    report = _report_with_exploratory()
+    report["exploratory"]["arm_vs_baseline"]["L180d"]["sign_test"]["median"] = 0.1234
+    md = render_markdown(report)
+    assert "+0.1234" in md
+    report["exploratory"]["arm_vs_baseline"]["L180d"]["sign_test"]["median"] = -0.4321
+    assert "-0.4321" in render_markdown(report)
+    assert "+0.1234" not in render_markdown(report)
+
+
+def test_render_markdown_labels_the_exploratory_section_as_not_preregistered():
+    """探索性结论最容易被读成"报告推荐改成 L180d"。三句话必须都在：
+    非预注册、单元不独立、不构成改 since_ts 的依据。"""
+    md = render_markdown(_report_with_exploratory())
+    assert "探索性" in md and "非预注册" in md
+    assert "不独立" in md
+    assert "since_ts" in md
+    assert "预注册" in md.split("## 探索性分析")[1]
+
+
+def test_render_markdown_keeps_the_preregistered_verdict_ahead_of_the_exploratory_part():
+    """预注册结论是头条，必须在探索性内容之前——顺序一反，读者读到的就是
+    "其实短窗口更好"，而不是"没有证据支持切版本窗口"。"""
+    md = render_markdown(_report_with_exploratory())
+    assert md.index("没有证据支持") < md.index("## 探索性分析")
+    assert md.index("## 结论") < md.index("## 探索性分析")
+
+
+def test_render_markdown_reports_patch_window_length_and_small_sample_share():
+    """版本臂的亏损按窗口长度分解：窗口越短、低于自身方差门槛的人越多。"""
+    md = render_markdown(_report_with_exploratory())
+    assert "52" in md and "104" in md          # 版本窗口长度
+    assert "43.5" in md and "6.2" in md        # 低于门槛的比例
+    assert "20" in md                          # MIN_N_FOR_OWN_GAME_VAR
+
+
+def test_render_markdown_names_the_matched_length_control_holdout():
+    """(a) 版本边界在窗口长度对齐后不花钱——靠的是版本窗口最长那一届
+    与等长日历窗口的对照，这一届必须被点名。"""
+    md = render_markdown(_report_with_exploratory())
+    tail = md.split("## 探索性分析")[1]
+    assert CONTROL_ARM in tail
+    assert "TI2025" in tail
+
+
+def test_render_markdown_says_the_proposal_is_longer_than_anything_backtested():
+    """(c) 读者提的 7.41 窗口是 142 天，比四届历史版本窗口都长——本次回测
+    根本没测到提议本身，报告必须自己说破。"""
+    md = render_markdown(_report_with_exploratory())
+    assert str(proposal_window_days()) in md
+    assert PROPOSAL_PATCH in md
+
+
+def test_render_markdown_restores_the_spec_known_weakness_about_all_vs_baseline():
+    """spec §3 写了、计划里掉了的已知弱点：训练数据下限 2020-01，最早那届的
+    baseline 几乎盖满了 all，这一届对「all vs baseline」没有信息量。"""
+    md = render_markdown(_report_with_exploratory())
+    tail = md.split("## 探索性分析")[1]
+    assert "95.4" in tail          # baseline 覆盖 all 的比例
+    assert "55.8" in tail
+    assert "2020" in tail
+
+
+# ---- 反过度声称的告诫必须真的被钉住（原断言那句话仓库里根本不存在）--------
+
+
+def test_render_markdown_keeps_the_anti_overclaim_caveat_when_not_supported():
+    """原来的断言写的是「"证明两者一样" not in md」，而这句话仓库里压根
+    没有——把整段告诫删掉，那条测试照样绿。这里钉的是告诫本身。"""
+    md = render_markdown(_minimal_report(supported=False))
+    assert "「没有证据支持」不等于「两者已被证明等价」" in md
+    assert "检验力" in md
+
+
+def test_render_markdown_never_claims_the_two_windows_are_proven_equivalent():
+    """「两者已被证明等价」只允许出现在那句否定里；任何形式的等价声称都不行。"""
+    md = render_markdown(_minimal_report(supported=False))
+    assert md.count("两者已被证明等价") == md.count("不等于「两者已被证明等价」")
+    for phrase in ("证明两者一样", "证明了两者一样", "两者一样", "已证明等价"):
+        assert phrase not in md
+
+
+# ---- 稳健性：方向列、门槛空检验、units 随变体入库 --------------------------
+
+
+def _robustness_report(variants):
+    report = _minimal_report()
+    report["robustness"] = variants
+    return report
+
+
+def _variant(median, p, n_pos=30, n_neg=34, n_holdouts_positive=1, supported=False,
+             n_units=64):
+    return {"sign_test": {"p": p, "median": median, "n_pos": n_pos, "n_neg": n_neg,
+                          "n_zero": 0},
+            "median_diff_by_holdout": {}, "n_holdouts_positive": n_holdouts_positive,
+            "n_units_compared": n_units, "supported": supported}
+
+
+def test_render_markdown_direction_column_compares_median_sign_not_the_supported_flag():
+    """原实现比的是两个 supported 布尔值，而"不支持"有好几种理由，两边都
+    False 就渲染成「是」。构造一个中位差**强烈为正**、只是届数不够所以
+    supported=False 的变体：主结果中位差为负，方向明明相反，必须是「否」。"""
+    md = render_markdown(_robustness_report({"flipped": _variant(+0.25, 0.001,
+                                                                 n_pos=60, n_neg=4)}))
+    row = next(ln for ln in md.splitlines() if ln.startswith("| flipped "))
+    assert row.rstrip().endswith("否 |"), row
+
+
+def test_render_markdown_direction_column_says_yes_when_the_median_agrees_in_sign():
+    md = render_markdown(_robustness_report({"agree": _variant(-0.03, 0.30)}))
+    row = next(ln for ln in md.splitlines() if ln.startswith("| agree "))
+    assert row.rstrip().endswith("是 |"), row
+
+
+def test_render_markdown_flags_a_variant_that_is_significantly_against_the_treatment():
+    """coarse_position 在 α 下显著、且中位差为负——粗分组下 treatment 显著
+    **更差**。这是全场最扎眼的一个数字，不能一句话都不说。"""
+    md = render_markdown(_robustness_report({"coarse_position": _variant(-0.0257, 0.0184)}))
+    tail = md.split("## 稳健性变体")[1]
+    assert "coarse_position" in tail
+    assert "更差" in tail
+    assert "0.0184" in tail
+
+
+def test_render_markdown_does_not_flag_a_non_significant_variant_as_against():
+    md = render_markdown(_robustness_report({"coarse_position": _variant(-0.0257, 0.42)}))
+    assert "更差" not in md.split("## 稳健性变体")[1]
+
+
+def test_render_markdown_calls_the_min_games_variants_vacuous_when_identical():
+    """build_report 把 positions/train 冻结在 MIN_HOLDOUT_GAMES 上之后，
+    放宽到 3 在构造上不可能再收进任何选手；实测两个变体与主结果逐位相同。
+    报告不能把空检验摆成"通过了的稳健性检查"。"""
+    d = _minimal_report()["decision"]
+    same = _variant(d["sign_test"]["median"], d["sign_test"]["p"],
+                    n_pos=d["sign_test"]["n_pos"], n_neg=d["sign_test"]["n_neg"],
+                    n_units=d["n_units_compared"])
+    md = render_markdown(_robustness_report({"min_games=3": same,
+                                             "min_games=8": dict(same)}))
+    tail = md.split("## 稳健性变体")[1]
+    assert "空检验" in tail
+    assert "min_games=3" in tail and "min_games=8" in tail
+
+
+def test_render_markdown_does_not_call_a_min_games_variant_vacuous_when_it_differs():
+    md = render_markdown(_robustness_report({"min_games=8": _variant(+0.02, 0.10)}))
+    assert "空检验" not in md.split("## 稳健性变体")[1]
+
+
+def test_render_markdown_reports_the_minimum_games_per_participant_per_holdout():
+    """门槛敏感性为什么是空的，要有数：四届参赛者的最少出场局数本身就在
+    ROBUSTNESS_MIN_GAMES 之上。"""
+    report = _report_with_exploratory()
+    report["robustness"] = {"min_games=3": _variant(-0.01, 0.55)}
+    md = render_markdown(report)
+    assert "18" in md and "10" in md
+
+
+def test_aggregate_robustness_carries_units_into_each_variant():
+    """只有 decide() 的汇总能进 JSON 的话，coarse_position 的 p=0.0184 就没法
+    像主结论那样被独立复核。不许悄悄丢数据。"""
+    runs = [
+        {"variant": "coarse_position", "units": [
+            {"holdout": "2022", "item": "kills", "position": "core", "diff": 0.4}]},
+        {"variant": "coarse_position", "units": [
+            {"holdout": "2023", "item": "kills", "position": "core", "diff": 0.2}]},
+        {"variant": "min_games=3", "units": [
+            {"holdout": "2022", "item": "kills", "position": 1, "diff": -0.1}]},
+    ]
+    out = aggregate_robustness(runs)
+    assert [u["diff"] for u in out["coarse_position"]["units"]] == [0.4, 0.2]
+    assert [u["holdout"] for u in out["coarse_position"]["units"]] == ["2022", "2023"]
+    assert len(out["min_games=3"]["units"]) == 1
+    # 带上 units 之后原有形状不能变
+    assert out["coarse_position"]["n_units_compared"] == 2
+
+
+# ---- 零跳过时不要留一个吊在半空的冒号 --------------------------------------
+
+
+def test_render_markdown_omits_the_reason_list_when_nothing_was_skipped():
+    report = _minimal_report()
+    report["skipped"] = []
+    md = render_markdown(report)
+    assert "跳过的单元 **0** 个。" in md
+    assert "跳过的单元 **0** 个，按原因：" not in md
+
+
+def test_render_markdown_keeps_the_reason_list_when_something_was_skipped():
+    md = render_markdown(_minimal_report())
+    assert "跳过的单元 **1** 个，按原因：" in md
+    assert "预测值全同：1" in md
+
+
+# ---- run_sliding 也要留住跳过原因（run_holdout / run_robustness 早已如此）----
+
+
+def test_run_sliding_records_skip_reasons_instead_of_discarding_them():
+    """run_holdout 和 run_robustness 都把 score_arm 的跳过原因记了下来，
+    run_sliding 却写成 `scores, _ = ...` 直接丢掉。同一个缺陷在
+    run_robustness 上已经被判定为缺陷并修过，这里必须一致。"""
+    train, pm = _empty_train_and_pm()
+    holdout = {"year": "2099", "patch": "7.39"}
+    out = run_sliding(train, pm, holdout, {1: 1}, _SLIDE_EVENT_START)
+    for entry in out:
+        assert entry["n_scored_units"] == 0
+        assert entry["n_skipped_units"] == len(ITEMS)
+        assert len(entry["skipped"]) == len(ITEMS)
+        assert {s["reason"] for s in entry["skipped"]} == {"候选人不足3"}
+        assert {s["position"] for s in entry["skipped"]} == {1}
+        assert {s["item"] for s in entry["skipped"]} == set(ITEMS)
+
+
+def test_render_markdown_shows_the_sliding_skip_counts():
+    report = _minimal_report()
+    report["sliding"] = [{"holdout": "2025", "arm": "slide0", "mean_spearman": 0.21,
+                          "patch_boundaries": [], "n_skipped_units": 7,
+                          "skipped": []}]
+    md = render_markdown(report)
+    row = next(ln for ln in md.splitlines() if ln.startswith("| TI2025 | slide0 "))
+    assert "| 7 |" in row
