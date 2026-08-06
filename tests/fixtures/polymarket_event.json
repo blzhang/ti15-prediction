@@ -1,0 +1,167 @@
+{
+ "slug": "the-international-2026-winner-20260629212545745",
+ "liquidity": 619068.50309,
+ "volume": 40942.923122,
+ "markets": [
+  {
+   "question": "Will Aurora Gaming Win The International 2026?",
+   "groupItemTitle": "Aurora Gaming",
+   "outcomePrices": "[\"0.065\", \"0.935\"]",
+   "bestBid": 0.06,
+   "bestAsk": 0.07,
+   "lastTradePrice": 0.09
+  },
+  {
+   "question": "Will BoomBoys Win The International 2026?",
+   "groupItemTitle": "BoomBoys",
+   "outcomePrices": "[\"0.145\", \"0.855\"]",
+   "bestBid": 0.12,
+   "bestAsk": 0.17,
+   "lastTradePrice": 0.15
+  },
+  {
+   "question": "Will Team Falcons Win The International 2026?",
+   "groupItemTitle": "Team Falcons",
+   "outcomePrices": "[\"0.1\", \"0.9\"]",
+   "bestBid": 0.08,
+   "bestAsk": 0.12,
+   "lastTradePrice": 0.09
+  },
+  {
+   "question": "Will Team Liquid Win The International 2026?",
+   "groupItemTitle": "Team Liquid",
+   "outcomePrices": "[\"0.065\", \"0.935\"]",
+   "bestBid": 0.04,
+   "bestAsk": 0.09,
+   "lastTradePrice": 0.06
+  },
+  {
+   "question": "Will 1w Team Win The International 2026?",
+   "groupItemTitle": "1w Team",
+   "outcomePrices": "[\"0.065\", \"0.935\"]",
+   "bestBid": 0.05,
+   "bestAsk": 0.08,
+   "lastTradePrice": 0.08
+  },
+  {
+   "question": "Will Xtreme Gaming Win The International 2026?",
+   "groupItemTitle": "Xtreme Gaming",
+   "outcomePrices": "[\"0.057\", \"0.943\"]",
+   "bestBid": 0.038,
+   "bestAsk": 0.076,
+   "lastTradePrice": 0.05
+  },
+  {
+   "question": "Will Team Yandex Win The International 2026?",
+   "groupItemTitle": "Team Yandex",
+   "outcomePrices": "[\"0.235\", \"0.765\"]",
+   "bestBid": 0.19,
+   "bestAsk": 0.28,
+   "lastTradePrice": 0.2
+  },
+  {
+   "question": "Will Team Spirit Win The International 2026?",
+   "groupItemTitle": "Team Spirit",
+   "outcomePrices": "[\"0.105\", \"0.895\"]",
+   "bestBid": 0.08,
+   "bestAsk": 0.13,
+   "lastTradePrice": 0.09
+  },
+  {
+   "question": "Will TEAM VISION Win The International 2026?",
+   "groupItemTitle": "TEAM VISION",
+   "outcomePrices": "[\"0.24\", \"0.76\"]",
+   "bestBid": 0.22,
+   "bestAsk": 0.26,
+   "lastTradePrice": 0.23
+  },
+  {
+   "question": "Will Nigma Galaxy Win The International 2026?",
+   "groupItemTitle": "Nigma Galaxy",
+   "outcomePrices": "[\"0.0225\", \"0.9775\"]",
+   "bestBid": 0.019,
+   "bestAsk": 0.026,
+   "lastTradePrice": 0.012
+  },
+  {
+   "question": "Will HULIGANI Win The International 2026?",
+   "groupItemTitle": "HULIGANI",
+   "outcomePrices": "[\"0.0265\", \"0.9735\"]",
+   "bestBid": 0.004,
+   "bestAsk": 0.049,
+   "lastTradePrice": 0.002
+  },
+  {
+   "question": "Will Team Resilience Win The International 2026?",
+   "groupItemTitle": "Team Resilience",
+   "outcomePrices": "[\"0.0565\", \"0.9435\"]",
+   "bestBid": 0.029,
+   "bestAsk": 0.084,
+   "lastTradePrice": 0.062
+  },
+  {
+   "question": "Will Vici Gaming Win The International 2026?",
+   "groupItemTitle": "Vici Gaming",
+   "outcomePrices": "[\"0.0565\", \"0.9435\"]",
+   "bestBid": 0.033,
+   "bestAsk": 0.08,
+   "lastTradePrice": 0.054
+  },
+  {
+   "question": "Will OG Win The International 2026?",
+   "groupItemTitle": "OG",
+   "outcomePrices": "[\"0.0095\", \"0.9905\"]",
+   "bestBid": 0.007,
+   "bestAsk": 0.012,
+   "lastTradePrice": 0.007
+  },
+  {
+   "question": "Will GamerLegion Win The International 2026?",
+   "groupItemTitle": "GamerLegion",
+   "outcomePrices": "[\"0.0095\", \"0.9905\"]",
+   "bestBid": 0.003,
+   "bestAsk": 0.016,
+   "lastTradePrice": 0.002
+  },
+  {
+   "question": "Will LGD Gaming Win The International 2026?",
+   "groupItemTitle": "LGD Gaming",
+   "outcomePrices": "[\"0.0505\", \"0.9495\"]",
+   "bestBid": 0.02,
+   "bestAsk": 0.081,
+   "lastTradePrice": 0.021
+  },
+  {
+   "question": "Will A Win The International 2026?",
+   "groupItemTitle": "A",
+   "outcomePrices": "[\"0.5\", \"0.5\"]",
+   "bestBid": 0,
+   "bestAsk": 1,
+   "lastTradePrice": 0
+  },
+  {
+   "question": "Will B Win The International 2026?",
+   "groupItemTitle": "B",
+   "outcomePrices": "[\"0.5\", \"0.5\"]",
+   "bestBid": 0,
+   "bestAsk": 1,
+   "lastTradePrice": 0
+  },
+  {
+   "question": "Will C Win The International 2026?",
+   "groupItemTitle": "C",
+   "outcomePrices": "[\"0.5\", \"0.5\"]",
+   "bestBid": 0,
+   "bestAsk": 1,
+   "lastTradePrice": 0
+  },
+  {
+   "question": "Will another team Win The International 2026?",
+   "groupItemTitle": "Other",
+   "outcomePrices": "[\"0.5\", \"0.5\"]",
+   "bestBid": 0,
+   "bestAsk": 1,
+   "lastTradePrice": 0
+  }
+ ]
+}

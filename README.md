@@ -24,18 +24,18 @@
 
 ## 结果概览
 
-夺冠概率（已与博彩赔率融合，市场权重 0.7）：
+夺冠概率（已与市场融合：Polymarket ✕ 庄家赔率等权合成共识价，市场权重 0.7）：
 
 | 队 | 夺冠 |
 |---|---|
-| TEAM VISION | 18.2% |
-| Team Spirit | 14.2% |
-| Team Yandex | 12.6% |
-| Aurora Gaming | 10.6% |
-| Iron Wing | 10.4% |
-| Team Falcons | 10.3% |
+| TEAM VISION | 19.2% |
+| Team Yandex | 14.6% |
+| Team Spirit | 11.3% |
+| Team Falcons | 10.1% |
+| Iron Wing | 8.2% |
+| BoomBoys | 7.7% |
 
-头名只有 18.2%，前八名挤在 7%–18%。**没有真正的大热门**——16 队水平接近，且瑞士轮之后还要打双败，
+头名只有 19.2%，前八名挤在 6%–19%。**没有真正的大热门**——16 队水平接近，且瑞士轮之后还要打双败，
 路径太长，任何单一队伍的概率都被稀释。
 
 模型质量（训练只用 2026-03 之前的数据，在之后 2,546 场没见过的比赛上实测）：
@@ -79,7 +79,7 @@ TI 的瑞士轮打到 **4 胜或 4 负即停**（跟 CS Major 一样），不是
 
 ```bash
 pip install -r requirements.txt
-python3 -m pytest -q          # 162 个测试
+python3 -m pytest -q          # 181 个测试
 ```
 
 **用仓库里已有的产出物直接建站**（不需要下载数据集）：
@@ -95,7 +95,8 @@ python3 fetch_pro_all.py              # 拉 2020-2026 全部职业比赛
 python3 -m model.l0_align             # 按选手 ID 反查血统    → model/lineage.json
 python3 -m model.l1_strength          # Bradley-Terry 实力评分 → model/l1_rating.json
 python3 -m model.l2_simulate          # 蒙特卡洛 20 万届 TI    → model/l2_predictions.json
-python3 -m model.l2_blend             # 与赔率做 log-odds 融合 → model/l2_blended.json
+python3 fetch_polymarket.py           # 抓 Polymarket 冠军盘   → model/polymarket_odds.json
+python3 -m model.l2_blend             # 两级融合：Polymarket×庄家共识 + 模型 → model/l2_blended.json
 python3 -m model.l4_players_report    # 选手排名与数据预测     → reports/p3_p4_players.*
 python3 -m model.l4_fantasy_report    # 梦幻挑战分项矩阵       → reports/p1_fantasy_matrix.json
 python3 -m model.l4_extremes_report   # 极值题（谁打出最高纪录）→ reports/p2_extremes.*
@@ -113,7 +114,7 @@ python3 -m model.l4_extremes_report   # 极值题（谁打出最高纪录）→ 
 | `00-DESIGN.md` / `00-PLAN.md` | 设计文档（含 §10 已知限制 12 条）与实施计划 |
 | `01-` … `06-*.md` | 前期调研：赛事事实、数据源、方法论文献、舆论场、Fantasy 规则 |
 | `model/` | 全部建模代码，L0 对齐 → L1 实力 → L2 模拟/融合 → L3 选手 → L4 各类题目 |
-| `tests/` | 162 个测试。**部分测试是经过变异验证的**——改坏对应实现会让它们变红 |
+| `tests/` | 181 个测试。**部分测试是经过变异验证的**——改坏对应实现会让它们变红 |
 | `frozen/` | 各版本预测的哈希存证，`model/freeze.py` 可校验 |
 | `reports/` | 面向人读的产出：对阵胜率表、选手预测、Fantasy 矩阵、极值题 |
 | `site/` | 静态站生成器。所有数字从产出物读取，不手抄 |
@@ -125,7 +126,7 @@ python3 -m model.l4_extremes_report   # 极值题（谁打出最高纪录）→ 
 - **Fantasy 的辅助槽结构性偏弱。** 18 项计分项里 Watcher 和 Lotus 取不到，而 Support Duo 槽的
   徽记全是蓝色，蓝色池只有 4/6。这个没法靠努力弥补。
 - **抄作业那 16 格用的是纯模型，没融合赔率。** 因为博彩只开夺冠盘，没有「谁会 4-1」的盘，
-  没有市场价可参照。所以会出现 Falcons 在夺冠概率排第 6、在抄作业里却填进 4-1 的情况。
+  没有市场价可参照。所以会出现 Falcons 在夺冠概率排第 4、在抄作业里却填进 4-1 的情况。
 - **分组还没公布。** 首轮谁打谁由主办方决定。公布之后重算的版本会准不少。
 
 ## 声明

@@ -20,7 +20,8 @@ BASE = "/dota2"
 
 # 站点要打包的产出物：(源路径, 站内文件名, 人类可读说明, 是否进搜索索引)
 ASSETS = [
-    ("model/l2_blended.json", "l2_blended.json", "最终夺冠概率（已参考博彩赔率，市场占七成权重）"),
+    ("model/l2_blended.json", "l2_blended.json", "最终夺冠概率（已与市场共识融合：Polymarket ✕ 庄家赔率，市场占七成权重）"),
+    ("model/polymarket_odds.json", "polymarket_odds.json", "Polymarket 冠军盘价格快照（16 队，含买卖价与成交价）"),
     ("model/l2_predictions.json", "l2_predictions.json", "模拟的全部结果：夺冠、进前四、晋级、各队小组赛战绩分布、最终名次分布"),
     ("model/l1_rating.json", "l1_rating.json", "16 支队的实力分与误差范围，以及模型在没见过的比赛上的实测成绩"),
     ("model/lineage.json", "lineage.json", "每支队的\"前世今生\"：用现役五人反查出来的历史队名与场次"),
@@ -141,10 +142,11 @@ def main():
         "raw_pred": pred,
         "raw_fantasy": json.load(open(need("reports/p1_fantasy_matrix.json"))),
         "raw_market": json.load(open(need("model/market_odds.json"))),
+        "raw_pm": json.load(open(need("model/polymarket_odds.json"))),
         "manifest": manifest,
         "full_data": [{"file": f, "size": s, "desc": d} for f, s, d in FULL_DATA],
     }
-    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market")},
+    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm")},
               open(os.path.join(DIST, "data", "site.json"), "w"),
               ensure_ascii=False, separators=(",", ":"))
     json.dump(build_search_index(players, rating),

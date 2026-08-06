@@ -87,7 +87,7 @@ def dual_bars(rows):
     mx = max(max(r["champ_model"], r["champ_blended"]) for r in rows) or 1
     out = ['<div class="legend">',
            '<span><i style="background:var(--s1)"></i>纯模型</span>',
-           '<span><i style="background:var(--s2)"></i>融合市场赔率后（交付值）</span>',
+           '<span><i style="background:var(--s2)"></i>融合市场共识价后（交付值）</span>',
            '</div><div class="bars dual">']
     for r in rows:
         out.append(
@@ -114,6 +114,7 @@ def dist_table(d, label):
 def page_index(base, p):
     t = p["teams"]
     top = t[0]
+    eighth = t[7]
     falcons = next(x for x in t if x["team"] == "Team Falcons")
     spirit = next(x for x in t if x["team"] == "Team Spirit")
     oos = p["oos"]
@@ -124,14 +125,14 @@ def page_index(base, p):
 <p class="meta">开赛前生成，已加防篡改校验 · 模拟了 20 万届 TI</p>
 
 <div class="tiles">
-  <div class="tile"><div class="k">夺冠概率最高</div><div class="v">%s</div><div class="s">%.1f%%（已融合市场赔率）</div></div>
+  <div class="tile"><div class="k">夺冠概率最高</div><div class="v">%s</div><div class="s">%.1f%%（已融合市场共识价）</div></div>
   <div class="tile"><div class="k">官方预测面板</div><div class="v">16 格</div><div class="s">已出建议填法</div></div>
   <div class="tile"><div class="k">分档结构</div><div class="v">1·2·5·5·2·1</div><div class="s">每届恒定，非概率</div></div>
   <div class="tile"><div class="k">模型样本外准确率</div><div class="v">%.1f%%</div><div class="s">2,546 场未见过的比赛</div></div>
 </div>
 
 <h2>结论一：没有真正的大热门</h2>
-<p>头名 %s 只有 %.1f%%，前八名挤在 7%%–18%% 之间。这不是模型不敢下判断，而是 16 队水平确实接近——
+<p>头名 %s 只有 %.1f%%，前八名挤在 %.0f%%–%.0f%% 之间。这不是模型不敢下判断，而是 16 队水平确实接近——
 瑞士轮打到 4 胜或 4 负、之后还要打双败，路径太长，任何单一队伍的夺冠概率都被稀释。</p>
 <div class="note"><b>历史支持这个判断。</b>TI9–TI14 六届里，赛前赔率头名只夺冠 1 次，冠军的赛前赔率排名中位数是第 4.5 名。
 我们一度以为这说明市场错价，但二项检验推翻了它：头名真实概率 25%% 时，六届只赢一次的概率是 53%%——
@@ -180,6 +181,7 @@ def page_index(base, p):
 """ % (esc(top["team"]), top["champ_blended"] * 100,
        oos.get("acc", 0) * 100,
        esc(top["team"]), top["champ_blended"] * 100,
+       eighth["champ_blended"] * 100, top["champ_blended"] * 100,
        falcons["champ_model"] * 100, falcons["champ_blended"] * 100,
        (falcons["champ_blended"] - falcons["champ_model"]) * 100,
        spirit["champ_model"] * 100, spirit["champ_blended"] * 100,
@@ -234,6 +236,7 @@ def page_group(base, p, qr="group-qr.jpg"):
 
 def page_pred(base, p):
     t = p["teams"]
+    falcons = next(x for x in t if x["team"] == "Team Falcons")
     rows = "".join(
         "<tr><td>%s</td><td class='num hi'>%.1f%%</td><td class=num>%.1f%%</td><td class=num>%.1f%%</td>"
         "<td class=num>%.1f%%</td><td class=num>%.1f%%</td><td class=num>%.1f%%</td>"
@@ -243,12 +246,12 @@ def page_pred(base, p):
         for r in t)
     body = """
 <h1>预测详情</h1>
-<p class="lede">全部数字由构建脚本从冻结产出物读出。夺冠一列已与博彩赔率融合，其余各列是纯模型。</p>
+<p class="lede">全部数字由构建脚本从冻结产出物读出。夺冠一列已与市场共识价融合（Polymarket ✕ 庄家赔率，市场占七成权重），其余各列是纯模型。</p>
 <p class="meta">蒙特卡洛 %s 次 · 夺冠概率标准误 ≤ 0.09pp</p>
 
 <div class="note"><b>读表前必看：</b>只有「夺冠」一列做了市场融合。
 「进淘汰赛 / 瑞士轮前3 / 5-0」全部是纯模型，<b>各列并非同一个联合分布</b>。
-例：Falcons 夺冠 10.3%%（融合后），但进淘汰赛 73.8%%——后者出自一个认为它夺冠 14.8%% 的模型。横向比较需谨慎。</div>
+例：Falcons 夺冠 %.1f%%（融合后），但进淘汰赛 %.1f%%——后者出自一个认为它夺冠 %.1f%% 的模型。横向比较需谨慎。</div>
 
 <h2>夺冠概率：模型 vs 融合后</h2>
 %s
@@ -272,7 +275,9 @@ def page_pred(base, p):
 <div class="note good"><b>为什么这不是「挑好的算」：</b>概率生成只读赛前数据（固定种子重跑逐格一致）；
 评分时是无条件「有结果就收录」，没有任何挑拣分支；哪些配对会发生由赛果决定，与我们预测得准不准无关。
 这与 FiveThirtyEight 处理赛程的方式一致。</div>
-""" % ("{:,}".format(p.get("n_sim") or 0), dual_bars(t), rows, base, base)
+""" % ("{:,}".format(p.get("n_sim") or 0),
+       falcons["champ_blended"] * 100, falcons["advance"] * 100, falcons["champ_model"] * 100,
+       dual_bars(t), rows, base, base)
     return shell(base, "predictions.html", "预测详情", body)
 
 
@@ -470,7 +475,7 @@ def write_all(dist, base, payload):
         "odds.html": shell(base, "odds.html", "市场怎么看",
                            _odds.render(base, payload["raw_pred"],
                                         {r["team"]: r["champ_blended"] for r in payload["teams"]},
-                                        payload["raw_market"])),
+                                        payload["raw_market"], payload["raw_pm"])),
         "index.html": page_index(base, payload),
         "homework.html": shell(
             base, "homework.html", "抄作业",

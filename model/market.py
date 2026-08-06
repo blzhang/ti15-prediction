@@ -8,6 +8,23 @@ import math
 
 W_MARKET_DEFAULT = 0.7   # §4.2 建议区间 0.6–0.8 的中点
 
+W_BOOK_DEFAULT = 0.5     # 源间权重（庄家一侧）。2026-08-05 Polymarket 设计文档 §3：等权最不武断
+
+
+def normalize(probs):
+    """概率 dict 按比例归一化到和为 1。
+
+    Polymarket 冠军盘 16 队 mid 价之和实测 ≈1.18——负风险市场同样有溢价，
+    当概率用之前必须归一。空输入或任何非正值直接报错，不猜。
+    """
+    if not probs:
+        raise ValueError("probs 不能为空")
+    for k, v in probs.items():
+        if v is None or v <= 0:
+            raise ValueError("概率必须为正：%s=%r" % (k, v))
+    s = sum(probs.values())
+    return {k: v / s for k, v in probs.items()}
+
 
 def devig(odds):
     """小数赔率 dict → 去水后概率 dict（比例法 / proportional normalisation）。"""
