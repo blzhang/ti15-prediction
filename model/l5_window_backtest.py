@@ -634,8 +634,9 @@ def _render_exploratory(L, report):
     L.append("\n### 版本边界 vs 窗口长度\n")
     L.append("版本臂到底亏在「版本边界」还是「窗口太短」，看这张表：窗口越短，"
              "低于 `l3_player.MIN_N_FOR_OWN_GAME_VAR` 的选手越多——这些人拿不到"
-             "自身局内方差估计，只能退回号位先验。末列是版本臂对等长日历窗口 "
-             "`%s` 的届内中位差（不是对 baseline）。\n" % ex.get("control_arm"))
+             "自身局内方差估计，只能退回号位先验。倒数第二列是版本臂对**等长日历"
+             "窗口** `%s` 的届内中位差（不是对 baseline），末列是两臂逐单元 Spearman "
+             "完全相同的个数。\n" % ex.get("control_arm"))
     L.append("| 届 | 版本 | 版本窗口 | 窗内有数据的选手 | 每人局数中位 | 低于门槛的比例 | 中位差 vs `%s` | 两臂完全相同的单元 |"
              % ex.get("control_arm"))
     L.append("|---|---|---|---|---|---|---|---|")
@@ -658,7 +659,7 @@ def _render_exploratory(L, report):
     if thr is not None:
         L.append("\n（「低于门槛」= 窗内局数 < `MIN_N_FOR_OWN_GAME_VAR` = %d。"
                  "窗内一局都没有的选手不计入中位数与比例，单列在「窗内有数据的选手」，"
-                 "他们根本进不了该臂的预测、也就进不了臂间交集。）\n" % thr)
+                 "他们根本进不了该臂的预测、也就进不了臂间交集。）" % thr)
 
     ranked_meta = sorted((m for m in metas if m.get("patch_window")),
                          key=lambda m: m["patch_window"]["window_days"])
@@ -715,7 +716,7 @@ def _render_exploratory(L, report):
                  "窗口是 %d–%d 天，而 `%s` 到 TI15 开赛（%s）有 **%d 天**——比历史上"
                  "任何一届的版本窗口都长，落在上表那些日历窗口的量级里，而不是落在"
                  "被测的版本窗口的量级里。所以「只用 %s 起的数据」这个提议，本次回测"
-                 "既没有证伪也没有证实：它测的是 %d–%d 天的版本窗口，不是 %d 天的。\n"
+                 "既没有证伪也没有证实：它测的是 %d–%d 天的版本窗口，不是 %d 天的。"
                  % (hist["min"], hist["max"], prop.get("patch"),
                     prop.get("event_start_utc"), prop.get("window_days"),
                     prop.get("patch"), hist["min"], hist["max"],
@@ -723,7 +724,7 @@ def _render_exploratory(L, report):
 
     ov = ex.get("all_vs_baseline_by_holdout") or {}
     if ov:
-        L.append("\n### 已知弱点：早期届的 `all` 与 baseline 高度重合（spec §3）\n")
+        L.append("\n### 已知弱点：`all` 与 baseline 的重合度（spec §3）\n")
         L.append("训练数据下限是 **2020-01**，而 baseline 是「开赛前 955 天」——"
                  "holdout 越早，baseline 的起点越贴近数据下限，`all` 与 baseline "
                  "就越像。这不影响主判据（`%s` vs `%s`），但「`all` vs baseline」"
