@@ -242,3 +242,56 @@ def test_decide_ignores_units_whose_diff_is_none():
 def test_decide_on_empty_units_is_not_supported():
     out = decide([])
     assert out["supported"] is False
+
+
+from model.l5_window_backtest import render_markdown
+
+
+def _minimal_report(supported=False):
+    return {
+        "generated_by": "model/l5_window_backtest.py",
+        "spec": "docs/superpowers/specs/2026-08-06-fantasy-patch-window-design.md",
+        "baseline_arm": "L955d", "treatment_arm": "patch",
+        "alpha": 0.05, "min_holdouts_positive": 3,
+        "items_covered": "12/15",
+        "excluded_items": ["smokes", "tormentor", "courier"],
+        "holdouts": ["2022", "2023", "2024", "2025"],
+        "holdout_meta": [{"holdout": y, "patch": p} for y, p in
+                         [("2022", "7.32"), ("2023", "7.34"),
+                          ("2024", "7.37"), ("2025", "7.39")]],
+        "decision": {"sign_test": {"n_pos": 100, "n_neg": 110, "n_zero": 0,
+                                   "median": -0.01, "p": 0.55},
+                     "median_diff_by_holdout": {"2022": -0.02, "2023": 0.01,
+                                                "2024": -0.03, "2025": 0.00},
+                     "n_holdouts_positive": 1, "n_units_compared": 210,
+                     "supported": supported},
+        "coverage": [{"holdout": "2022", "item": "kills", "n_union": 20,
+                      "n_intersection": 14, "n_dropped_by_intersection": 6}],
+        "skipped": [{"holdout": "2022", "item": "roshan", "arm": "patch",
+                     "position": 5, "reason": "预测值全同"}],
+        "sliding": [{"holdout": "2025", "arm": "slide0", "mean_spearman": 0.21,
+                     "patch_boundaries": []}],
+    }
+
+
+def test_render_markdown_states_the_conclusion_without_overclaiming():
+    """判不出显著时，报告必须说"没有证据支持"，不能说成"证明了两者一样"
+    ——那是本次样本量给不出的结论（spec §8）。"""
+    md = render_markdown(_minimal_report(supported=False))
+    assert "没有证据支持" in md
+    assert "证明两者一样" not in md
+
+
+def test_render_markdown_always_reports_dropped_and_skipped_counts():
+    """静默截断是这个项目最容易再被读者抓的地方——交集丢掉的人数和
+    跳过的单元数必须出现在报告正文里。"""
+    md = render_markdown(_minimal_report())
+    assert "6" in md          # n_dropped_by_intersection
+    assert "跳过" in md
+    assert "预测值全同" in md
+
+
+def test_render_markdown_states_item_coverage_is_12_of_15():
+    md = render_markdown(_minimal_report())
+    assert "12/15" in md
+    assert "smokes" in md
