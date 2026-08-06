@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from model.patches import patch_ts
-from model.l5_window import window_arms, sliding_arms
+from model.l5_window import window_arms, sliding_arms, derive_positions, coarsen
 
 
 def _utc(y, m, d):
@@ -53,3 +53,58 @@ def test_sliding_arms_are_contiguous_non_overlapping_and_complete():
         assert arms["slide%d" % k][0] == arms["slide%d" % (k + 1)][1]
     for since, until in arms.values():
         assert until - since == 105 * 86400
+
+
+def _pm_rows(match_id, side_offset, net_worths, account_ids):
+    """造一方五个人的选手-比赛行。side_offset=0 是天辉，128 是夜魇。"""
+    return [{"match_id": match_id, "account_id": a, "player_slot": side_offset + i,
+             "net_worth": nw}
+            for i, (a, nw) in enumerate(zip(account_ids, net_worths))]
+
+
+def test_derive_positions_ranks_by_net_worth_within_each_team_side():
+    """队内净资产降序 = 1..5 号位。这是本项目唯一可用的号位来源：
+    ti_2021_2025_player_matches.csv 自带的 fantasy_role 列有 2240 个 NaN
+    且出现 0/3/4 等无法解释的取值，不能用。"""
+    rows = (_pm_rows(1, 0, [30000, 25000, 20000, 15000, 10000], [11, 12, 13, 14, 15])
+            + _pm_rows(1, 128, [31000, 26000, 21000, 16000, 11000], [21, 22, 23, 24, 25]))
+    pos = derive_positions(pd.DataFrame(rows))
+    assert pos == {11: 1, 12: 2, 13: 3, 14: 4, 15: 5,
+                   21: 1, 22: 2, 23: 3, 24: 4, 25: 5}
+
+
+def test_derive_positions_follows_net_worth_not_player_slot_order():
+    """把净资产顺序反过来，推出的号位必须跟着反——否则说明实现其实是
+    在按 player_slot 顺序发号位，那就完全没有信息量了。"""
+    rows = _pm_rows(1, 0, [10000, 15000, 20000, 25000, 30000], [11, 12, 13, 14, 15])
+    pos = derive_positions(pd.DataFrame(rows))
+    assert pos == {11: 5, 12: 4, 13: 3, 14: 2, 15: 1}
+
+
+def test_derive_positions_takes_the_mode_across_matches():
+    """一名选手在两场里是 1 号位、一场里是 2 号位 -> 取众数 1。
+    单场的临时换位不该改变他的号位归属。"""
+    rows = []
+    for mid, nws in [(1, [30000, 25000, 20000, 15000, 10000]),
+                     (2, [30000, 25000, 20000, 15000, 10000]),
+                     (3, [25000, 30000, 20000, 15000, 10000])]:
+        rows += _pm_rows(mid, 0, nws, [11, 12, 13, 14, 15])
+    pos = derive_positions(pd.DataFrame(rows))
+    assert pos[11] == 1
+    assert pos[12] == 2
+
+
+def test_derive_positions_ignores_rows_with_missing_account_or_net_worth():
+    rows = _pm_rows(1, 0, [30000, 25000, 20000, 15000, 10000], [11, 12, 13, 14, 15])
+    rows.append({"match_id": 2, "account_id": None, "player_slot": 0, "net_worth": 9999})
+    rows.append({"match_id": 2, "account_id": 99, "player_slot": 1, "net_worth": None})
+    pos = derive_positions(pd.DataFrame(rows))
+    assert 99 not in pos
+    assert set(pos) == {11, 12, 13, 14, 15}
+
+
+def test_coarsen_splits_core_1_to_3_from_support_4_to_5():
+    """稳健口径：这个划分在 TI15 的 80 名人工策展选手上与净资产排名
+    100% 吻合（15 处不一致全部落在 core 内部或 support 内部）。"""
+    assert coarsen({1: 1, 2: 2, 3: 3, 4: 4, 5: 5}) == {
+        1: "core", 2: "core", 3: "core", 4: "support", 5: "support"}

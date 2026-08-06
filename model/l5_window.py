@@ -41,3 +41,34 @@ def sliding_arms(event_start_ts, length_days=105, n_steps=4):
     e = int(event_start_ts)
     L = int(length_days) * DAY
     return {"slide%d" % k: (e - (k + 1) * L, e - k * L) for k in range(int(n_steps))}
+
+
+def derive_positions(df):
+    """按每场每方净资产降序排名的众数推 1..5 号位 -> {account_id: 1..5}。
+
+    df 需含 match_id / account_id / player_slot / net_worth。
+    player_slot >= 128 是夜魇方（OpenDota 约定）。
+
+    为什么不用 ti_2021_2025_player_matches.csv 自带的 fantasy_role：那一列
+    有 2240 个 NaN，且出现 0/3/4 等无法解释的取值，不可用。
+
+    实测校验（spec §4）：本推导与 TI15 的 80 名人工策展选手 65/80（81.2%）
+    完全一致，15 处不一致全部落在 core(1-3) 内部或 support(4-5) 内部，没有
+    一处跨越核心/辅助边界。回测其实不要求标签"正确"，只要求跨臂一致——
+    同一套分组同时用于所有臂，系统性的 4↔5 对调不引入臂间偏差。
+
+    名次并列用 method="first" 打破（稳定、可复现）；众数并列取最小值
+    （pandas `Series.mode()` 返回升序，取 iat[0]），同样是为了可复现。
+    """
+    work = df.dropna(subset=["account_id", "net_worth"]).copy()
+    work["account_id"] = work["account_id"].astype("int64")
+    work["_side"] = (work["player_slot"].astype("int64") >= 128).astype(int)
+    work["_rank"] = (work.groupby(["match_id", "_side"])["net_worth"]
+                     .rank(ascending=False, method="first").astype(int))
+    mode = work.groupby("account_id")["_rank"].agg(lambda s: int(s.mode().iat[0]))
+    return {int(a): int(p) for a, p in mode.items()}
+
+
+def coarsen(positions):
+    """5 组 -> core(1-3) / support(4-5) 两组（spec §4 稳健口径）。"""
+    return {a: ("core" if p <= 3 else "support") for a, p in positions.items()}
