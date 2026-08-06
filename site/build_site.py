@@ -29,6 +29,7 @@ ASSETS = [
     ("reports/p3_p4_players.json", "p3_p4_players.json", "80 名参赛选手在 15 项数据上的预测值与误差范围"),
     ("reports/p1_fantasy_matrix.json", "p1_fantasy_matrix.json", "梦幻挑战：各队三个位置的分项预期表现"),
     ("reports/p2_extremes.json", "p2_extremes.json", "谁会打出全场最高纪录，以及各种纪录出现的可能性"),
+    ("reports/p5_window_backtest.json", "p5_window_backtest.json", "取数窗口回测：四届 TI 上七种取数起点的逐单元成绩与判定过程"),
 ]
 
 FULL_DATA = [
@@ -143,10 +144,11 @@ def main():
         "raw_fantasy": json.load(open(need("reports/p1_fantasy_matrix.json"))),
         "raw_market": json.load(open(need("model/market_odds.json"))),
         "raw_pm": json.load(open(need("model/polymarket_odds.json"))),
+        "raw_window": json.load(open(need("reports/p5_window_backtest.json"))),
         "manifest": manifest,
         "full_data": [{"file": f, "size": s, "desc": d} for f, s, d in FULL_DATA],
     }
-    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm")},
+    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm", "raw_window")},
               open(os.path.join(DIST, "data", "site.json"), "w"),
               ensure_ascii=False, separators=(",", ":"))
     json.dump(build_search_index(players, rating),

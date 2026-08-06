@@ -5,7 +5,7 @@ import shutil
 
 NAV = [("homework.html", "抄作业"), ("index.html", "结论"), ("predictions.html", "预测详情"),
        ("odds.html", "市场怎么看"), ("methodology.html", "方法论"), ("data.html", "数据与检索"),
-       ("group.html", "进群"), ("changelog.html", "更新日志")]
+       ("window.html", "版本窗口"), ("group.html", "进群"), ("changelog.html", "更新日志")]
 
 # 微信群二维码 7 天一换。换码只需替换 assets_src/group-qr.jpg 并改这个日期，
 # 知乎/NGA 帖子里挂的始终是 group.html 这个永久链接，不用跟着改。
@@ -468,10 +468,13 @@ def write_all(dist, base, payload):
     fan_rec = homework.fantasy(fan, payload["raw_pred"])
     import odds as _odds
     import changelog as _changelog
+    import window as _window
     payload = dict(payload, homework_full=hw)
     pages = {
         "changelog.html": shell(base, "changelog.html", "更新日志",
                                 _changelog.render(base, payload)),
+        "window.html": shell(base, "window.html", "版本窗口",
+                             _window.render(base, payload["raw_window"])),
         "odds.html": shell(base, "odds.html", "市场怎么看",
                            _odds.render(base, payload["raw_pred"],
                                         {r["team"]: r["champ_blended"] for r in payload["teams"]},
