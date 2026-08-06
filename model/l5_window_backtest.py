@@ -325,6 +325,16 @@ def render_markdown(report):
                      % (name, dv["n_units_compared"], tv["n_pos"], tv["n_neg"],
                         tv["median"], tv["p"],
                         "是" if dv["supported"] == d["supported"] else "否"))
+        L.append("\n各变体跳过的单元：")
+        for name, dv in rb.items():
+            skipped = dv.get("skipped") or []
+            L.append("- **%s**：跳过 %d 个" % (name, len(skipped)))
+            if skipped:
+                reasons = {}
+                for s in skipped:
+                    reasons[s["reason"]] = reasons.get(s["reason"], 0) + 1
+                for r, n in sorted(reasons.items(), key=lambda kv: -kv[1]):
+                    L.append("  - %s：%d" % (r, n))
     return "\n".join(L) + "\n"
 
 
@@ -339,23 +349,44 @@ def run_robustness(train, pm, holdout, positions, arms):
 
     三个变体都不参与主判定，作用是暴露"结论是不是靠某一个口径撑起来的"。
     只跑两个臂：另外五个臂对交叉验证没有增量信息，跑全套是三倍成本。
+
+    三个变体各自换了号位分组或入选门槛，skip 模式互不相同、也推不出彼此——
+    每个变体的 skipped 都要带上 "variant" 字段原样返回，不能只留 units
+    （不许悄悄丢数据）。
     """
     pair = {a: w for a, w in arms.items() if a in (BASELINE_ARM, TREATMENT_ARM)}
-    out = [{"variant": "coarse_position",
-            "units": run_holdout(train, pm, holdout, coarsen(positions), pair)["units"]}]
+
+    def _run(variant, res):
+        return {"variant": variant, "units": res["units"],
+                "skipped": [dict(s, variant=variant) for s in res["skipped"]]}
+
+    out = [_run("coarse_position",
+                run_holdout(train, pm, holdout, coarsen(positions), pair))]
     for mg in ROBUSTNESS_MIN_GAMES:
-        out.append({"variant": "min_games=%d" % mg,
-                    "units": run_holdout(train, pm, holdout, positions, pair,
-                                         min_games=mg)["units"]})
+        out.append(_run("min_games=%d" % mg,
+                        run_holdout(train, pm, holdout, positions, pair,
+                                    min_games=mg)))
     return out
 
 
 def aggregate_robustness(all_variant_runs):
-    """把各届的变体结果按变体名合并，各自跑一遍 decide。"""
-    by_variant = {}
+    """把各届的变体结果按变体名合并，各自跑一遍 decide。
+
+    skipped 同样按变体合并，塞进对应变体那个 decide() 结果 dict 里的
+    "skipped" 键——decide() 本身不产出这个键，不会撞车。三个变体的口径
+    互不相同，各自的跳过原因不能互相推导，必须各自带着走到报告里。
+    """
+    units_by_variant = {}
+    skipped_by_variant = {}
     for run in all_variant_runs:
-        by_variant.setdefault(run["variant"], []).extend(run["units"])
-    return {v: decide(u) for v, u in by_variant.items()}
+        units_by_variant.setdefault(run["variant"], []).extend(run["units"])
+        skipped_by_variant.setdefault(run["variant"], []).extend(run.get("skipped", []))
+    out = {}
+    for v, units in units_by_variant.items():
+        d = decide(units)
+        d["skipped"] = skipped_by_variant.get(v, [])
+        out[v] = d
+    return out
 
 
 def main():

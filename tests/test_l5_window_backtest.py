@@ -488,3 +488,109 @@ def test_render_markdown_includes_a_robustness_section_when_present():
     md = render_markdown(report)
     assert "稳健性" in md
     assert "coarse_position" in md
+
+
+# ---- 稳健性变体的 skipped 必须带原因进报告（不许悄悄丢数据）----------------
+
+
+def _skip_prone_frames():
+    """4 名选手、位置刻意拆成两两一组，两个变体口径下每个号位组都不足
+    MIN_CANDIDATES(3) 人——这个 fixture 是专门用来稳定触发跳过的，不是用来
+    测打分本身。"""
+    train_rows = []
+    for a, base in [(1, 1.0), (2, 5.0), (3, 9.0), (4, 3.0)]:
+        train_rows += _train_rows(a, list(range(100, 130)), base)
+    pm_rows = []
+    for a, base in [(1, 2.0), (2, 6.0), (3, 10.0), (4, 4.0)]:
+        for _ in range(8):
+            pm_rows.append(dict(_stat_row(base), match_date="2025-09-05",
+                                account_id=a))
+    return pd.DataFrame(train_rows), pd.DataFrame(pm_rows)
+
+
+def test_run_robustness_attributes_skipped_units_to_their_variant():
+    """三个变体各自跑 run_holdout，各自的 skipped 不能被扔掉——必须带上
+    是哪个变体产生的，原因字段原样保留（不能被摘要成一个数字）。"""
+    train, pm = _skip_prone_frames()
+    # coarsen 下 1/2 -> core、4/5 -> support，各 2 人；原始分组下
+    # 1 有 2 人、4 和 5 各 1 人——两种口径都必然低于 MIN_CANDIDATES(3)。
+    positions = {1: 1, 2: 1, 3: 4, 4: 5}
+    arms = {"L955d": (0, 200), "patch": (110, 200), "all": (0, 200)}
+    out = run_robustness(train, pm, {"year": "2025", "patch": "7.39"},
+                         positions, arms)
+
+    coarse = next(r for r in out if r["variant"] == "coarse_position")
+    assert coarse["skipped"], "core/support 都只有 2 人，必然全部跳过"
+    assert all(s["variant"] == "coarse_position" for s in coarse["skipped"])
+    assert all(s["position"] in ("core", "support") for s in coarse["skipped"])
+    assert all(s["reason"] == "候选人不足3" for s in coarse["skipped"])
+    assert all(s["arm"] in (BASELINE_ARM, TREATMENT_ARM) for s in coarse["skipped"])
+    assert all(s["holdout"] == "2025" for s in coarse["skipped"])
+
+    mg3 = next(r for r in out if r["variant"] == "min_games=3")
+    assert mg3["skipped"]
+    assert all(s["variant"] == "min_games=3" for s in mg3["skipped"])
+    assert all(s["position"] in (1, 4, 5) for s in mg3["skipped"])
+
+    mg8 = next(r for r in out if r["variant"] == "min_games=8")
+    assert mg8["skipped"]
+    assert all(s["variant"] == "min_games=8" for s in mg8["skipped"])
+
+
+def test_aggregate_robustness_merges_skipped_by_variant_across_holdouts():
+    """同一变体跨多届的 skipped 要合并，不同变体之间不能串。"""
+    runs = [
+        {"variant": "coarse_position", "units": [],
+         "skipped": [{"holdout": "2022", "item": "kills", "arm": "patch",
+                      "position": "support", "reason": "候选人不足3",
+                      "variant": "coarse_position"}]},
+        {"variant": "coarse_position", "units": [],
+         "skipped": [{"holdout": "2023", "item": "deaths", "arm": "L955d",
+                      "position": "core", "reason": "预测值全同",
+                      "variant": "coarse_position"}]},
+        {"variant": "min_games=3", "units": [],
+         "skipped": [{"holdout": "2022", "item": "kills", "arm": "patch",
+                      "position": 4, "reason": "候选人不足3",
+                      "variant": "min_games=3"}]},
+    ]
+    out = aggregate_robustness(runs)
+    assert len(out["coarse_position"]["skipped"]) == 2
+    assert {s["holdout"] for s in out["coarse_position"]["skipped"]} == {"2022", "2023"}
+    assert len(out["min_games=3"]["skipped"]) == 1
+    assert out["min_games=3"]["skipped"][0]["position"] == 4
+    # 不能因为加了 skipped 就破坏既有的返回形状。
+    assert out["coarse_position"]["n_units_compared"] == 0
+    assert out["coarse_position"]["supported"] is False
+
+
+def test_render_markdown_shows_per_variant_skip_counts_and_reasons():
+    """每个变体的跳过数与原因分布要能在报告正文里看到，风格跟主路径的
+    跳过小节一致；某个变体零跳过时不能崩，也要能看出是 0。"""
+    report = _minimal_report()
+    report["robustness"] = {
+        "coarse_position": {
+            "sign_test": {"p": 0.42, "median": -0.01,
+                         "n_pos": 30, "n_neg": 34, "n_zero": 0},
+            "median_diff_by_holdout": {}, "n_holdouts_positive": 1,
+            "n_units_compared": 64, "supported": False,
+            "skipped": ([{"holdout": "2022", "item": "kills", "arm": "patch",
+                         "position": "support", "reason": "候选人不足3",
+                         "variant": "coarse_position"}] * 3
+                       + [{"holdout": "2022", "item": "deaths", "arm": "L955d",
+                          "position": "core", "reason": "预测值全同",
+                          "variant": "coarse_position"}]),
+        },
+        "min_games=8": {
+            "sign_test": {"p": 0.10, "median": 0.02,
+                         "n_pos": 40, "n_neg": 20, "n_zero": 0},
+            "median_diff_by_holdout": {}, "n_holdouts_positive": 3,
+            "n_units_compared": 60, "supported": True,
+            "skipped": [],
+        },
+    }
+    md = render_markdown(report)
+    assert "跳过 4 个" in md
+    assert "候选人不足3：3" in md
+    assert "预测值全同：1" in md
+    assert "min_games=8" in md
+    assert "跳过 0 个" in md
