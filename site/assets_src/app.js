@@ -127,3 +127,42 @@ function initExplorer(base) {
     });
   });
 }
+
+/* 预测面板锁定倒计时。
+   截止时刻由服务端写在 data-deadline（UTC ISO）里，这里只负责显示与到点切换。
+   到点后自动转「已锁定」态：文案改口径、出口从「看填法」改成「看对账」，
+   不需要为了过期再部署一次。 */
+(function () {
+  var el = document.querySelector(".cd");
+  if (!el) return;
+  var end = Date.parse(el.getAttribute("data-deadline"));
+  if (isNaN(end)) return;
+  var clock = el.querySelector(".cd-clock");
+  var sub = el.querySelector(".cd-sub");
+  var head = el.querySelector(".cd-head");
+  var btn = el.querySelector(".cd-btn");
+  var onHomework = el.getAttribute("data-here") === "1";
+
+  function tick() {
+    var left = end - Date.now();
+    if (left <= 0) {
+      el.className = "cd done";
+      head.textContent = "官方预测面板已锁定";
+      clock.textContent = "已截止";
+      sub.textContent = onHomework
+        ? "这一页的填法建议已到期，保留在这里供赛后对账"
+        : "填法建议已到期，8/23 会公布这 16 格实际对了几格";
+      if (btn) { btn.textContent = "看预测详情 →"; btn.href = btn.href.replace("homework.html", "predictions.html"); }
+      clearInterval(timer);
+      return;
+    }
+    var s = Math.floor(left / 1000);
+    var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600);
+    var m = Math.floor(s % 3600 / 60), sec = s % 60;
+    /* 超过一天就不显示秒——秒针跳动只在最后冲刺阶段有意义 */
+    clock.textContent = d > 0 ? (d + " 天 " + h + " 小时 " + m + " 分")
+                              : (h + " 小时 " + m + " 分 " + sec + " 秒");
+  }
+  tick();
+  var timer = setInterval(tick, 1000);
+})();

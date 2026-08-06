@@ -11,6 +11,19 @@ NAV = [("homework.html", "抄作业"), ("index.html", "结论"), ("predictions.h
 # 知乎/NGA 帖子里挂的始终是 group.html 这个永久链接，不用跟着改。
 QR_EXPIRY = "2026-08-11"
 
+# 官方预测面板锁定时间——全站唯一事实源，倒计时和各页文案都读这里。
+#
+# 官方博文原文：*before the first match starts (10am CST, Thursday 8/13)*。
+# 「CST」有歧义：中国标准时间(UTC+8) 还是美国中部时间(UTC-5)？判定为**中国标准时间**：
+#   1. TI 历届首场都在场馆当地 10:00 开赛（TI14 汉堡站 Liquipedia 记为 10:00 CEST）；
+#   2. TI15 在上海，10:00 CST 即北京时间 10:00，符合直播赛事的正常开赛时间；
+#   3. 若按美国中部时间解读则是北京时间 23:00——本地晚间开赛，与在华办赛不符。
+# 这一版之前站上写的正是「23:00 北京时间」，比本判定晚 13 小时。
+# 取更早的时间兜底：判错了只是让人提前填（无损失），判对了能救回错过锁定的人。
+# 若在客户端里看到确切倒计时与此不符，改这两行即可，全站自动跟随。
+PANEL_DEADLINE_UTC = "2026-08-13T02:00:00Z"
+PANEL_DEADLINE_CN = "8 月 13 日 10:00（北京时间）"
+
 
 PLACEHOLDER_QR = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 522">
 <rect width="350" height="522" fill="#e1e0d9"/>
@@ -37,10 +50,40 @@ def esc(s):
     return html.escape(str(s), quote=True)
 
 
+def countdown(base, cur):
+    """预测面板锁定倒计时横幅。
+
+    服务端只渲染静态兜底文案（截止时刻本身），倒计时数字由 app.js 接管；
+    JS 没跑起来时仍能看到「什么时候截止」，不会退化成空白。
+    锁定后 JS 自动切成「已锁定」态并把出口改指对账页，无需再部署一次。
+    """
+    on_hw = cur == "homework.html"
+    return """
+<div class="cd" data-deadline="%s"%s>
+  <div class="cd-txt">
+    <b class="cd-head">官方预测面板锁定倒计时</b>
+    <span class="cd-sub">%s截止 · 锁定后不能再改</span>
+  </div>
+  <div class="cd-clock" aria-live="polite">%s</div>
+  %s
+</div>""" % (
+        PANEL_DEADLINE_UTC,
+        ' data-here="1"' if on_hw else "",
+        esc(PANEL_DEADLINE_CN),
+        esc(PANEL_DEADLINE_CN),
+        "" if on_hw else '<a class="cd-btn" href="%s/homework.html">看建议填法 →</a>' % base)
+
+
+# 倒计时只挂在这两页：占全站约四分之三的浏览量，且都与「填不填得上」直接相关。
+# 方法论/数据页挂上去只是噪音。
+CD_PAGES = ("homework.html", "index.html")
+
+
 def shell(base, cur, title, body, extra_js=""):
     nav = "".join(
         '<a class="item%s" href="%s/%s">%s</a>' % (" on" if f == cur else "", base, f, esc(t))
         for f, t in NAV)
+    body = (countdown(base, cur) + body) if cur in CD_PAGES else body
     return """<!doctype html>
 <html lang="zh-CN"><head>
 <meta charset="utf-8">

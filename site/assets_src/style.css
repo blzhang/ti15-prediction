@@ -263,3 +263,21 @@ footer { border-top: 1px solid var(--grid); margin-top: 56px; padding: 22px 0 40
   .clrow { grid-template-columns: 1fr; gap: 2px; }
   .clrow .clk { text-align: left; font-weight: 600; }
 }
+
+/* 预测面板锁定倒计时。用 crit 色是因为它真的会过期——过期后 JS 切成 done 态转灰。 */
+.cd { display: flex; align-items: center; gap: 14px 18px; flex-wrap: wrap;
+      margin: 0 0 22px; padding: 14px 18px;
+      background: var(--surface-1); border: 1px solid var(--grid);
+      border-left: 3px solid var(--crit); border-radius: 8px; }
+.cd-txt { flex: 1 1 240px; }
+.cd-head { display: block; font-size: 15px; }
+.cd-sub { color: var(--ink-2); font-size: 13.5px; }
+.cd-clock { font-variant-numeric: tabular-nums; font-size: 21px; font-weight: 650;
+            letter-spacing: -.3px; color: var(--crit); white-space: nowrap; }
+.cd-btn { flex-shrink: 0; background: var(--ink); color: var(--page); font-weight: 600;
+          font-size: 14px; padding: 9px 16px; border-radius: 6px; white-space: nowrap; }
+.cd-btn:hover { text-decoration: none; opacity: .82; }
+/* 已锁定：退成中性色，不再制造紧迫感 */
+.cd.done { border-left-color: var(--grid); }
+.cd.done .cd-clock { color: var(--ink-muted); font-size: 17px; }
+@media (max-width: 560px) { .cd-clock { font-size: 18px; } }

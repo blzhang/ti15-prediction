@@ -10,6 +10,8 @@ import os
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+import pages
+
 BUCKETS = [
     ("4-0", 1, "一支全胜的队伍", "record_dist", "4-0"),
     ("4-1", 2, "两支四胜一负的队伍", "record_dist", "4-1"),
@@ -196,7 +198,7 @@ def render(base, hw, pred, fan, fan_rec):
 <h1>抄作业</h1>
 <p class="lede">这一页是给<b>游戏里那两个要填的东西</b>准备的——<b>赛事预测</b>那 16 个格子，和<b>梦幻挑战</b>那三个位置。
 不想看分析的，看这页就够了，照着填完关掉即可。</p>
-<p class="meta">小组赛部分 8 月 13 日 23:00（北京时间）锁定</p>
+<p class="meta">小组赛部分 %s 锁定</p>
 
 <div class="note crit"><b>抄之前先知道一件事。</b><br>
 这份预测的期望是<b>答对 %.1f 格</b>，闭着眼睛乱填是 <b>%.1f 格</b>——<b>只多一格多一点</b>。<br>
@@ -282,7 +284,8 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
   </div>
   <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
 </div>
-""" % (hw["expected_correct"], hw["random_baseline"],
+""" % (pages.PANEL_DEADLINE_CN,
+       hw["expected_correct"], hw["random_baseline"],
        ep["sv_lo8"], ep["sv_hi8"], ep["sv_min"], ep["sv_gap"],
        ep["ou_min"], ep["ou_gap"],
        detail, ftable, hw["cost_of_intuition"], base)
