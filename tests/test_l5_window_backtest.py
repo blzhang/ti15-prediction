@@ -190,6 +190,119 @@ def test_run_holdout_records_intersection_coverage_for_every_item():
     assert kills_cov["n_dropped_by_intersection"] == 1
 
 
+from model.l5_window_backtest import run_sliding
+from model.l5_window import sliding_arms, patch_boundaries_in
+from model.patches import patch_ts
+
+_DAY = 86400
+# 选一个开赛时间，让四段滑动窗口里至少一段跨版本边界、至少一段不跨：
+# 7.39 发布 150 天后开赛时，slide0（开赛前 0-105 天）落在 7.39 之后、
+# 早于 7.40，段内无边界；slide1（开赛前 105-210 天）跨过 7.39 发布日；
+# slide2 跨过 7.38 发布日；slide3 又无边界。实测见下方各测试。
+_SLIDE_EVENT_START = patch_ts("7.39") + 150 * _DAY
+
+
+def _empty_train_and_pm():
+    """占位 train/pm：各一行，列齐全，但 start_time=0（在任何滑动窗口
+    之外）、match_date 的年份也不等于所用的 holdout 年份——这样窗口记账
+    类的断言不会被真实评分逻辑的副作用干扰。"""
+    train = pd.DataFrame(_train_rows(1, [0], 5.0))
+    pm = pd.DataFrame([dict(_stat_row(2.0), match_date="2020-01-01", account_id=1)])
+    return train, pm
+
+
+def test_run_sliding_returns_one_entry_per_sliding_arms_window():
+    """run_sliding 是台阶检验的骨架：必须跟 sliding_arms 产出的窗口一一
+    对应——少一段就看不出台阶，多一段就是凭空多出来的数据点。"""
+    train, pm = _empty_train_and_pm()
+    holdout = {"year": "2099", "patch": "7.39"}
+    out = run_sliding(train, pm, holdout, {1: 1}, _SLIDE_EVENT_START)
+    expected_arms = sliding_arms(_SLIDE_EVENT_START)
+    assert len(expected_arms) == 4
+    assert [entry["arm"] for entry in out] == list(expected_arms.keys())
+
+
+def test_run_sliding_since_until_match_sliding_arms_for_each_arm():
+    """每段的时间边界必须直接来自 sliding_arms 本身的输出，而不是手抄的
+    数字——这样两处永远不会悄悄 drift 开。"""
+    train, pm = _empty_train_and_pm()
+    holdout = {"year": "2099", "patch": "7.39"}
+    out = run_sliding(train, pm, holdout, {1: 1}, _SLIDE_EVENT_START)
+    expected_arms = sliding_arms(_SLIDE_EVENT_START)
+    for entry in out:
+        since, until = expected_arms[entry["arm"]]
+        assert entry["since_ts"] == since
+        assert entry["until_ts"] == until
+
+
+def test_run_sliding_patch_boundaries_come_from_patch_boundaries_in_and_vary():
+    """patch_boundaries 必须是该段自己窗口上 patch_boundaries_in 的结果，
+    而且必须真的随窗口变化——如果这个字段跟窗口本身脱钩（比如恒为
+    []），台阶检验就没法区分"平滑的近期性衰减"和"版本边界处掉档"。"""
+    train, pm = _empty_train_and_pm()
+    holdout = {"year": "2099", "patch": "7.39"}
+    out = run_sliding(train, pm, holdout, {1: 1}, _SLIDE_EVENT_START)
+    for entry in out:
+        assert entry["patch_boundaries"] == patch_boundaries_in(
+            entry["since_ts"], entry["until_ts"])
+    assert any(entry["patch_boundaries"] == [] for entry in out)
+    assert any(entry["patch_boundaries"] != [] for entry in out)
+
+
+def test_run_sliding_window_with_no_training_rows_reports_none_not_zero():
+    """窗口里没有训练数据时必须报 None，不能报 0.0——0.0 会被读成"测出来
+    是零相关"，但实际上根本没测出任何东西。也不能抛异常：四段窗口里有
+    几段没有训练数据是滑动窗口的常态，不是错误。"""
+    train, pm = _empty_train_and_pm()
+    holdout = {"year": "2099", "patch": "7.39"}
+    out = run_sliding(train, pm, holdout, {1: 1}, _SLIDE_EVENT_START)
+    assert len(out) == 4
+    for entry in out:
+        assert entry["mean_spearman"] is None
+        assert entry["n_scored_units"] == 0
+
+
+def test_run_sliding_mean_spearman_is_the_mean_over_scored_item_position_units():
+    """mean_spearman 必须是所有 (item, position) 打分单元的算术平均——不是
+    只取某一个计分项、也不是加权平均。构造 12 个计分项里 11 个正相关、
+    1 个（kills）反相关的 fixture：账号 1/2/3 除 kills 外的所有项都按
+    base=1/5/9 递增，kills 单独反过来按 9/5/1；实际值（actual）按
+    2/6/10 递增。这样 11 项 rho=+1.0、kills 项 rho=-1.0，期望的均值是
+    可以手算的 (11*1 + 1*(-1)) / 12 = 5/6，不是随便挑一项的结果。"""
+    since, until = sliding_arms(_SLIDE_EVENT_START)["slide0"]
+    mid = (since + until) // 2
+    times = [mid, mid + 1000, mid + 2000, mid + 3000]
+
+    train_rows = []
+    for account_id, base, kills_override in [(1, 1.0, 9.0), (2, 5.0, 5.0), (3, 9.0, 1.0)]:
+        for i, t in enumerate(times):
+            train_rows.append(dict(_stat_row(base, kills=kills_override),
+                                   match_id=1000 + i, account_id=account_id,
+                                   player_slot=0, net_worth=20000, start_time=t))
+    train = pd.DataFrame(train_rows)
+
+    pm_rows = []
+    for account_id, base in [(1, 2.0), (2, 6.0), (3, 10.0)]:
+        for _ in range(4):
+            pm_rows.append(dict(_stat_row(base), match_date="2025-09-05",
+                                account_id=account_id))
+    pm = pd.DataFrame(pm_rows)
+
+    positions = {1: "X", 2: "X", 3: "X"}
+    holdout = {"year": "2025", "patch": "7.39"}
+    out = run_sliding(train, pm, holdout, positions, _SLIDE_EVENT_START)
+
+    slide0 = next(entry for entry in out if entry["arm"] == "slide0")
+    assert slide0["n_scored_units"] == len(ITEMS)
+    assert slide0["mean_spearman"] == pytest.approx(5.0 / 6.0)
+
+    # 训练行全部落在 slide0 窗口内，其余三段窗口没有任何训练数据，
+    # 必须是 None，不能被悄悄记成 0 而拉低/污染整体印象。
+    for entry in out:
+        if entry["arm"] != "slide0":
+            assert entry["mean_spearman"] is None
+
+
 def _units(holdout, n_pos, n_neg):
     """造一届的配对单元：n_pos 个 +0.3、n_neg 个 -0.1。"""
     return ([{"holdout": holdout, "item": "kills", "position": i, "diff": 0.3}
