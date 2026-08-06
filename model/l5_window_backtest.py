@@ -251,6 +251,15 @@ def build_report(csv_path=DEFAULT_CSV, ti_pm_path=DEFAULT_TI_PM):
     }
 
 
+def _render_skip_reasons(lines, skipped, indent=""):
+    """把跳过原因按出现次数降序渲染成条目列表，主路径与稳健性变体共用一套。"""
+    reasons = {}
+    for s in skipped:
+        reasons[s["reason"]] = reasons.get(s["reason"], 0) + 1
+    for r, n in sorted(reasons.items(), key=lambda kv: -kv[1]):
+        lines.append("%s- %s：%d" % (indent, r, n))
+
+
 def render_markdown(report):
     """人读版报告。
 
@@ -297,11 +306,7 @@ def render_markdown(report):
     L.append("臂间取交集共丢弃 **%d** 人次（短窗口下没有数据的选手；"
              "不取交集就不是配对比较）。\n" % dropped)
     L.append("跳过的单元 **%d** 个，按原因：" % len(report["skipped"]))
-    reasons = {}
-    for s in report["skipped"]:
-        reasons[s["reason"]] = reasons.get(s["reason"], 0) + 1
-    for r, n in sorted(reasons.items(), key=lambda kv: -kv[1]):
-        L.append("- %s：%d" % (r, n))
+    _render_skip_reasons(L, report["skipped"])
     L.append("\n## 滑动窗口台阶检验\n")
     L.append("等长 105 天、起点逐段往前滑。曲线平滑下降 = 单纯的近期性；"
              "版本边界处掉档 = 版本效应。\n")
@@ -330,11 +335,7 @@ def render_markdown(report):
             skipped = dv.get("skipped") or []
             L.append("- **%s**：跳过 %d 个" % (name, len(skipped)))
             if skipped:
-                reasons = {}
-                for s in skipped:
-                    reasons[s["reason"]] = reasons.get(s["reason"], 0) + 1
-                for r, n in sorted(reasons.items(), key=lambda kv: -kv[1]):
-                    L.append("  - %s：%d" % (r, n))
+                _render_skip_reasons(L, skipped, "  ")
     return "\n".join(L) + "\n"
 
 
