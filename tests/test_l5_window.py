@@ -187,3 +187,53 @@ def test_score_arm_works_with_string_position_labels_from_coarsen():
     positions = coarsen({1: 1, 2: 2, 3: 3})
     scores, _ = score_arm(rates, actual, positions)
     assert scores["core"] == pytest.approx(1.0)
+
+
+from model.l5_window import paired_sign_test, patch_boundaries_in
+
+
+def test_paired_sign_test_matches_the_exact_binomial_two_sided_p():
+    """8 正 2 负的双侧精确二项 p = 2*(C(10,8)+C(10,9)+C(10,10))/2^10
+    = 112/1024 = 0.109375。数值钉死，防止实现悄悄换成正态近似。"""
+    out = paired_sign_test([1, 1, 1, 1, 1, 1, 1, 1, -1, -1])
+    assert out["n_pos"] == 8
+    assert out["n_neg"] == 2
+    assert out["p"] == pytest.approx(0.109375)
+
+
+def test_paired_sign_test_discards_zeros_but_reports_how_many():
+    """零差值按符号检验惯例丢弃，但丢了几个必须报出来——静默丢弃会让
+    读者以为样本量比实际大。"""
+    out = paired_sign_test([1, 1, 1, 0, 0, -1])
+    assert out["n_pos"] == 3
+    assert out["n_neg"] == 1
+    assert out["n_zero"] == 2
+
+
+def test_paired_sign_test_on_empty_input_is_not_significant():
+    out = paired_sign_test([])
+    assert out["p"] == 1.0
+    assert out["n_pos"] == 0 and out["n_neg"] == 0
+
+
+def test_paired_sign_test_reports_median_of_all_differences():
+    out = paired_sign_test([0.1, 0.2, 0.3])
+    assert out["median"] == pytest.approx(0.2)
+
+
+def test_patch_boundaries_in_counts_releases_strictly_inside_the_window():
+    """滑动窗口的台阶检验要知道每段跨了几个版本边界。
+    7.39 发布于 2025-05-22，落在 2025-05-01 ~ 2025-06-01 之间。"""
+    since = _utc(2025, 5, 1)
+    until = _utc(2025, 6, 1)
+    assert patch_boundaries_in(since, until) == ["7.39"]
+
+
+def test_patch_boundaries_in_is_empty_for_a_window_inside_one_patch():
+    assert patch_boundaries_in(_utc(2025, 6, 1), _utc(2025, 7, 1)) == []
+
+
+def test_patch_boundaries_in_excludes_a_release_exactly_at_the_window_start():
+    """区间语义 (since, until)：起点当天发布的版本不算"跨界"——那一段
+    本来就是这个版本的数据。"""
+    assert "7.41" not in patch_boundaries_in(patch_ts("7.41"), _utc(2026, 4, 1))

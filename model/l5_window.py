@@ -7,9 +7,9 @@ docs/superpowers/specs/2026-08-06-fantasy-patch-window-design.md）。
 CSV、跑四届 holdout、出报告在 model/l5_window_backtest.py。
 """
 import numpy as np
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, binomtest
 
-from model.patches import patch_ts, previous_patch
+from model.patches import patch_ts, previous_patch, PATCH_RELEASE_UTC
 
 DAY = 86400
 
@@ -116,3 +116,33 @@ def score_arm(rates, actual, positions):
             continue
         scores[pos] = rho
     return scores, skipped
+
+
+def paired_sign_test(diffs):
+    """配对符号检验（双侧精确二项）。
+
+    用符号检验而不是配对 t 检验：Spearman 之差既不正态也不等方差，
+    只看符号是这个样本量下最不需要额外假设的做法。
+
+    零差值按惯例丢弃，但 n_zero 一并返回——静默丢弃会让读者以为样本量
+    比实际大。
+    """
+    vals = [float(d) for d in diffs if np.isfinite(d)]
+    n_pos = sum(1 for d in vals if d > 0)
+    n_neg = sum(1 for d in vals if d < 0)
+    n = n_pos + n_neg
+    p = float(binomtest(n_pos, n, 0.5).pvalue) if n else 1.0
+    return {"n_pos": n_pos, "n_neg": n_neg, "n_zero": len(vals) - n,
+            "median": float(np.median(vals)) if vals else 0.0, "p": p}
+
+
+def patch_boundaries_in(since_ts, until_ts):
+    """区间 (since, until) 内发布的版本名列表，按时间升序。
+
+    给滑动窗口的台阶检验用：某一段跨了几个版本边界，决定这一段的
+    Spearman 掉档该不该归因到版本。起点当天发布的版本不算跨界——
+    那一段本来就是这个版本的数据。
+    """
+    out = [(patch_ts(n), n) for n in PATCH_RELEASE_UTC
+           if int(since_ts) < patch_ts(n) < int(until_ts)]
+    return [n for _, n in sorted(out)]
