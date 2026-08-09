@@ -324,10 +324,56 @@ def page_pred(base, p):
     return shell(base, "predictions.html", "预测详情", body)
 
 
+def _patch_layer_section(p):
+    """方法论页里「按版本号打折」那一小节。
+
+    这一节的全部数字都来自 payload["patch_layer"]（build_site.py 从
+    l1_rating.json 的 hp_search / patch_weight_mass 算出来），一个都不手抄——
+    这一节讲的正是「结论要能被核对」，自己手抄数字就没法看了。
+
+    l1_rating.json 里没有 hp_search（例如沿用了旧缓存、这轮没重搜）时整节
+    不渲染：宁可少一节，也不能拿上一轮的数字冒充这一轮。
+    """
+    pl = p.get("patch_layer")
+    if not pl:
+        return ""
+    rows = "".join(
+        "<tr><td class=num>%s</td><td class=num>%d</td><td class=num>%.1f%%</td>"
+        "<td class=num>%.3f</td></tr>"
+        % (k, v["games"], v["weight_share"] * 100, v["mean_weight"])
+        for k, v in sorted(pl["mass"].items(), key=lambda kv: int(kv[0])))
+    return """
+<h3>越老的版本，权重越低——但这一层几乎没起作用</h3>
+<p>有读者提：Dota 每个大版本改动都不小，一年前的比赛不该跟上个月的一样重。
+这个说法本身对，模型原本也确实在按<b>天数</b>打折。所以这次专门加了一层按<b>版本号</b>的折扣：
+一场比赛离现在隔了 k 个大版本，权重再乘 γ<sup>k</sup>。γ 和半衰期、岭强度一起，
+在<b>验证期</b>（2025-08 至 2026-03，%(val_n)s 场）上跑了 %(n_grid)d 种组合的整格搜索。</p>
+<p><b>结果是：白做。</b>启用版本层的最好一档，验证期 LogLoss 只比不启用的最好一档低
+<b>%(delta_abs).5f</b>；而这个指标在这个样本量下的标准误约 %(se).4f——差距是它的
+<b>%(se_ratio).0f 分之一</b>，纯噪声。16 支队的实力分<b>排序一格没动</b>。</p>
+<p>原因不难看：版本发布本来就是按时间排的，「隔了几个版本」和「过了多少天」高度重合。
+搜索选中的组合（半衰期 %(hl_sel)s 天 + γ=%(g_sel)s）和不启用版本层的最好一档
+（半衰期 %(hl_off)s 天）画出来<b>几乎是同一条曲线</b>——两者相关系数 %(curve_r).3f，
+权重掉到一半的时点只差 %(half_gap).0f 天。模型选中的不是「版本效应」，
+是「把半衰期拉长 %(half_gap).0f 天」的另一种写法。</p>
+<div class="note"><b>那为什么还留着？</b>因为判据是<b>事先</b>定好的「验证期 LogLoss 最低者胜」，
+看完结果再改判据就是自欺。这一层留在代码里、按选出的值启用，同时把「它没用」写在这里。
+γ=1 时它<b>逐位关闭</b>，产出物与加这层之前字节一致，有测试锁着。
+整格搜索的 %(n_grid)d 行结果都在 <code>l1_rating.json</code> 的 <code>hp_search</code>
+字段里（「数据与检索」页可下载），可自行核对。</div>
+<p>顺带一个能核对的事实：现行权重下，当前版本（7.41）的比赛只占总权重的
+<b>%(cur_share).0f%%</b>。这不是疏忽——验证期把衰减调得更狠的那些组合
+（半衰期 120 天、γ=0.5 等）<b>全部更差</b>。「再多给近期加权」这件事，数据这次投的是反对票。</p>
+<div class="tbl-wrap"><table><thead><tr><th>距今几个大版本</th><th>场次</th><th>占总权重</th><th>场均权重</th></tr></thead>
+<tbody>%(rows)s</tbody></table></div>
+""" % dict(pl, rows=rows)
+
+
 def page_method(base, p):
     cr = p.get("cross_region", {})
     crrows = "".join("<tr><td>%s</td><td class=num>%d</td></tr>" % (esc(k), v)
                      for k, v in sorted(cr.items(), key=lambda kv: -kv[1])[:6])
+    patch_block = _patch_layer_section(p)
     body = """
 <h1>方法论</h1>
 <p class="lede">分六层：数据地基 → 队伍实力 → 赛制模拟 → 选手能力 → 合成 → 冻结与赛后评分。
@@ -364,7 +410,8 @@ def page_method(base, p):
 （premium 场次从 2023 年的 3,878 掉到 2024 年的 121、2026 年的 0），而 14.6 万场里场次最多的全是东欧线上车轮赛。
 我们改用迭代：拟合 → 用各赛事参赛者实力反推赛事权重 → 重拟合，3 次收敛。
 跑出来权重最高的全是真 major（DreamLeague、ESL One、BetBoom Dacha、TI2024）。</p>
-<p>超参（时间衰减半衰期 %s 天、岭正则 λ=%s）由<b>时间切分验证</b>选出，测试期只用一次。</p>
+<p>超参（时间衰减半衰期 %s 天、版本衰减 γ=%s、岭正则 λ=%s）由<b>时间切分验证</b>选出，测试期只用一次。</p>
+%s
 
 <h3>跨赛区可比吗？</h3>
 <p>「赛区强度不可比」是这类模型的经典风险。我们做了连通性诊断——仅在 16 支参赛队之间的直接交手场次：</p>
@@ -419,7 +466,8 @@ def page_method(base, p):
 <li><b>Fantasy 的 18 项系数拿不到</b>（服务端运行时下发），所以只交付分项矩阵、不出绝对总分。</li>
 </ul>
 <p class="hint">完整版见项目内 <code>00-DESIGN.md</code> 的 §10「已知限制与解读须知」，共 12 小节。</p>
-""" % (p.get("half_life_days"), p.get("ridge"), crrows)
+""" % (p.get("half_life_days"), p.get("patch_gamma"), p.get("ridge"),
+       patch_block, crrows)
     return shell(base, "methodology.html", "方法论", body)
 
 

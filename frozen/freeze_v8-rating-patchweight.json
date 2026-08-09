@@ -1,0 +1,9 @@
+{
+ "label": "v8-rating-patchweight",
+ "frozen_at_utc": "2026-08-09T08:12:33Z",
+ "sha256": "df8fde06534661a72a126b6980702d74d967bc9b98831d9140e76fc476ef7804",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l1_rating.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v8-rating-patchweight.json",
+ "src_rel": "../model/l1_rating.json",
+ "frozen_path_rel": "frozen_v8-rating-patchweight.json"
+}

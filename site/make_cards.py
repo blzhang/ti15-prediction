@@ -154,13 +154,17 @@ def long_image(p):
     yan = next(x for x in t if x["team"] == "Team Yandex")
     oos = p["oos"]
     ep = p["homework"]["elim"]
+    pl = p.get("patch_layer")
+    if not pl:
+        raise SystemExit("site.json 里没有 patch_layer——先跑 "
+                         "python3 -m model.l1_strength --refit 再 build_site.py")
     body = """
-<div class="badge">赛前已哈希存证 · 2026-08-05</div>
+<div class="badge">赛前已哈希存证 · 市场价截至 %s</div>
 <div class="eyebrow">THE INTERNATIONAL 2026 · 8/13–8/23 上海</div>
 <h1>TI15 谁会赢<br><em>一个赛后要认账的预测</em></h1>
 <div class="sub">用 2020–2026 的 <b>145,974 场</b>职业比赛跑出来的量化预测。<br>
 所有结果赛前冻结留证，8/23 赛后用同一套代码打分——好看不好看都发。</div>
-<div class="tagline">蒙特卡洛 20 万次 · 含赛制修正后重算</div>
+<div class="tagline">蒙特卡洛 20 万次 · 分组仍未公布，已把所有可能的抽签平均掉</div>
 
 <h2><span class="n">01</span>夺冠概率</h2>
 <div class="h2sub">已与市场共识价融合：Polymarket ✕ 庄家赔率（市场权重 0.7）</div>
@@ -196,7 +200,25 @@ def long_image(p):
 赛前预测的<b>现实上限是 65–70%%</b>。所有号称 85%% 以上准确率的 Dota 预测，
 用的都是实时游戏内数据而不是赛前数据。<b>做到 85%% 一定是泄漏。</b></div>
 
-<h2><span class="n">05</span>我把自己的错也写上去了</h2>
+<h2><span class="n">05</span>这次更新：读者要的功能我做了，实测是白做</h2>
+<div class="h2sub">「越老的版本权重越低」——直觉对，增量没有</div>
+<div class="split">
+  <div class="box"><div class="lbl">加版本层后，验证期提升</div>
+    <div class="big dn">%.5f</div>
+    <div class="note">LogLoss 只降了这么多，<br>而它的标准误约 %.4f——
+    <b>差距是标准误的 1/%.0f</b>。<br>16 队实力分排序<b>一格没动</b>。</div></div>
+  <div class="box"><div class="lbl">为什么没用</div>
+    <div class="big up">r = %.3f</div>
+    <div class="note">版本发布本来就按时间排。<br>选中的「%s 天 + γ=%s」和原来的
+    「%s 天 + 不打折」<br><b>画出来是同一条曲线</b>，半衰点只差 %.0f 天。</div></div>
+</div>
+<div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
+更反直觉的是<b>反方向</b>：验证期里所有「更狠地偏向近期」的组合（半衰期 120 天、γ=0.5 等）
+<b style="color:#fff">全部更差</b>。现行权重下当前版本 7.41 的比赛只占总权重 %.0f%%，
+看着少，再往上加就是变差。<b style="color:#fff">「多给近期加权」这件事，数据投的是反对票。</b><br>
+整格搜索的 %d 行结果都能下载核对——判据是事先写死的，看完结果再改判据就是自欺。</div>
+
+<h2><span class="n">06</span>我把自己的错也写上去了</h2>
 <ul>
 <li><b>抄作业那两格的填法说反了</b>：我写「淘汰赛胜者别填最强的」，那条只值 1.9 个百分点；真正值 24 个百分点的「别填垫底队」我没写。NGA 读者指出的。</li>
 <li><b>赛制一开始就建错了</b>：按「固定 5 轮人人打满」建模，产出了现实中不存在的 5-0。真实是打到 4 胜或 4 负即停。读者在评论区抓到的，已重写。</li>\n<li><b>算错了波动幅度</b>：以为选手每局的发挥比实际稳定得多，导致每分钟经济和补刀的<b>误差范围窄了 4–8 倍</b>。已修正。</li>
@@ -210,7 +232,7 @@ def long_image(p):
   <div class="promise">全部数据可下载 · 120 个对阵的赛前胜率全公开 · 改过什么全记在站内「更新日志」<br>
   <b style="color:#fff">8 月 23 日赛后，我会用同一套代码打分，好看不好看都发。</b></div>
 </div>
-""" % (bars(t, "champ_blended"),
+""" % (p.get("market_captured", ""), bars(t, "champ_blended"),
        fal["champ_model"] * 100, fal["champ_blended"] * 100,
        yan["champ_model"] * 100, yan["champ_blended"] * 100,
        hw_block(p), SIZES_LONG["fs_note"],
@@ -218,7 +240,11 @@ def long_image(p):
        p["homework"]["expected"] - p["homework"]["random"],
        ep["sv_lo8"], ep["sv_hi8"], ep["sv_min"], ep["ou_min"], ep["ou_gap"],
        oos.get("acc", 0) * 100, "{:,}".format(oos.get("n", 0)), oos.get("brier", 0),
-       SIZES_LONG["fs_note"], URL)
+       SIZES_LONG["fs_note"],
+       pl["delta_abs"], pl["se"], pl["se_ratio"],
+       pl["curve_r"], pl["hl_sel"], pl["g_sel"], pl["hl_off"], pl["half_gap"],
+       SIZES_LONG["fs_note"], pl["cur_share"], pl["n_grid"],
+       URL)
     return html(body, SIZES_LONG)
 
 

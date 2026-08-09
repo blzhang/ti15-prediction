@@ -1,0 +1,9 @@
+{
+ "label": "v8-predictions-patchweight",
+ "frozen_at_utc": "2026-08-09T08:12:33Z",
+ "sha256": "d96f026fa719a1b72d4c78844b6458b946a2c1fa3dd1f8e5643ac53af0ecaf7e",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l2_predictions.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v8-predictions-patchweight.json",
+ "src_rel": "../model/l2_predictions.json",
+ "frozen_path_rel": "frozen_v8-predictions-patchweight.json"
+}
