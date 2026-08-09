@@ -115,6 +115,22 @@ def main(n_draws=6, n_sim=50000):
     print("  换分组造成的期望答对幅度：  %.3f 格" % exp_spread)
     ratio = exp_spread / ctl_spread if ctl_spread else float("inf")
     print("  比值 %.2f 倍" % ratio)
+
+    # 写成产物：更新日志页要引用这些数字，而那一页的规矩是「数字取自 payload，
+    # 不手抄」——手抄的话，页面上的数就没法追溯到任何一次真实运行。
+    out = os.path.join(HERE, "..", "reports", "p6_draw_sensitivity.json")
+    json.dump({
+        "n_draws": n_draws, "n_sim": n_sim,
+        "noise_exp_min": min(ctl_exp), "noise_exp_max": max(ctl_exp),
+        "noise_spread": ctl_spread, "noise_distinct_answers": len(ctl_ans),
+        "draw_exp_min": min(exps), "draw_exp_max": max(exps),
+        "draw_spread": exp_spread, "draw_distinct_answers": len(exp_ans),
+        "ratio": ratio,
+        "max_p40_swing_pp": max(max(p40[t]) - min(p40[t]) for t in TEAMS),
+        "max_p40_swing_team": max(TEAMS, key=lambda t: max(p40[t]) - min(p40[t])),
+        "p40_range": {t: [min(p40[t]), max(p40[t])] for t in TEAMS},
+    }, open(out, "w"), indent=1, ensure_ascii=False)
+    print("  → 已写入 reports/p6_draw_sensitivity.json")
     if ratio < 2:
         print("\n  → 分组带来的差异没有明显超过噪声。知道分组**不会让预测变准**，")
         print("     「重算一版会准不少」站不住，应改口径。")

@@ -28,6 +28,7 @@ ASSETS = [
     ("reports/ti15_matches.csv", "ti15_matches.csv", "任意两队交手的赛前胜率，共 120 组，赛后可拿来对账"),
     ("reports/p3_p4_players.json", "p3_p4_players.json", "80 名参赛选手在 15 项数据上的预测值与误差范围"),
     ("reports/p1_fantasy_matrix.json", "p1_fantasy_matrix.json", "梦幻挑战：各队三个位置的分项预期表现"),
+    ("reports/p6_draw_sensitivity.json", "p6_draw_sensitivity.json", "分组敏感度实测：知道抽签结果能让预测准多少，含噪声对照组"),
     ("reports/p2_extremes.json", "p2_extremes.json", "谁会打出全场最高纪录，以及各种纪录出现的可能性"),
     ("reports/p5_window_backtest.json", "p5_window_backtest.json", "取数窗口回测：四届 TI 上七种取数起点的逐单元成绩与判定过程"),
 ]
@@ -145,10 +146,13 @@ def main():
         "raw_market": json.load(open(need("model/market_odds.json"))),
         "raw_pm": json.load(open(need("model/polymarket_odds.json"))),
         "raw_window": json.load(open(need("reports/p5_window_backtest.json"))),
+        # 分组敏感度实测（model/draw_sensitivity.py 产出）。抄作业页和更新日志页
+        # 都要引用这几个数，走 payload 才能追溯到某一次真实运行，而不是手抄。
+        "raw_draw_sens": json.load(open(need("reports/p6_draw_sensitivity.json"))),
         "manifest": manifest,
         "full_data": [{"file": f, "size": s, "desc": d} for f, s, d in FULL_DATA],
     }
-    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm", "raw_window")},
+    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm", "raw_window", "raw_draw_sens")},
               open(os.path.join(DIST, "data", "site.json"), "w"),
               ensure_ascii=False, separators=(",", ":"))
     json.dump(build_search_index(players, rating),

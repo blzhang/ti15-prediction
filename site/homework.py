@@ -141,7 +141,7 @@ def compute(pred, strength):
     }
 
 
-def render(base, hw, pred, fan, fan_rec):
+def render(base, hw, pred, fan, fan_rec, sens=None):
     ep = hw["elim"]
 
     def esc(s):
@@ -264,7 +264,14 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
 今年每一项值多少分，游戏没有公开。</p>
 
 <h2>三件要说在前面的事</h2>
-<p><b>一、分组还没公布。</b>第一轮谁打谁是主办方定的，还没出。等公布之后我会重算一版，那版会准不少。</p>
+<p><b>一、分组还没公布，而且知道了也没什么用。</b>第一轮谁打谁是主办方定的，还没出。
+分组公布后我会重算一版，但先把预期压下去：<b>我实测过了，知道分组只让期望答对数变约 %.2f 格</b>——
+这一页相对乱填的价值是 %.1f 格，分组只在这上面再加不到 5%%。<br>
+<span class="hint">原来这里写的是「那版会准不少」。我做了个对照实验才发现说大了：
+换不同分组，建议填法确实经常变，看着像很重要；但把分组固定住、只换随机种子，
+填法照样变——因为中间那几格在前八队之间只差一两个百分点，本来就是近似平局。
+<b>变化不等于变准。</b>分组带来的波动只有随机噪声的 %.1f 倍，绝对量小到可以忽略。
+个别队的概率会动，最多 %.1f 个百分点，所以重算仍然值得做——但只是把数字更新准确，不是变准。</span></p>
 <p><b>二、辅助那一格我们算得最不准。</b>梦幻挑战的计分项里有两项数据是拿不到的，
 而这两项恰好都算在辅助头上。所以辅助格的建议，可信度比另外两格低。</p>
 <p><b>三、全胜那一格严格说不是最优解。</b>纯算下来把最强的队放在「四胜一负」更划算，
@@ -288,4 +295,8 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
        hw["expected_correct"], hw["random_baseline"],
        ep["sv_lo8"], ep["sv_hi8"], ep["sv_min"], ep["sv_gap"],
        ep["ou_min"], ep["ou_gap"],
-       detail, ftable, hw["cost_of_intuition"], base)
+       detail, ftable,
+       # 「一、分组还没公布」那段：实测数字来自 reports/p6_draw_sensitivity.json
+       sens["draw_spread"], hw["expected_correct"] - hw["random_baseline"],
+       sens["ratio"], sens["max_p40_swing_pp"],
+       hw["cost_of_intuition"], base)

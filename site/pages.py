@@ -525,7 +525,8 @@ def write_all(dist, base, payload):
         "index.html": page_index(base, payload),
         "homework.html": shell(
             base, "homework.html", "抄作业",
-            homework.render(base, hw, payload["raw_pred"], fan, fan_rec),
+            homework.render(base, hw, payload["raw_pred"], fan, fan_rec,
+                            payload["raw_draw_sens"]),
             extra_js='<script src="%s/assets/picker.js"></script>'
                      '<script>initPicker(%s);</script>'
                      % (base, __import__("json").dumps(

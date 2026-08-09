@@ -1,0 +1,81 @@
+{
+ "n_draws": 6,
+ "n_sim": 50000,
+ "noise_exp_min": 5.13948,
+ "noise_exp_max": 5.16062,
+ "noise_spread": 0.021139999999999937,
+ "noise_distinct_answers": 3,
+ "draw_exp_min": 5.14326,
+ "draw_exp_max": 5.2059,
+ "draw_spread": 0.06264000000000003,
+ "draw_distinct_answers": 5,
+ "ratio": 2.9631031220435298,
+ "max_p40_swing_pp": 2.3980000000000015,
+ "max_p40_swing_team": "TEAM VISION",
+ "p40_range": {
+  "Aurora Gaming": [
+   9.406,
+   10.896
+  ],
+  "BoomBoys": [
+   7.596,
+   8.656
+  ],
+  "Iron Wing": [
+   7.856000000000001,
+   9.732000000000001
+  ],
+  "Team Falcons": [
+   12.314,
+   14.506
+  ],
+  "Team Liquid": [
+   7.0120000000000005,
+   8.596
+  ],
+  "Team Yandex": [
+   10.126,
+   11.818
+  ],
+  "Xtreme Gaming": [
+   2.818,
+   3.56
+  ],
+  "Team Spirit": [
+   9.328,
+   11.054
+  ],
+  "TEAM VISION": [
+   15.65,
+   18.048000000000002
+  ],
+  "Nigma Galaxy": [
+   1.068,
+   1.562
+  ],
+  "HULIGANI": [
+   0.636,
+   0.69
+  ],
+  "Team Resilience": [
+   1.082,
+   1.508
+  ],
+  "Vici Gaming": [
+   2.8819999999999997,
+   3.3939999999999997
+  ],
+  "OG": [
+   1.402,
+   1.6260000000000001
+  ],
+  "GamerLegion": [
+   0.484,
+   0.628
+  ],
+  "LGD Gaming": [
+   2.276,
+   2.9579999999999997
+  ]
+ }
+}
