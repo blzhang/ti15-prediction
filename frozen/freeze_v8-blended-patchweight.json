@@ -1,0 +1,9 @@
+{
+ "label": "v8-blended-patchweight",
+ "frozen_at_utc": "2026-08-09T08:12:33Z",
+ "sha256": "ed91ae6986e90c4d3f5ba99dcfb0767d997aa454c081224563a98ae9a99637b7",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l2_blended.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v8-blended-patchweight.json",
+ "src_rel": "../model/l2_blended.json",
+ "frozen_path_rel": "frozen_v8-blended-patchweight.json"
+}

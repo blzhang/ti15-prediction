@@ -22,6 +22,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(__file__))
 from swiss import SwissState, pair_round, rank_teams, active_teams
 from bracket import loser_games_prob, run_playoffs
+import draw as draw_mod
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 R = json.load(open(f"{HERE}/l1_rating.json"))
@@ -32,22 +33,32 @@ n = len(TEAMS)
 N_SIM = 200000
 rng = np.random.default_rng(20260802)
 
+# 赛事方公布的分组/首轮对阵。未公布时为 None，run_one 走原来的随机分支。
+# 模块级只读一次，与 TEAMS/TH 同级——测试要覆盖时传 run_one(..., drawn=...)。
+DRAW = draw_mod.load(TEAMS)
 
-def run_one(theta, rng):
+
+def run_one(theta, rng, drawn=None):
     p1 = 1.0 / (1.0 + np.exp(-(theta[:, None] - theta[None, :])))   # 单局胜率矩阵
     p3 = p1 ** 2 * (3 - 2 * p1)                                     # BO3
     q = 1 - p1
     p5 = p1 ** 3 * (1 + 3 * q + 6 * q ** 2)                         # BO5
 
     s = SwissState(n)
-    s.group = list(rng.permutation([0] * 8 + [1] * 8))   # 分组未公布，随机化
+    # 分组已公布就用真实分组；未公布则每次随机抽一组，把所有可能的抽签平均掉。
+    # drawn 为 None 时这里的 rng 调用与加分组开关之前完全一致。
+    if drawn and drawn.get("group_vec"):
+        s.group = list(drawn["group_vec"])
+    else:
+        s.group = list(rng.permutation([0] * 8 + [1] * 8))   # 分组未公布，随机化
+    fixed_r1 = drawn.get("r1_pairs") if drawn else None
     # 打到 4 胜或 4 负即停（见 swiss.active_teams 的说明）。最多 5 轮：
     # 第 5 轮只有 3-1 / 2-2 / 1-3 三组共 14 队 = 7 场，4-0 与 0-4 已停赛。
     for rnd in range(5):
         act = active_teams(s)
         if len(act) < 2:
             break
-        for a, b in pair_round(s, rnd, rng, active=act):
+        for a, b in pair_round(s, rnd, rng, active=act, fixed_r1=fixed_r1):
             a_wins = rng.random() < p3[a, b]
             pg = p1[a, b] if a_wins else p1[b, a]      # 赢方单局胜率，喂给让分小局公式
             s.record(a, b, a_wins, 1 if rng.random() < loser_games_prob(pg) else 0)
@@ -150,6 +161,10 @@ def place_dist_from_counts(place_c, n_sim, teams):
 #     用重跑前后 l2_predictions.json 字节级 diff 验证过完全不变
 #     （task-7-report.md 有实测记录）。
 if __name__ == "__main__":
+    # 分组状态先打出来供肉眼复核——填错分组会静默产出一份错的预测，
+    # 而这份预测会被直接发布，所以每次跑都要看见自己在算哪一种情况。
+    print(draw_mod.describe(DRAW, TEAMS))
+    print()
     champ_c = np.zeros(n); place_c = np.zeros((n, 17)); rec_c = collections.Counter()
     rec_dist = [collections.Counter() for _ in range(n)]   # 逐队完整瑞士轮战绩分布
     elim_survive = np.zeros(n); elim_out = np.zeros(n)     # 附加轮生还 / 出局
@@ -160,7 +175,7 @@ if __name__ == "__main__":
 
     for s in range(N_SIM):
         theta = TH + SE * rng.standard_normal(n)        # 后验重抽
-        rec, srank, place, advanced, g_series, p_series, ew, el = run_one(theta, rng)
+        rec, srank, place, advanced, g_series, p_series, ew, el = run_one(theta, rng, DRAW)
         for t in ew: elim_survive[t] += 1
         for t in el: elim_out[t] += 1
         for t in range(n):

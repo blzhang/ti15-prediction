@@ -1,0 +1,9 @@
+{
+ "label": "v8-polymarket-odds",
+ "frozen_at_utc": "2026-08-09T08:12:33Z",
+ "sha256": "5213ca9a1307da9067d83a8fbdf902c2a4c82158b0021aaa45f209d5fa436d64",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/polymarket_odds.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v8-polymarket-odds.json",
+ "src_rel": "../model/polymarket_odds.json",
+ "frozen_path_rel": "frozen_v8-polymarket-odds.json"
+}

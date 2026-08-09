@@ -1,4 +1,4 @@
-"""L1 队伍实力层：正则化 Bradley-Terry + 时间衰减 + 赛事级别自适应加权。
+"""L1 队伍实力层：正则化 Bradley-Terry + 时间衰减 + 版本衰减 + 赛事级别自适应加权。
 
 关键设计：不按 team_id 建模，按「当前这五个人」建模。
 某场比赛的一方若含 ≥3 名某 TI15 队的现役首发，该方即标记为那支队；
@@ -9,7 +9,13 @@
 赛事级别不用人工表（OpenDota tier 字段 2024 年后已失效），改用迭代自举：
 uniform 权重 → 拟合 BT → 用各赛事参赛者实力反推赛事权重 → 重拟合。
 
-超参（半衰期 / 岭强度）由**时间切分**验证选出，不看测试期结果调参。
+时间衰减是两层相乘，管的不是同一件事：
+  - 按天数的指数衰减（半衰期）管阵容磨合与状态漂移，连续；
+  - 按版本号的几何衰减 gamma**（隔了几个版本）管「这套打法还成不成立」，跳变。
+两者都不写死，与岭强度一起在验证期联合搜。gamma=1 时版本层逐位关闭，
+产出物与加这一层之前字节一致（见 model/patch_weight.py 的模块 docstring）。
+
+超参（半衰期 / 版本衰减 / 岭强度）由**时间切分**验证选出，不看测试期结果调参。
 """
 import csv, json, math, collections, datetime, os, sys
 import numpy as np
@@ -18,7 +24,9 @@ from scipy.optimize import minimize
 HERE = os.path.dirname(os.path.abspath(__file__))
 D = os.path.join(HERE, "..", "data")
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.dirname(HERE))   # 让 `python3 model/l1_strength.py` 也能 import model.*
 from rosters import ROSTERS, ACCOUNT_TO_TEAM, REGION
+from model.patch_weight import patch_weights, patch_distance, GAMMA_OFF
 
 MIN_SHARED  = 3
 NOW         = datetime.datetime(2026, 8, 2).timestamp()
@@ -101,6 +109,19 @@ def fit(mask, w, lam, ref_ts):
     return th
 
 
+def decay_weights(ref_ts, hl, gamma):
+    """两层衰减相乘：0.5**(天数/半衰期) × gamma**(隔了几个版本)。
+
+    ref_ts 同时是两层的参照点——训练期截到哪，版本 anchor 就取到哪，
+    否则就是拿未来的版本表给过去的数据打折（泄漏）。
+    ref_ts 之后的比赛权重为 0：调用方的 mask 已经排除它们，这里再置零
+    是为了「权重数组本身单独看也不含未来样本」。
+    """
+    w = 0.5 ** ((ref_ts - TS) / (hl * DAY))
+    w = w * patch_weights(TS, ref_ts, gamma)
+    return np.where(TS < ref_ts, w, 0.0)
+
+
 def evaluate(th, mask):
     d = th[A[mask]] - th[B[mask]]
     p = 1.0 / (1.0 + np.exp(-d))
@@ -117,42 +138,62 @@ def evaluate(th, mask):
 CUT_V = datetime.datetime(2025, 8, 1).timestamp()   # 验证切点
 CUT_T = datetime.datetime(2026, 3, 1).timestamp()   # 测试切点（最终检验，只用一次）
 
+HL_GRID    = (120, 180, 270, 400)
+GAMMA_GRID = (GAMMA_OFF, 0.90, 0.80, 0.65, 0.50)   # 第一个是「不启用版本层」
+LAM_GRID   = (2.0, 6.0, 15.0, 40.0)
+
 CACHE = f"{HERE}/l1_rating.json"
 PRESET = None
 if os.path.exists(CACHE) and "--refit" not in sys.argv:
     _c = json.load(open(CACHE))
     if "half_life_days" in _c:
-        PRESET = (_c["half_life_days"], _c["ridge"], _c.get("oos_test"))
-        print(f"\n沿用已选超参：半衰期 {PRESET[0]} 天，岭 λ={PRESET[1]}（加 --refit 可重搜）")
+        # patch_gamma 缺省为 1.0：读到加版本层之前写的旧缓存时，等价于「没启用」
+        PRESET = (_c["half_life_days"], _c.get("patch_gamma", GAMMA_OFF),
+                  _c["ridge"], _c.get("oos_test"))
+        print(f"\n沿用已选超参：半衰期 {PRESET[0]} 天，版本衰减 γ={PRESET[1]}，"
+              f"岭 λ={PRESET[2]}（加 --refit 可重搜）")
 
-print("\n=== 超参搜索（时间切分，只看验证期）===" if not PRESET else "")
+search_log = []
 if not PRESET:
-    print(f"{'半衰期':>7}{'岭λ':>8}{'验证n':>8}{'准确率':>9}{'Brier':>9}{'LogLoss':>10}")
+    print("\n=== 超参搜索（时间切分，只看验证期）===")
+    print(f"{'半衰期':>7}{'版本γ':>8}{'岭λ':>8}{'验证n':>8}{'准确率':>9}{'Brier':>9}{'LogLoss':>10}")
 best = None
-for hl in ((PRESET[0],) if PRESET else (120, 180, 270, 400)):
-    for lam in ((PRESET[1],) if PRESET else (2.0, 6.0, 15.0, 40.0)):
-        if PRESET:
-            best = (PRESET[2], hl, lam); break
-        w = 0.5 ** ((CUT_V - TS) / (hl * DAY))
-        w = np.where(TS < CUT_V, w, 0.0)
-        tr = TS < CUT_V
-        va = (TS >= CUT_V) & (TS < CUT_T)
-        th = fit(tr, w, lam, CUT_V)
-        m = evaluate(th, va)
-        star = ""
-        if best is None or m["logloss"] < best[0]["logloss"]:
-            best, star = (m, hl, lam), "  ←"
-        print(f"{hl:>7}{lam:>8.1f}{m['n']:>8}{m['acc']:>8.1%}{m['brier']:>9.4f}{m['logloss']:>10.4f}{star}")
+if PRESET:
+    best = (PRESET[3], PRESET[0], PRESET[1], PRESET[2])
+else:
+    tr = TS < CUT_V
+    va = (TS >= CUT_V) & (TS < CUT_T)
+    for hl in HL_GRID:
+        for gamma in GAMMA_GRID:
+            for lam in LAM_GRID:
+                th = fit(tr, decay_weights(CUT_V, hl, gamma), lam, CUT_V)
+                m = evaluate(th, va)
+                star = ""
+                if best is None or m["logloss"] < best[0]["logloss"]:
+                    best, star = (m, hl, gamma, lam), "  ←"
+                search_log.append({"half_life_days": hl, "patch_gamma": gamma,
+                                   "ridge": lam, **m})
+                print(f"{hl:>7}{gamma:>8.2f}{lam:>8.1f}{m['n']:>8}{m['acc']:>8.1%}"
+                      f"{m['brier']:>9.4f}{m['logloss']:>10.4f}{star}")
 
-_, HL, LAM = best
-print(f"\n选定：半衰期 {HL} 天，岭 λ={LAM}")
+_, HL, GAMMA, LAM = best
+print(f"\n选定：半衰期 {HL} 天，版本衰减 γ={GAMMA}，岭 λ={LAM}")
+if not PRESET:
+    # 「版本层到底有没有用」= 同一格搜索里 γ=1 的最好一档 vs 全局最好一档。
+    # 两边都只看验证期，测试期不参与任何选择。
+    off = min((r for r in search_log if r["patch_gamma"] == GAMMA_OFF),
+              key=lambda r: r["logloss"])
+    print(f"  对照·不启用版本层（γ=1）验证期最好一档："
+          f"半衰期 {off['half_life_days']} 天，岭 λ={off['ridge']}，"
+          f"LogLoss {off['logloss']:.4f}")
+    print(f"  验证期 LogLoss 差：{best[0]['logloss'] - off['logloss']:+.4f}"
+          f"（负数=启用版本层更好）")
 
 # ---------- 5. 用选定超参做样本外测试（只跑一次）----------
 if PRESET:
-    m = PRESET[2]
+    m = PRESET[3]
 else:
-    w = np.where(TS < CUT_T, 0.5 ** ((CUT_T - TS) / (HL * DAY)), 0.0)
-    th_t = fit(TS < CUT_T, w, LAM, CUT_T)
+    th_t = fit(TS < CUT_T, decay_weights(CUT_T, HL, GAMMA), LAM, CUT_T)
     m = evaluate(th_t, TS >= CUT_T)
 print(f"=== 样本外测试（2026-03 之后 {m['n']:,} 场，训练时完全没见过）===")
 print(f"  准确率 {m['acc']:.1%}   Brier {m['brier']:.4f}   LogLoss {m['logloss']:.4f}")
@@ -161,8 +202,9 @@ print(f"  参照：设计文档 §5 护栏 —— 赛前预测现实上限 65–
 # ---------- 6. 全量重拟合 + 赛事权重自举 ----------
 allm = np.ones(len(games), dtype=bool)
 w_lg = {l: 1.0 for l in set(LG.tolist())}
+BASE_W = decay_weights(NOW, HL, GAMMA)   # 天数 × 版本，全量拟合共用（NOW 之后无样本）
 for it in range(N_ITER_TIER):
-    w = 0.5 ** ((NOW - TS) / (HL * DAY)) * np.array([w_lg[l] for l in LG])
+    w = BASE_W * np.array([w_lg[l] for l in LG])
     th = fit(allm, w, LAM, NOW)
     s = collections.defaultdict(list)
     for k in range(len(games)):
@@ -173,10 +215,25 @@ for it in range(N_ITER_TIER):
             for l, v in raw.items()}
     print(f"  赛事权重迭代 {it+1}：中位数 {np.median(list(w_lg.values())):.3f}")
 
-w = 0.5 ** ((NOW - TS) / (HL * DAY)) * np.array([w_lg[l] for l in LG])
+w = BASE_W * np.array([w_lg[l] for l in LG])
 th = fit(allm, w, LAM, NOW)
 
 # ---------- 7. 输出 ----------
+# 各版本实际吃到多少权重（不含赛事权重），供报告与站点直接引用——
+# 「越老的版本权重越低」这句话要有一张能核对的表，不能只写在文案里。
+_dist = np.array([patch_distance(t, NOW) for t in TS])
+patch_mass = {}
+for k in sorted(set(_dist.tolist())):
+    sel = _dist == k
+    patch_mass[str(int(k))] = {
+        "games": int(sel.sum()),
+        "weight_share": float(BASE_W[sel].sum() / BASE_W.sum()),
+        "mean_weight": float(BASE_W[sel].mean()),
+    }
+print("\n各版本距离吃到的权重份额（距离 0 = 当前版本 7.41）：")
+print(f"{'距今几个版本':>12}{'场次':>8}{'权重份额':>10}{'场均权重':>10}")
+for k, v in patch_mass.items():
+    print(f"{k:>12}{v['games']:>8}{v['weight_share']:>9.1%}{v['mean_weight']:>10.4f}")
 leagues = {r["leagueid"]: r.get("name", "") for r in csv.DictReader(open(f"{D}/pro_dim_leagues.csv"))}
 print("\n自适应赛事权重 最高 10（验证分级是否合理）：")
 for l, v in sorted(w_lg.items(), key=lambda kv: -kv[1])[:10]:
@@ -212,10 +269,18 @@ for t in order:
     p = 1 / (1 + math.exp(-(rating[t] - lastθ)))
     print(f"{t:<17}{rating[t]:>8.3f}{rating_se[t]:>7.3f}{hit[t]:>7}  {REGION[t]:<5}{p:>11.1%}")
 
-json.dump({"rating": rating, "rating_se": rating_se,
-           "games": {t: hit[t] for t in ROSTERS},
-           "half_life_days": HL, "ridge": LAM,
-           "oos_test": m, "cross_region": {f"{a}-{b}": v for (a, b), v in cross.items()},
-           "league_weight": w_lg},
-          open(f"{HERE}/l1_rating.json", "w"), indent=1)
+out = {"rating": rating, "rating_se": rating_se,
+       "games": {t: hit[t] for t in ROSTERS},
+       "half_life_days": HL, "patch_gamma": GAMMA, "ridge": LAM,
+       "oos_test": m, "cross_region": {f"{a}-{b}": v for (a, b), v in cross.items()},
+       "patch_weight_mass": patch_mass,
+       "league_weight": w_lg}
+if search_log:
+    # 整格搜索结果一并落盘：选参过程可核对，别人不必信「我搜过了」这句话
+    out["hp_search"] = search_log
+elif PRESET:
+    _prev = json.load(open(CACHE))
+    if "hp_search" in _prev:
+        out["hp_search"] = _prev["hp_search"]
+json.dump(out, open(f"{HERE}/l1_rating.json", "w"), indent=1)
 print(f"\n→ 写入 {HERE}/l1_rating.json")

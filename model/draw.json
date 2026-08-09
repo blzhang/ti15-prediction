@@ -1,0 +1,24 @@
+{
+  "_说明": [
+    "赛事方公布的瑞士轮分组与首轮对阵。announced=false 时模拟器完全按原样随机化，",
+    "本文件里其余字段一律不读——所以现在留着它不会影响任何已发布的数字。",
+    "",
+    "分组一公布，做三件事：",
+    "  1. announced 改成 true",
+    "  2. group_a / group_b 各填 8 支队（队名必须与 model/l1_rating.json 里完全一致）",
+    "  3. 官方若同时公布首轮对阵，填进 round1（8 组，每组必须同属一个组）；",
+    "     只公布分组、没公布对阵，就把 round1 留空数组，首轮仍在组内随机",
+    "然后跑 `bash site/rebuild-with-draw.sh`。",
+    "",
+    "填错会直接报错退出，不会静默出一份错的预测——校验见 model/draw.py。",
+    "16 支队的准确写法：",
+    "  Aurora Gaming / BoomBoys / Iron Wing / Team Falcons / Team Liquid /",
+    "  Team Yandex / Xtreme Gaming / Team Spirit / TEAM VISION / Nigma Galaxy /",
+    "  HULIGANI / Team Resilience / Vici Gaming / OG / GamerLegion / LGD Gaming"
+  ],
+  "announced": false,
+  "source": "",
+  "group_a": [],
+  "group_b": [],
+  "round1": []
+}

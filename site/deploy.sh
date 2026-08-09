@@ -46,13 +46,30 @@ fi"
 # 改为拿线上内容与本地构建产物**逐字节比对**：漏页、旧版、截断一次全抓。
 echo "验证：逐页与本地构建产物逐字节比对"
 FAIL=0
+# 取回失败要跟内容不一致分开处理：本地走代理时 curl 偶发
+# `SSL_ERROR_SYSCALL`，2026-08-09 那次部署就因此误报了两页「不一致」——
+# 内容其实是对的。误报比漏报更伤：喊过几次狼，这条检查就没人看了。
+# 所以取回失败重试 3 次，只有**成功取回且字节不同**才算失败。
 check() {  # check <URL 路径> <本地文件>
-  if curl -fsS --max-time 30 "https://shadowjacob.shop/dota2/$1" | cmp -s - "$2"; then
+  local tmp rc
+  tmp="$(mktemp -t dota2check)"
+  # 落盘再比，不用 $(...) 接：命令替换会吃掉结尾换行，
+  # 而本地构建产物大多以换行结尾，那样每一页都会被误判成「截断」。
+  for _ in 1 2 3; do
+    curl -fsS --max-time 30 -o "$tmp" "https://shadowjacob.shop/dota2/$1" && rc=0 || rc=$?
+    [ "$rc" = "0" ] && break
+    sleep 2
+  done
+  if [ "$rc" != "0" ]; then
+    printf "  /dota2/%-26s ❌ 取回失败（重试 3 次，curl 退出码 %s）——网络问题，非内容问题\n" "$1" "$rc"
+    FAIL=1
+  elif cmp -s "$tmp" "$2"; then
     printf "  /dota2/%-26s 一致\n" "$1"
   else
     printf "  /dota2/%-26s ❌ 与本地构建不一致（漏传 / 旧版 / 截断）\n" "$1"
     FAIL=1
   fi
+  rm -f "$tmp"
 }
 for p in $(cd "$ROOT/site/dist" && ls *.html) data/site.json data/search_index.json; do
   check "$p" "$ROOT/site/dist/$p"

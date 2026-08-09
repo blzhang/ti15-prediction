@@ -8,7 +8,9 @@
 """
 import argparse
 import csv
+import datetime
 import json
+import math
 import os
 import shutil
 import sys
@@ -28,6 +30,7 @@ ASSETS = [
     ("reports/ti15_matches.csv", "ti15_matches.csv", "任意两队交手的赛前胜率，共 120 组，赛后可拿来对账"),
     ("reports/p3_p4_players.json", "p3_p4_players.json", "80 名参赛选手在 15 项数据上的预测值与误差范围"),
     ("reports/p1_fantasy_matrix.json", "p1_fantasy_matrix.json", "梦幻挑战：各队三个位置的分项预期表现"),
+    ("reports/p6_draw_sensitivity.json", "p6_draw_sensitivity.json", "分组敏感度实测：知道抽签结果能让预测准多少，含噪声对照组"),
     ("reports/p2_extremes.json", "p2_extremes.json", "谁会打出全场最高纪录，以及各种纪录出现的可能性"),
     ("reports/p5_window_backtest.json", "p5_window_backtest.json", "取数窗口回测：四届 TI 上七种取数起点的逐单元成绩与判定过程"),
 ]
@@ -45,6 +48,63 @@ ITEM_LABEL = {
     "camps_stacked": "堆野", "runes": "神符", "smokes": "烟雾", "tormentor": "百加",
     "first_blood": "一血", "stuns": "眩晕(秒)", "courier": "信使",
 }
+
+
+def patch_layer_facts(rating):
+    """把 l1_rating.json 里的整格搜索结果压成方法论页要用的几个数。
+
+    回答一件事：「按版本号打折」这一层到底有没有用。做法是拿同一格搜索里
+    **启用版本层的最好一档**（全局最优）比**不启用的最好一档**（γ=1 的最优），
+    两边都只看验证期——测试期不参与任何选择。
+
+    curve_r / half_gap 是「这两档其实是同一条衰减曲线」的量化证据：把两条
+    权重曲线在训练区间上采样，算相关系数，并各自求权重降到一半的时点。
+    没有 hp_search（沿用旧缓存、这轮没重搜）时返回 None，页面整节不渲染。
+    """
+    log = rating.get("hp_search")
+    mass = rating.get("patch_weight_mass")
+    if not log or not mass:
+        return None
+
+    sys.path.insert(0, ROOT)
+    import numpy as np
+    from model.patch_weight import patch_weights, GAMMA_OFF
+
+    best = min(log, key=lambda r: r["logloss"])
+    off = min((r for r in log if r["patch_gamma"] == GAMMA_OFF),
+              key=lambda r: r["logloss"])
+    # LogLoss 的标准误按 s/sqrt(n) 估；s 取 0.5（logistic 逐样本损失的典型量级），
+    # 这是个保守的数量级参照，不是精确值——页面上也是这么说的。
+    se = 0.5 / math.sqrt(best["n"])
+    delta = best["logloss"] - off["logloss"]
+
+    # 两条权重曲线：在 L1 的训练区间上均匀采样比形状
+    since = datetime.datetime(2022, 1, 1).timestamp()
+    now = datetime.datetime(2026, 8, 2).timestamp()
+    ts = np.linspace(since, now, 20000)
+    day = 86400.0
+
+    def curve(hl, gamma):
+        w = 0.5 ** ((now - ts) / (hl * day)) * patch_weights(ts, now, gamma)
+        return w
+
+    c_sel = curve(best["half_life_days"], best["patch_gamma"])
+    c_off = curve(off["half_life_days"], off["patch_gamma"])
+    half_days = lambda c: float((now - ts[int(np.argmin(np.abs(c - 0.5)))]) / day)
+    return {
+        "val_n": best["n"],
+        "n_grid": len(log),
+        "delta": delta,
+        "delta_abs": abs(delta),
+        "se": se,
+        "se_ratio": abs(se / delta) if delta else float("inf"),
+        "hl_sel": best["half_life_days"], "g_sel": best["patch_gamma"],
+        "hl_off": off["half_life_days"],
+        "curve_r": float(np.corrcoef(c_sel / c_sel.sum(), c_off / c_off.sum())[0, 1]),
+        "half_gap": abs(half_days(c_sel) - half_days(c_off)),
+        "cur_share": mass["0"]["weight_share"] * 100,
+        "mass": mass,
+    }
 
 
 def need(rel):
@@ -132,6 +192,12 @@ def main():
         
         "oos": rating.get("oos_test", {}),
         "half_life_days": rating.get("half_life_days"),
+        "patch_gamma": rating.get("patch_gamma"),
+        "patch_layer": patch_layer_facts(rating),
+        # 市场快照日期：长图/卡片上的「赛前已存证 · 日期」要跟这一版实际用的
+        # 市场价同源，不能各写各的（make_cards.py 只读 site.json）
+        "market_captured": json.load(open(need("model/polymarket_odds.json")))
+                               .get("captured_utc", "")[:10],
         "ridge": rating.get("ridge"),
         "cross_region": rating.get("cross_region", {}),
         "homework": (lambda: (lambda hw: {
@@ -145,10 +211,13 @@ def main():
         "raw_market": json.load(open(need("model/market_odds.json"))),
         "raw_pm": json.load(open(need("model/polymarket_odds.json"))),
         "raw_window": json.load(open(need("reports/p5_window_backtest.json"))),
+        # 分组敏感度实测（model/draw_sensitivity.py 产出）。抄作业页和更新日志页
+        # 都要引用这几个数，走 payload 才能追溯到某一次真实运行，而不是手抄。
+        "raw_draw_sens": json.load(open(need("reports/p6_draw_sensitivity.json"))),
         "manifest": manifest,
         "full_data": [{"file": f, "size": s, "desc": d} for f, s, d in FULL_DATA],
     }
-    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm", "raw_window")},
+    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm", "raw_window", "raw_draw_sens")},
               open(os.path.join(DIST, "data", "site.json"), "w"),
               ensure_ascii=False, separators=(",", ":"))
     json.dump(build_search_index(players, rating),

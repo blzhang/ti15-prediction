@@ -135,12 +135,20 @@ def active_teams(state):
             if state.wins[t] < WIN_TARGET and state.losses[t] < LOSS_LIMIT]
 
 
-def pair_round(state, rnd, rng, active=None):
+def pair_round(state, rnd, rng, active=None, fixed_r1=None):
     """rnd 从 0 计。返回 [(a,b), ...]。
 
     active 为 None 时对全部队伍配对（保留旧行为，供既有测试使用）；
     传入队伍集合时只在其中配对——TI 赛制下应传 active_teams(state)。
+
+    fixed_r1 是赛事方公布的首轮对阵（队伍索引对）。给了就直接用，
+    连 rank_teams 和 shuffle 都不跑——首轮没有战绩可排，随机序列本就
+    只用于抽对阵，既然对阵已知就没有可抽的了。为 None 时行为与加这个
+    参数之前逐字节一致（不多不少一次 rng 调用），由
+    tests/test_draw.py::test_unannounced_is_bit_identical 锁住。
     """
+    if rnd == 0 and fixed_r1:
+        return list(fixed_r1)
     order = rank_teams(state, rng)
     if active is not None:
         act = set(active)

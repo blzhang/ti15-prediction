@@ -1,13 +1,13 @@
 # L4-P2：全场之最（极值题）
 
-数据窗口 since_ts=1704067200，过滤后 49762 条选手-比赛行，覆盖 80 名花名册选手。全赛事期望总局数 143.9，约合 1439 个选手-局槽位。
+数据窗口 since_ts=1704067200，过滤后 49762 条选手-比赛行，覆盖 80 名花名册选手。全赛事期望总局数 141.4，约合 1414 个选手-局槽位。
 
 ## 方法论与已知限制
 
 - P2 两类题：阈值题（threshold_prob，'本届会不会出现单局≥X'）与身份题（who_leads，'谁会打出全场最高值'）——00-DESIGN.md §2.2。两者都是"L3 分布尾部 × L2 局数"（§3-L4），不重新拟合广义帕累托（GPD）：阈值多数落在历史观测范围内（几十上百个真实观测支撑），经验频率+层次平滑更稳，GPD 还会引入'阈值怎么选'这个新的过拟合来源（§4.4）。needs_gpd 划这条边界：命中 True 时如实报告'超出可估计范围'，不假装经验频率仍然可靠。
 - 对 task-9-brief.md 的两处修正（完整 repro 见 task-9-report.md）：(1) brief 自己的 Step1 测试断言 threshold_prob 在特定 fixture 下 <0.2，代入 brief 自己 Step3 的参考实现精确算出 0.303——测试与实现互相矛盾（本项目第 11 个此类问题，性质与前 10 个不同：不是'共享错误前提所以骗过测试'，是压根跑不过），已修正测试断言，threshold_prob 公式本身不变。(2) who_leads 原参考实现用 rng.poisson(rate) 模拟单局产出，等价于假设 Var(单局)≈rate（泊松）。本任务独立复算局间标准差/泊松假定标准差：kills≈1.5x / deaths≈1.3x / last_hits≈7.2-7.7x / gold_per_min≈4.1-4.3x / stuns≈5.9-6.1x（teamfight_participation≈0.18x，反而比泊松假定更窄）——与控制器实测的方向一致但量级不完全相同（控制器数字 1.8/1.4/12.0/7.8/6.4/0.2x，见 task-9-report.md 对多种聚合口径的交叉验证与讨论）。GPM/补刀/眩晕差 4-8 倍不是舍入误差，已把 who_leads 改成吃真实局间残差分布（residual_pool，见model/l4_extremes.py），不再用一个标量 rate 套泊松。
 - 两处池化粒度不同，是有意为之：threshold_prob 的 samples 用全局池（不分位置，问题问的是'任意选手任意一局'，池化拿更大样本）；who_leads 的 residual_pool 按位置分别池化（不同位置离散度形状本身有差异）。
-- threshold_prob 的 n_games 用 player-game 槽位数 = 全赛事期望总局数(143.9) × 10 个选手槽位 ≈ 1439，不是局数本身——'单局≥26杀'问的是某一名选手在某一局的击杀数。期望总局数从 model/l2_predictions.json 的 series_dist 反推（=59 场系列赛，与 00-DESIGN.md §1.2 精确吻合），乘 2+q 近似（q=TI15_Q_THREE_GAME，决赛那 1 场 BO5 也按 BO3 近似——沿用model/l4_fantasy.py 已有的同一简化，不重新发明口径）。
+- threshold_prob 的 n_games 用 player-game 槽位数 = 全赛事期望总局数(141.4) × 10 个选手槽位 ≈ 1414，不是局数本身——'单局≥26杀'问的是某一名选手在某一局的击杀数。期望总局数从 model/l2_predictions.json 的 series_dist 反推（=59 场系列赛，与 00-DESIGN.md §1.2 精确吻合），乘 2+q 近似（q=TI15_Q_THREE_GAME，决赛那 1 场 BO5 也按 BO3 近似——沿用model/l4_fantasy.py 已有的同一简化，不重新发明口径）。
 - who_leads 里选手的预计 TI15 局数来自 series_dist 按队展开（同队 5 人共享同一个局数预期），用无偏随机取整避免截断丢期望（跟 model/l4_fantasy.py::expected_slot_score 内部 draw() 同一个技巧）。
 - 数据窗口：since=2024-01-01，80 名花名册选手，与 Task 6/7/8 一致；smokes/tormentor/courier 不在本报告范围内（P2 只覆盖 kills/gpm/last_hits/stuns 四项'headline 记录'型计分项，不是全部 15 个可得项——'全场最高眼位数'这类问题娱乐性不足，故未纳入，属主动的范围裁剪）。
 - 已知数据质量注记（非本任务引入，抽查时发现）：teamfight_participation 在 0.064% 的行里 >1（理论上限应为 1），stuns 在 0.9% 的行里 <0（物理上不可能为负）——TI14 官方数据里同样存在这类值（例如 TI14 teamfight_participation 实测最大值 1.13），判断为 OpenDota 数据源本身的噪声，不是本报告的抽取逻辑引入的，对整体弥散度比值影响可忽略（占比 <1%）。
@@ -29,21 +29,21 @@
 
 | 阈值 | 说明 | 是否超出观测范围(needs_gpd) | 全赛事至少一次的概率 |
 |---|---|---|---|
-| 26 | 任务原文点名示例（历史49762局里出现过20次） | 否 | 44.71% |
+| 26 | 任务原文点名示例（历史49762局里出现过20次） | 否 | 44.16% |
 | 38 | 超出历史观测上限33的假设阈值（演示 needs_gpd 边界） | 是 | 无法估计（见备注） |
 
 ### GPM
 
 | 阈值 | 说明 | 是否超出观测范围(needs_gpd) | 全赛事至少一次的概率 |
 |---|---|---|---|
-| 1000 | Dota 社区公认的'千GPM'整数关卡（历史49762局里出现过105次） | 否 | 95.27% |
+| 1000 | Dota 社区公认的'千GPM'整数关卡（历史49762局里出现过105次） | 否 | 95.03% |
 | 1377 | 超出历史观测上限1197的假设阈值（演示 needs_gpd 边界） | 是 | 无法估计（见备注） |
 
 ### 补刀(仅last hits)
 
 | 阈值 | 说明 | 是否超出观测范围(needs_gpd) | 全赛事至少一次的概率 |
 |---|---|---|---|
-| 1000 | Dota 社区公认的'千补刀'整数关卡（历史49762局里出现过179次） | 否 | 99.45% |
+| 1000 | Dota 社区公认的'千补刀'整数关卡（历史49762局里出现过179次） | 否 | 99.40% |
 | 2389 | 超出历史观测上限2077的假设阈值（演示 needs_gpd 边界） | 是 | 无法估计（见备注） |
 
 ### 眩晕时长(秒)
@@ -59,53 +59,53 @@
 
 | 排名 | 选手 | 战队 | 夺得全场最高的概率 | 每局期望值 | 预计参赛局数 |
 |---|---|---|---|---|---|
-| 1 | Satanic | TEAM VISION | 5.51% | 8.2 | 21 |
-| 2 | watson | Team Yandex | 4.63% | 8.1 | 20 |
-| 3 | Pure | Iron Wing | 4.32% | 8.0 | 19 |
-| 4 | Yatoro | Team Spirit | 4.28% | 7.9 | 20 |
-| 5 | Yuma | LGD Gaming | 4.08% | 8.1 | 17 |
-| 6 | Nightfall | Aurora Gaming | 4.03% | 7.8 | 20 |
-| 7 | m1CKe | Team Liquid | 3.85% | 7.9 | 19 |
-| 8 | skiter | Team Falcons | 3.17% | 7.0 | 21 |
+| 1 | Satanic | TEAM VISION | 5.42% | 8.2 | 21 |
+| 2 | watson | Team Yandex | 4.56% | 8.1 | 20 |
+| 3 | Yatoro | Team Spirit | 4.46% | 7.9 | 20 |
+| 4 | Pure | Iron Wing | 4.43% | 8.0 | 19 |
+| 5 | Nightfall | Aurora Gaming | 4.09% | 7.8 | 20 |
+| 6 | m1CKe | Team Liquid | 4.04% | 7.9 | 19 |
+| 7 | Yuma | LGD Gaming | 3.85% | 8.1 | 16 |
+| 8 | Kiritych~ | BoomBoys | 3.24% | 7.3 | 19 |
 
 ### GPM
 
 | 排名 | 选手 | 战队 | 夺得全场最高的概率 | 每局期望值 | 预计参赛局数 |
 |---|---|---|---|---|---|
-| 1 | Satanic | TEAM VISION | 18.38% | 766.5 | 21 |
-| 2 | Pure | Iron Wing | 11.17% | 746.5 | 19 |
-| 3 | Yatoro | Team Spirit | 9.38% | 736.0 | 20 |
-| 4 | ssnovv1 | HULIGANI | 7.79% | 739.7 | 15 |
-| 5 | Nightfall | Aurora Gaming | 7.47% | 722.2 | 20 |
-| 6 | Ame | Xtreme Gaming | 6.07% | 720.6 | 17 |
-| 7 | shiro | Vici Gaming | 5.90% | 716.1 | 18 |
-| 8 | Kiritych~ | BoomBoys | 5.70% | 709.4 | 20 |
+| 1 | Satanic | TEAM VISION | 18.52% | 766.5 | 21 |
+| 2 | Pure | Iron Wing | 11.31% | 746.5 | 19 |
+| 3 | Yatoro | Team Spirit | 9.84% | 736.0 | 20 |
+| 4 | Nightfall | Aurora Gaming | 7.38% | 722.2 | 20 |
+| 5 | ssnovv1 | HULIGANI | 7.24% | 739.7 | 14 |
+| 6 | Ame | Xtreme Gaming | 6.06% | 720.6 | 17 |
+| 7 | shiro | Vici Gaming | 5.75% | 716.1 | 17 |
+| 8 | Kiritych~ | BoomBoys | 5.48% | 709.4 | 19 |
 
 ### 补刀(仅last hits)
 
 | 排名 | 选手 | 战队 | 夺得全场最高的概率 | 每局期望值 | 预计参赛局数 |
 |---|---|---|---|---|---|
-| 1 | Satanic | TEAM VISION | 8.25% | 498.2 | 21 |
-| 2 | Yatoro | Team Spirit | 7.28% | 486.4 | 20 |
-| 3 | Pure | Iron Wing | 5.73% | 467.5 | 19 |
-| 4 | Kiritych~ | BoomBoys | 5.63% | 456.2 | 20 |
-| 5 | Ame | Xtreme Gaming | 5.54% | 470.6 | 17 |
-| 6 | shiro | Vici Gaming | 5.51% | 464.6 | 18 |
-| 7 | skiter | Team Falcons | 5.49% | 434.3 | 21 |
-| 8 | Nightfall | Aurora Gaming | 5.41% | 451.7 | 20 |
+| 1 | Satanic | TEAM VISION | 8.51% | 498.2 | 21 |
+| 2 | Yatoro | Team Spirit | 7.21% | 486.4 | 20 |
+| 3 | Pure | Iron Wing | 6.08% | 467.5 | 19 |
+| 4 | Ame | Xtreme Gaming | 5.71% | 470.6 | 17 |
+| 5 | Nightfall | Aurora Gaming | 5.61% | 451.7 | 20 |
+| 6 | Kiritych~ | BoomBoys | 5.33% | 456.2 | 19 |
+| 7 | m1CKe | Team Liquid | 5.31% | 439.7 | 19 |
+| 8 | shiro | Vici Gaming | 5.27% | 464.6 | 17 |
 
 ### 眩晕时长(秒)
 
 | 排名 | 选手 | 战队 | 夺得全场最高的概率 | 每局期望值 | 预计参赛局数 |
 |---|---|---|---|---|---|
-| 1 | Ari | Iron Wing | 3.98% | 57.7 | 20 |
-| 2 | Mira | Aurora Gaming | 3.96% | 60.4 | 20 |
-| 3 | not me | Team Spirit | 3.31% | 46.4 | 20 |
-| 4 | Cr1t- | Team Falcons | 3.24% | 44.9 | 21 |
-| 5 | 9Class | TEAM VISION | 3.23% | 44.3 | 21 |
-| 6 | Boxi | Team Liquid | 3.21% | 48.3 | 19 |
-| 7 | fy | Xtreme Gaming | 3.12% | 55.3 | 17 |
-| 8 | XinQ | Vici Gaming | 3.09% | 53.3 | 17 |
+| 1 | Mira | Aurora Gaming | 4.13% | 60.4 | 20 |
+| 2 | Ari | Iron Wing | 3.52% | 57.7 | 19 |
+| 3 | Cr1t- | Team Falcons | 3.49% | 44.9 | 21 |
+| 4 | 9Class | TEAM VISION | 3.44% | 44.3 | 21 |
+| 5 | fy | Xtreme Gaming | 3.44% | 55.3 | 17 |
+| 6 | not me | Team Spirit | 3.25% | 46.4 | 20 |
+| 7 | Save- | BoomBoys | 3.18% | 51.0 | 19 |
+| 8 | Boxi | Team Liquid | 3.09% | 48.3 | 19 |
 
 ## 完整数据
 
