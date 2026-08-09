@@ -105,6 +105,29 @@ python3 -m model.l4_extremes_report   # 极值题（谁打出最高纪录）→ 
 > `model/l3_player.py`（层次泊松选手模型）是**库**，不是入口——由上面三个 `l4_*_report` 调用。
 > 后三个脚本都有 `--help`，输出路径可用 `--out` 覆盖，不会意外盖掉仓库里的产出物。
 
+### 分组公布后的重算
+
+瑞士轮前三轮只在组内打，所以「谁跟谁一组」影响前三轮的对手。抽签开赛前才公布，
+未公布期间 `l2_simulate` 每次模拟随机抽一组分法，把约 7,100 万种可能的抽签平均掉。
+
+```bash
+# 1. 编辑 model/draw.json：announced 改 true，group_a / group_b 各填 8 队
+#    （官方若同时公布首轮对阵就填 round1，没公布留空）
+bash site/rebuild-with-draw.sh          # 校验→模拟→融合→报告→冻结→建站→部署
+bash site/rebuild-with-draw.sh --dry    # 只算不部署
+
+python3 -m model.draw_sensitivity       # 分组到底能让预测准多少（带噪声对照组）
+```
+
+- 填错分组会在第一步报错退出，不会静默产出错预测（校验见 `model/draw.py`）。
+- `announced: false` 时代码走原来的随机分支，**一次 rng 调用都不多不少**——
+  `tests/test_draw.py::test_unannounced_is_bit_identical` 锁住这条，实测重跑
+  20 万次模拟产物与改动前逐字节一致。
+- 重算是**新增**一版冻结存证，不覆盖赛前那版：两版都留着，赛后可分别打分。
+- ⚠️ 实测结论：知道分组只让期望答对数变动约 0.06 格（满分 16），仅为噪声的 3 倍，
+  **不足以支撑「重算一版会准不少」的说法**。个股概率最多摆动 2.4pp，值得更新展示，
+  但别对外承诺会明显变准。
+
 数据集本身不入库（`.gitignore` 排除了 `data/`），用 `fetch_pro_all.py` 可完整重取。
 
 ## 仓库结构
