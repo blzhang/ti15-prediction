@@ -281,3 +281,12 @@ footer { border-top: 1px solid var(--grid); margin-top: 56px; padding: 22px 0 40
 .cd.done { border-left-color: var(--grid); }
 .cd.done .cd-clock { color: var(--ink-muted); font-size: 17px; }
 @media (max-width: 560px) { .cd-clock { font-size: 18px; } }
+
+/* 抽签小节（predictions.html#draw）：两组并排，窄屏堆叠 */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+.cols .half h3 { margin-top: 6px; }
+.pairs { columns: 2; margin: 10px 0 4px; padding-left: 22px; }
+@media (max-width: 560px) { .pairs { columns: 1; } }
+.pairs li { margin: 3px 0; break-inside: avoid; }
+.pairs .vs { color: var(--ink-muted); font-size: 12px; padding: 0 4px; }

@@ -1,0 +1,9 @@
+{
+ "label": "v9-postdraw-blended",
+ "frozen_at_utc": "2026-08-10T07:53:38Z",
+ "sha256": "a543760f3cd1c8db38d07dd0a81e87278381365630520bc6c298f8147b47b2c6",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l2_blended.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v9-postdraw-blended.json",
+ "src_rel": "../model/l2_blended.json",
+ "frozen_path_rel": "frozen_v9-postdraw-blended.json"
+}

@@ -53,8 +53,8 @@ python3 - <<'PY'
 import sys
 sys.path.insert(0, "model")
 from freeze import freeze_predictions
-for src, label in (("model/l2_predictions.json", "v7-postdraw-predictions"),
-                   ("model/l2_blended.json",     "v7-postdraw-blended")):
+for src, label in (("model/l2_predictions.json", "v9-postdraw-predictions"),
+                   ("model/l2_blended.json",     "v9-postdraw-blended")):
     rec = freeze_predictions(src, "frozen", label)
     print("  冻结 %s" % label)
 PY

@@ -190,6 +190,9 @@ def main():
         "n_sim": pred.get("n_sim"),
         "teams": team_table(blended, pred, rating),
         
+        # 这一版预测建立在什么抽签信息之上。grouping=inferred 时全站必须
+        # 显式写「分组是推的」——见 model/draw.py 的 GROUPING_* 说明。
+        "draw": pred.get("draw", {"announced": False}),
         "oos": rating.get("oos_test", {}),
         "half_life_days": rating.get("half_life_days"),
         "patch_gamma": rating.get("patch_gamma"),
@@ -214,10 +217,15 @@ def main():
         # 分组敏感度实测（model/draw_sensitivity.py 产出）。抄作业页和更新日志页
         # 都要引用这几个数，走 payload 才能追溯到某一次真实运行，而不是手抄。
         "raw_draw_sens": json.load(open(need("reports/p6_draw_sensitivity.json"))),
+        # 上一版（v8，抽签信息为零）的冻结预测。更新日志里「锁首轮+推测分组把
+        # 数字挪了多少」那张表逐格从这两份文件算，不手抄——手抄的对照表
+        # 没法证明自己没抄错。
+        "raw_prev_pred": json.load(open(need("frozen/frozen_v8-predictions-patchweight.json"))),
+        "raw_prev_blend": json.load(open(need("frozen/frozen_v8-blended-patchweight.json"))),
         "manifest": manifest,
         "full_data": [{"file": f, "size": s, "desc": d} for f, s, d in FULL_DATA],
     }
-    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm", "raw_window", "raw_draw_sens")},
+    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm", "raw_window", "raw_draw_sens", "raw_prev_pred", "raw_prev_blend")},
               open(os.path.join(DIST, "data", "site.json"), "w"),
               ensure_ascii=False, separators=(",", ":"))
     json.dump(build_search_index(players, rating),

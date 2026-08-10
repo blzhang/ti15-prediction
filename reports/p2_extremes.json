@@ -3909,7 +3909,7 @@
     "account_id": 1044002267,
     "name": "Satanic",
     "team": "TEAM VISION",
-    "prob_leads": 0.05425,
+    "prob_leads": 0.0554,
     "rate": 8.209902,
     "n_games_ti15": 21
    },
@@ -3917,31 +3917,31 @@
     "account_id": 171262902,
     "name": "watson",
     "team": "Team Yandex",
-    "prob_leads": 0.0456,
+    "prob_leads": 0.0462,
     "rate": 8.079929,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 321580662,
-    "name": "Yatoro",
-    "team": "Team Spirit",
-    "prob_leads": 0.0446,
-    "rate": 7.894716,
     "n_games_ti15": 20
    },
    {
     "account_id": 331855530,
     "name": "Pure",
     "team": "Iron Wing",
-    "prob_leads": 0.0443,
+    "prob_leads": 0.04485,
     "rate": 8.006731,
     "n_games_ti15": 19
+   },
+   {
+    "account_id": 321580662,
+    "name": "Yatoro",
+    "team": "Team Spirit",
+    "prob_leads": 0.0437,
+    "rate": 7.894716,
+    "n_games_ti15": 20
    },
    {
     "account_id": 124801257,
     "name": "Nightfall",
     "team": "Aurora Gaming",
-    "prob_leads": 0.04095,
+    "prob_leads": 0.0398,
     "rate": 7.776879,
     "n_games_ti15": 20
    },
@@ -3949,7 +3949,7 @@
     "account_id": 152962063,
     "name": "m1CKe",
     "team": "Team Liquid",
-    "prob_leads": 0.04035,
+    "prob_leads": 0.03905,
     "rate": 7.853937,
     "n_games_ti15": 19
    },
@@ -3957,7 +3957,7 @@
     "account_id": 177203952,
     "name": "Yuma",
     "team": "LGD Gaming",
-    "prob_leads": 0.0385,
+    "prob_leads": 0.03885,
     "rate": 8.094427,
     "n_games_ti15": 16
    },
@@ -3965,7 +3965,7 @@
     "account_id": 172099728,
     "name": "Kiritych~",
     "team": "BoomBoys",
-    "prob_leads": 0.0324,
+    "prob_leads": 0.03355,
     "rate": 7.330034,
     "n_games_ti15": 19
    },
@@ -3973,103 +3973,127 @@
     "account_id": 100058342,
     "name": "skiter",
     "team": "Team Falcons",
-    "prob_leads": 0.03175,
+    "prob_leads": 0.0328,
     "rate": 7.047206,
     "n_games_ti15": 20
    },
    {
-    "account_id": 898455820,
-    "name": "Malr1ne",
-    "team": "Team Falcons",
-    "prob_leads": 0.0289,
-    "rate": 7.436864,
+    "account_id": 93618577,
+    "name": "bzm",
+    "team": "Iron Wing",
+    "prob_leads": 0.0295,
+    "rate": 7.440445,
     "n_games_ti15": 20
    },
    {
     "account_id": 206642367,
     "name": "Ghost",
     "team": "GamerLegion",
-    "prob_leads": 0.0285,
+    "prob_leads": 0.02905,
     "rate": 7.629773,
-    "n_games_ti15": 15
+    "n_games_ti15": 14
    },
    {
-    "account_id": 93618577,
-    "name": "bzm",
-    "team": "Iron Wing",
-    "prob_leads": 0.02795,
-    "rate": 7.440445,
+    "account_id": 898455820,
+    "name": "Malr1ne",
+    "team": "Team Falcons",
+    "prob_leads": 0.02815,
+    "rate": 7.436864,
     "n_games_ti15": 20
-   },
-   {
-    "account_id": 106573901,
-    "name": "No[o]ne-",
-    "team": "TEAM VISION",
-    "prob_leads": 0.0268,
-    "rate": 7.384112,
-    "n_games_ti15": 21
    },
    {
     "account_id": 111620041,
     "name": "SumaiL",
     "team": "Nigma Galaxy",
-    "prob_leads": 0.02625,
+    "prob_leads": 0.028,
     "rate": 7.432137,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 106573901,
+    "name": "No[o]ne-",
+    "team": "TEAM VISION",
+    "prob_leads": 0.02775,
+    "rate": 7.384112,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 170896543,
+    "name": "YSR-04E",
+    "team": "Team Resilience",
+    "prob_leads": 0.0264,
+    "rate": 7.340329,
     "n_games_ti15": 15
    },
    {
     "account_id": 301750126,
     "name": "Mikoto",
     "team": "Aurora Gaming",
-    "prob_leads": 0.026,
+    "prob_leads": 0.02635,
     "rate": 7.315311,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 106305042,
+    "name": "Larl",
+    "team": "Team Spirit",
+    "prob_leads": 0.0254,
+    "rate": 7.186839,
     "n_games_ti15": 20
    },
    {
     "account_id": 320252024,
     "name": "shiro",
     "team": "Vici Gaming",
-    "prob_leads": 0.0259,
+    "prob_leads": 0.02475,
     "rate": 6.850859,
     "n_games_ti15": 17
-   },
-   {
-    "account_id": 106305042,
-    "name": "Larl",
-    "team": "Team Spirit",
-    "prob_leads": 0.0257,
-    "rate": 7.186839,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 170896543,
-    "name": "YSR-04E",
-    "team": "Team Resilience",
-    "prob_leads": 0.0252,
-    "rate": 7.340329,
-    "n_games_ti15": 15
    },
    {
     "account_id": 480412663,
     "name": "gpk~",
     "team": "BoomBoys",
-    "prob_leads": 0.0232,
+    "prob_leads": 0.02315,
     "rate": 7.108047,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 201358612,
+    "name": "Nisha",
+    "team": "Team Liquid",
+    "prob_leads": 0.0231,
+    "rate": 7.226123,
     "n_games_ti15": 19
    },
    {
     "account_id": 320017600,
     "name": "ssnovv1",
     "team": "HULIGANI",
-    "prob_leads": 0.02275,
+    "prob_leads": 0.02255,
     "rate": 7.211178,
     "n_games_ti15": 14
+   },
+   {
+    "account_id": 1026694469,
+    "name": "TaiLung",
+    "team": "LGD Gaming",
+    "prob_leads": 0.02165,
+    "rate": 7.202997,
+    "n_games_ti15": 16
+   },
+   {
+    "account_id": 355168766,
+    "name": "Natsumi",
+    "team": "OG",
+    "prob_leads": 0.0212,
+    "rate": 6.845793,
+    "n_games_ti15": 15
    },
    {
     "account_id": 898754153,
     "name": "Ame",
     "team": "Xtreme Gaming",
-    "prob_leads": 0.02265,
+    "prob_leads": 0.021,
     "rate": 6.506796,
     "n_games_ti15": 17
    },
@@ -4077,63 +4101,39 @@
     "account_id": 210053851,
     "name": "lorenof",
     "team": "Nigma Galaxy",
-    "prob_leads": 0.02195,
+    "prob_leads": 0.02095,
     "rate": 7.539064,
-    "n_games_ti15": 15
-   },
-   {
-    "account_id": 201358612,
-    "name": "Nisha",
-    "team": "Team Liquid",
-    "prob_leads": 0.02185,
-    "rate": 7.226123,
-    "n_games_ti15": 19
-   },
-   {
-    "account_id": 355168766,
-    "name": "Natsumi",
-    "team": "OG",
-    "prob_leads": 0.0211,
-    "rate": 6.845793,
     "n_games_ti15": 15
    },
    {
     "account_id": 154974246,
     "name": "RCY",
     "team": "GamerLegion",
-    "prob_leads": 0.0211,
+    "prob_leads": 0.02065,
     "rate": 7.527662,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 140251702,
+    "name": "Mirage`",
+    "team": "HULIGANI",
+    "prob_leads": 0.02015,
+    "rate": 7.52954,
     "n_games_ti15": 14
    },
    {
     "account_id": 324277900,
     "name": "Yopaj-",
     "team": "OG",
-    "prob_leads": 0.02085,
+    "prob_leads": 0.01985,
     "rate": 7.307804,
     "n_games_ti15": 15
-   },
-   {
-    "account_id": 1026694469,
-    "name": "TaiLung",
-    "team": "LGD Gaming",
-    "prob_leads": 0.0206,
-    "rate": 7.202997,
-    "n_games_ti15": 16
-   },
-   {
-    "account_id": 140251702,
-    "name": "Mirage`",
-    "team": "HULIGANI",
-    "prob_leads": 0.02045,
-    "rate": 7.52954,
-    "n_games_ti15": 14
    },
    {
     "account_id": 312436974,
     "name": "CHIRA_JUNIOR",
     "team": "Team Yandex",
-    "prob_leads": 0.01775,
+    "prob_leads": 0.0177,
     "rate": 6.701063,
     "n_games_ti15": 19
    },
@@ -4141,7 +4141,7 @@
     "account_id": 137129583,
     "name": "Xm",
     "team": "Vici Gaming",
-    "prob_leads": 0.01535,
+    "prob_leads": 0.01545,
     "rate": 6.376418,
     "n_games_ti15": 17
    },
@@ -4149,79 +4149,79 @@
     "account_id": 173978074,
     "name": "NothingToSay",
     "team": "Xtreme Gaming",
-    "prob_leads": 0.0137,
+    "prob_leads": 0.0133,
     "rate": 6.011335,
     "n_games_ti15": 17
-   },
-   {
-    "account_id": 315272623,
-    "name": "Echozz",
-    "team": "Team Resilience",
-    "prob_leads": 0.01185,
-    "rate": 5.825984,
-    "n_games_ti15": 16
    },
    {
     "account_id": 183719386,
     "name": "ATF",
     "team": "Team Falcons",
-    "prob_leads": 0.0117,
+    "prob_leads": 0.01145,
     "rate": 6.38441,
     "n_games_ti15": 20
+   },
+   {
+    "account_id": 315272623,
+    "name": "Echozz",
+    "team": "Team Resilience",
+    "prob_leads": 0.01125,
+    "rate": 5.825984,
+    "n_games_ti15": 15
    },
    {
     "account_id": 126842529,
     "name": "Ws",
     "team": "Aurora Gaming",
-    "prob_leads": 0.00955,
+    "prob_leads": 0.0091,
     "rate": 5.682631,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 302214028,
-    "name": "Collapse",
-    "team": "Team Spirit",
-    "prob_leads": 0.009,
-    "rate": 5.361826,
     "n_games_ti15": 20
    },
    {
     "account_id": 292921272,
     "name": "Wisper",
     "team": "LGD Gaming",
-    "prob_leads": 0.0089,
+    "prob_leads": 0.0091,
     "rate": 6.075313,
     "n_games_ti15": 17
    },
    {
-    "account_id": 86698277,
-    "name": "33",
-    "team": "Iron Wing",
-    "prob_leads": 0.00825,
-    "rate": 5.142304,
-    "n_games_ti15": 19
+    "account_id": 302214028,
+    "name": "Collapse",
+    "team": "Team Spirit",
+    "prob_leads": 0.0083,
+    "rate": 5.361826,
+    "n_games_ti15": 20
    },
    {
     "account_id": 195108598,
     "name": "Noticed",
     "team": "TEAM VISION",
-    "prob_leads": 0.00755,
+    "prob_leads": 0.00745,
     "rate": 4.828642,
     "n_games_ti15": 20
    },
    {
-    "account_id": 132309493,
-    "name": "Raven",
-    "team": "OG",
-    "prob_leads": 0.0067,
-    "rate": 4.86377,
-    "n_games_ti15": 15
+    "account_id": 86698277,
+    "name": "33",
+    "team": "Iron Wing",
+    "prob_leads": 0.0071,
+    "rate": 5.142304,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 56351509,
+    "name": "DM",
+    "team": "Team Yandex",
+    "prob_leads": 0.00645,
+    "rate": 4.150828,
+    "n_games_ti15": 20
    },
    {
     "account_id": 138880576,
     "name": "Davai",
     "team": "Nigma Galaxy",
-    "prob_leads": 0.0062,
+    "prob_leads": 0.00615,
     "rate": 5.392439,
     "n_games_ti15": 15
    },
@@ -4229,55 +4229,55 @@
     "account_id": 97590558,
     "name": "Ace",
     "team": "Team Liquid",
-    "prob_leads": 0.00615,
+    "prob_leads": 0.00595,
     "rate": 4.291771,
     "n_games_ti15": 19
-   },
-   {
-    "account_id": 56351509,
-    "name": "DM",
-    "team": "Team Yandex",
-    "prob_leads": 0.0061,
-    "rate": 4.150828,
-    "n_games_ti15": 20
    },
    {
     "account_id": 165564598,
     "name": "MieRo",
     "team": "BoomBoys",
-    "prob_leads": 0.00565,
+    "prob_leads": 0.00575,
     "rate": 4.740018,
     "n_games_ti15": 19
-   },
-   {
-    "account_id": 129958758,
-    "name": "Xxs",
-    "team": "Xtreme Gaming",
-    "prob_leads": 0.0056,
-    "rate": 4.153239,
-    "n_games_ti15": 17
-   },
-   {
-    "account_id": 160119017,
-    "name": "Fayde",
-    "team": "GamerLegion",
-    "prob_leads": 0.0052,
-    "rate": 4.94071,
-    "n_games_ti15": 14
    },
    {
     "account_id": 145957968,
     "name": "niu",
     "team": "Team Resilience",
-    "prob_leads": 0.00515,
+    "prob_leads": 0.00575,
     "rate": 4.543639,
     "n_games_ti15": 16
+   },
+   {
+    "account_id": 132309493,
+    "name": "Raven",
+    "team": "OG",
+    "prob_leads": 0.00555,
+    "rate": 4.86377,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 160119017,
+    "name": "Fayde",
+    "team": "GamerLegion",
+    "prob_leads": 0.0055,
+    "rate": 4.94071,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 129958758,
+    "name": "Xxs",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.00515,
+    "rate": 4.153239,
+    "n_games_ti15": 17
    },
    {
     "account_id": 118134220,
     "name": "Bach",
     "team": "Vici Gaming",
-    "prob_leads": 0.00485,
+    "prob_leads": 0.00495,
     "rate": 4.274723,
     "n_games_ti15": 17
    },
@@ -4285,41 +4285,33 @@
     "account_id": 92487440,
     "name": "Corrupted",
     "team": "HULIGANI",
-    "prob_leads": 0.0038,
+    "prob_leads": 0.0044,
     "rate": 4.441568,
     "n_games_ti15": 14
-   },
-   {
-    "account_id": 346412363,
-    "name": "Ari",
-    "team": "Iron Wing",
-    "prob_leads": 0.0001,
-    "rate": 3.400034,
-    "n_games_ti15": 19
-   },
-   {
-    "account_id": 103735745,
-    "name": "Saksa",
-    "team": "Team Yandex",
-    "prob_leads": 0.0001,
-    "rate": 3.193319,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 152168157,
-    "name": "OmaR",
-    "team": "Nigma Galaxy",
-    "prob_leads": 0.0001,
-    "rate": 3.684281,
-    "n_games_ti15": 15
    },
    {
     "account_id": 317880638,
     "name": "Save-",
     "team": "BoomBoys",
-    "prob_leads": 5e-05,
+    "prob_leads": 0.0001,
     "rate": 3.590651,
     "n_games_ti15": 19
+   },
+   {
+    "account_id": 164199202,
+    "name": "9Class",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0001,
+    "rate": 3.34411,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 105045291,
+    "name": "Thiolicor",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0001,
+    "rate": 3.327211,
+    "n_games_ti15": 17
    },
    {
     "account_id": 25907144,
@@ -4330,36 +4322,12 @@
     "n_games_ti15": 21
    },
    {
-    "account_id": 218231587,
-    "name": "not me",
-    "team": "Team Spirit",
+    "account_id": 152168157,
+    "name": "OmaR",
+    "team": "Nigma Galaxy",
     "prob_leads": 5e-05,
-    "rate": 3.882764,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 157475523,
-    "name": "XinQ",
-    "team": "Vici Gaming",
-    "prob_leads": 5e-05,
-    "rate": 3.402485,
-    "n_games_ti15": 17
-   },
-   {
-    "account_id": 90423751,
-    "name": "Bignum",
-    "team": "GamerLegion",
-    "prob_leads": 5e-05,
-    "rate": 3.358639,
-    "n_games_ti15": 14
-   },
-   {
-    "account_id": 105045291,
-    "name": "Thiolicor",
-    "team": "LGD Gaming",
-    "prob_leads": 5e-05,
-    "rate": 3.327211,
-    "n_games_ti15": 17
+    "rate": 3.684281,
+    "n_games_ti15": 15
    },
    {
     "account_id": 256156323,
@@ -4370,12 +4338,28 @@
     "n_games_ti15": 20
    },
    {
+    "account_id": 346412363,
+    "name": "Ari",
+    "team": "Iron Wing",
+    "prob_leads": 0.0,
+    "rate": 3.400034,
+    "n_games_ti15": 19
+   },
+   {
     "account_id": 77490514,
     "name": "Boxi",
     "team": "Team Liquid",
     "prob_leads": 0.0,
     "rate": 3.613595,
     "n_games_ti15": 19
+   },
+   {
+    "account_id": 103735745,
+    "name": "Saksa",
+    "team": "Team Yandex",
+    "prob_leads": 0.0,
+    "rate": 3.193319,
+    "n_games_ti15": 20
    },
    {
     "account_id": 101695162,
@@ -4386,12 +4370,12 @@
     "n_games_ti15": 17
    },
    {
-    "account_id": 164199202,
-    "name": "9Class",
-    "team": "TEAM VISION",
+    "account_id": 218231587,
+    "name": "not me",
+    "team": "Team Spirit",
     "prob_leads": 0.0,
-    "rate": 3.34411,
-    "n_games_ti15": 21
+    "rate": 3.882764,
+    "n_games_ti15": 20
    },
    {
     "account_id": 145065875,
@@ -4410,12 +4394,28 @@
     "n_games_ti15": 15
    },
    {
+    "account_id": 157475523,
+    "name": "XinQ",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0,
+    "rate": 3.402485,
+    "n_games_ti15": 17
+   },
+   {
     "account_id": 155494381,
     "name": "TIMS",
     "team": "OG",
     "prob_leads": 0.0,
     "rate": 2.857031,
     "n_games_ti15": 15
+   },
+   {
+    "account_id": 90423751,
+    "name": "Bignum",
+    "team": "GamerLegion",
+    "prob_leads": 0.0,
+    "rate": 3.358639,
+    "n_games_ti15": 14
    },
    {
     "account_id": 320219866,
@@ -4439,7 +4439,7 @@
     "team": "Iron Wing",
     "prob_leads": 0.0,
     "rate": 3.084985,
-    "n_games_ti15": 19
+    "n_games_ti15": 20
    },
    {
     "account_id": 10366616,
@@ -4511,7 +4511,7 @@
     "team": "Team Resilience",
     "prob_leads": 0.0,
     "rate": 2.205477,
-    "n_games_ti15": 16
+    "n_games_ti15": 15
    },
    {
     "account_id": 111114687,
@@ -4543,7 +4543,7 @@
     "team": "LGD Gaming",
     "prob_leads": 0.0,
     "rate": 2.520196,
-    "n_games_ti15": 17
+    "n_games_ti15": 16
    }
   ],
   "gold_per_min": [
@@ -4551,7 +4551,7 @@
     "account_id": 1044002267,
     "name": "Satanic",
     "team": "TEAM VISION",
-    "prob_leads": 0.1852,
+    "prob_leads": 0.18525,
     "rate": 766.547406,
     "n_games_ti15": 21
    },
@@ -4559,7 +4559,7 @@
     "account_id": 331855530,
     "name": "Pure",
     "team": "Iron Wing",
-    "prob_leads": 0.1131,
+    "prob_leads": 0.1141,
     "rate": 746.474432,
     "n_games_ti15": 19
    },
@@ -4567,7 +4567,7 @@
     "account_id": 321580662,
     "name": "Yatoro",
     "team": "Team Spirit",
-    "prob_leads": 0.0984,
+    "prob_leads": 0.0978,
     "rate": 736.003141,
     "n_games_ti15": 20
    },
@@ -4575,7 +4575,7 @@
     "account_id": 124801257,
     "name": "Nightfall",
     "team": "Aurora Gaming",
-    "prob_leads": 0.0738,
+    "prob_leads": 0.07285,
     "rate": 722.179431,
     "n_games_ti15": 20
    },
@@ -4583,7 +4583,7 @@
     "account_id": 320017600,
     "name": "ssnovv1",
     "team": "HULIGANI",
-    "prob_leads": 0.0724,
+    "prob_leads": 0.072,
     "rate": 739.670808,
     "n_games_ti15": 14
    },
@@ -4591,7 +4591,7 @@
     "account_id": 898754153,
     "name": "Ame",
     "team": "Xtreme Gaming",
-    "prob_leads": 0.0606,
+    "prob_leads": 0.06085,
     "rate": 720.553873,
     "n_games_ti15": 17
    },
@@ -4599,7 +4599,7 @@
     "account_id": 320252024,
     "name": "shiro",
     "team": "Vici Gaming",
-    "prob_leads": 0.0575,
+    "prob_leads": 0.05725,
     "rate": 716.100486,
     "n_games_ti15": 17
    },
@@ -4607,7 +4607,7 @@
     "account_id": 172099728,
     "name": "Kiritych~",
     "team": "BoomBoys",
-    "prob_leads": 0.0548,
+    "prob_leads": 0.055,
     "rate": 709.418635,
     "n_games_ti15": 19
    },
@@ -4615,7 +4615,7 @@
     "account_id": 171262902,
     "name": "watson",
     "team": "Team Yandex",
-    "prob_leads": 0.0482,
+    "prob_leads": 0.049,
     "rate": 699.311137,
     "n_games_ti15": 20
    },
@@ -4623,7 +4623,7 @@
     "account_id": 152962063,
     "name": "m1CKe",
     "team": "Team Liquid",
-    "prob_leads": 0.0427,
+    "prob_leads": 0.0428,
     "rate": 696.255319,
     "n_games_ti15": 19
    },
@@ -4631,39 +4631,39 @@
     "account_id": 170896543,
     "name": "YSR-04E",
     "team": "Team Resilience",
-    "prob_leads": 0.03875,
+    "prob_leads": 0.03885,
     "rate": 705.424406,
     "n_games_ti15": 15
-   },
-   {
-    "account_id": 177203952,
-    "name": "Yuma",
-    "team": "LGD Gaming",
-    "prob_leads": 0.0314,
-    "rate": 688.709432,
-    "n_games_ti15": 16
    },
    {
     "account_id": 100058342,
     "name": "skiter",
     "team": "Team Falcons",
-    "prob_leads": 0.0305,
+    "prob_leads": 0.03145,
     "rate": 681.217276,
     "n_games_ti15": 20
+   },
+   {
+    "account_id": 177203952,
+    "name": "Yuma",
+    "team": "LGD Gaming",
+    "prob_leads": 0.03015,
+    "rate": 688.709432,
+    "n_games_ti15": 16
    },
    {
     "account_id": 206642367,
     "name": "Ghost",
     "team": "GamerLegion",
-    "prob_leads": 0.0278,
+    "prob_leads": 0.02635,
     "rate": 687.813432,
-    "n_games_ti15": 15
+    "n_games_ti15": 14
    },
    {
     "account_id": 355168766,
     "name": "Natsumi",
     "team": "OG",
-    "prob_leads": 0.02585,
+    "prob_leads": 0.0259,
     "rate": 686.706287,
     "n_games_ti15": 15
    },
@@ -4671,7 +4671,7 @@
     "account_id": 106573901,
     "name": "No[o]ne-",
     "team": "TEAM VISION",
-    "prob_leads": 0.00475,
+    "prob_leads": 0.00565,
     "rate": 618.601319,
     "n_games_ti15": 21
    },
@@ -4679,7 +4679,7 @@
     "account_id": 210053851,
     "name": "lorenof",
     "team": "Nigma Galaxy",
-    "prob_leads": 0.00475,
+    "prob_leads": 0.00525,
     "rate": 628.120311,
     "n_games_ti15": 15
    },
@@ -4687,25 +4687,25 @@
     "account_id": 93618577,
     "name": "bzm",
     "team": "Iron Wing",
-    "prob_leads": 0.00455,
+    "prob_leads": 0.0037,
     "rate": 615.358129,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 301750126,
-    "name": "Mikoto",
-    "team": "Aurora Gaming",
-    "prob_leads": 0.00325,
-    "rate": 604.449964,
     "n_games_ti15": 20
    },
    {
     "account_id": 480412663,
     "name": "gpk~",
     "team": "BoomBoys",
-    "prob_leads": 0.00285,
+    "prob_leads": 0.00345,
     "rate": 602.983902,
     "n_games_ti15": 19
+   },
+   {
+    "account_id": 301750126,
+    "name": "Mikoto",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0029,
+    "rate": 604.449964,
+    "n_games_ti15": 20
    },
    {
     "account_id": 111620041,
@@ -4716,18 +4716,18 @@
     "n_games_ti15": 15
    },
    {
-    "account_id": 154974246,
-    "name": "RCY",
-    "team": "GamerLegion",
-    "prob_leads": 0.00235,
-    "rate": 597.045303,
-    "n_games_ti15": 14
+    "account_id": 106305042,
+    "name": "Larl",
+    "team": "Team Spirit",
+    "prob_leads": 0.0023,
+    "rate": 590.307997,
+    "n_games_ti15": 20
    },
    {
     "account_id": 137129583,
     "name": "Xm",
     "team": "Vici Gaming",
-    "prob_leads": 0.00225,
+    "prob_leads": 0.00215,
     "rate": 595.068554,
     "n_games_ti15": 17
    },
@@ -4735,95 +4735,103 @@
     "account_id": 201358612,
     "name": "Nisha",
     "team": "Team Liquid",
-    "prob_leads": 0.00215,
+    "prob_leads": 0.002,
     "rate": 601.663297,
     "n_games_ti15": 19
    },
    {
-    "account_id": 106305042,
-    "name": "Larl",
-    "team": "Team Spirit",
-    "prob_leads": 0.00175,
-    "rate": 590.307997,
+    "account_id": 154974246,
+    "name": "RCY",
+    "team": "GamerLegion",
+    "prob_leads": 0.0019,
+    "rate": 597.045303,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 898455820,
+    "name": "Malr1ne",
+    "team": "Team Falcons",
+    "prob_leads": 0.00185,
+    "rate": 599.014983,
     "n_games_ti15": 20
    },
    {
     "account_id": 1026694469,
     "name": "TaiLung",
     "team": "LGD Gaming",
-    "prob_leads": 0.0017,
+    "prob_leads": 0.00185,
     "rate": 593.353418,
     "n_games_ti15": 16
-   },
-   {
-    "account_id": 898455820,
-    "name": "Malr1ne",
-    "team": "Team Falcons",
-    "prob_leads": 0.00155,
-    "rate": 599.014983,
-    "n_games_ti15": 20
    },
    {
     "account_id": 173978074,
     "name": "NothingToSay",
     "team": "Xtreme Gaming",
-    "prob_leads": 0.00115,
+    "prob_leads": 0.00145,
     "rate": 580.32485,
     "n_games_ti15": 17
-   },
-   {
-    "account_id": 324277900,
-    "name": "Yopaj-",
-    "team": "OG",
-    "prob_leads": 0.0009,
-    "rate": 569.153401,
-    "n_games_ti15": 15
    },
    {
     "account_id": 140251702,
     "name": "Mirage`",
     "team": "HULIGANI",
-    "prob_leads": 0.00085,
+    "prob_leads": 0.00125,
     "rate": 584.204646,
     "n_games_ti15": 14
    },
    {
-    "account_id": 183719386,
-    "name": "ATF",
-    "team": "Team Falcons",
-    "prob_leads": 0.0005,
-    "rate": 596.136205,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 312436974,
-    "name": "CHIRA_JUNIOR",
-    "team": "Team Yandex",
-    "prob_leads": 0.00035,
-    "rate": 562.806025,
-    "n_games_ti15": 19
+    "account_id": 324277900,
+    "name": "Yopaj-",
+    "team": "OG",
+    "prob_leads": 0.00065,
+    "rate": 569.153401,
+    "n_games_ti15": 15
    },
    {
     "account_id": 315272623,
     "name": "Echozz",
     "team": "Team Resilience",
-    "prob_leads": 0.00035,
+    "prob_leads": 0.0005,
     "rate": 557.362357,
-    "n_games_ti15": 16
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 312436974,
+    "name": "CHIRA_JUNIOR",
+    "team": "Team Yandex",
+    "prob_leads": 0.0004,
+    "rate": 562.806025,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 183719386,
+    "name": "ATF",
+    "team": "Team Falcons",
+    "prob_leads": 0.00035,
+    "rate": 596.136205,
+    "n_games_ti15": 20
    },
    {
     "account_id": 292921272,
     "name": "Wisper",
     "team": "LGD Gaming",
-    "prob_leads": 0.00015,
+    "prob_leads": 0.0001,
     "rate": 573.217794,
     "n_games_ti15": 17
+   },
+   {
+    "account_id": 302214028,
+    "name": "Collapse",
+    "team": "Team Spirit",
+    "prob_leads": 5e-05,
+    "rate": 553.406937,
+    "n_games_ti15": 20
    },
    {
     "account_id": 195108598,
     "name": "Noticed",
     "team": "TEAM VISION",
-    "prob_leads": 0.0001,
+    "prob_leads": 5e-05,
     "rate": 567.294164,
     "n_games_ti15": 20
    },
@@ -4831,25 +4839,9 @@
     "account_id": 126842529,
     "name": "Ws",
     "team": "Aurora Gaming",
-    "prob_leads": 5e-05,
+    "prob_leads": 0.0,
     "rate": 556.382415,
     "n_games_ti15": 20
-   },
-   {
-    "account_id": 86698277,
-    "name": "33",
-    "team": "Iron Wing",
-    "prob_leads": 5e-05,
-    "rate": 578.297601,
-    "n_games_ti15": 19
-   },
-   {
-    "account_id": 132309493,
-    "name": "Raven",
-    "team": "OG",
-    "prob_leads": 5e-05,
-    "rate": 555.214824,
-    "n_games_ti15": 15
    },
    {
     "account_id": 165564598,
@@ -4857,6 +4849,14 @@
     "team": "BoomBoys",
     "prob_leads": 0.0,
     "rate": 543.739742,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 86698277,
+    "name": "33",
+    "team": "Iron Wing",
+    "prob_leads": 0.0,
+    "rate": 578.297601,
     "n_games_ti15": 19
    },
    {
@@ -4882,14 +4882,6 @@
     "prob_leads": 0.0,
     "rate": 549.400357,
     "n_games_ti15": 17
-   },
-   {
-    "account_id": 302214028,
-    "name": "Collapse",
-    "team": "Team Spirit",
-    "prob_leads": 0.0,
-    "rate": 553.406937,
-    "n_games_ti15": 20
    },
    {
     "account_id": 138880576,
@@ -4922,6 +4914,14 @@
     "prob_leads": 0.0,
     "rate": 528.012606,
     "n_games_ti15": 17
+   },
+   {
+    "account_id": 132309493,
+    "name": "Raven",
+    "team": "OG",
+    "prob_leads": 0.0,
+    "rate": 555.214824,
+    "n_games_ti15": 15
    },
    {
     "account_id": 160119017,
@@ -5081,7 +5081,7 @@
     "team": "Iron Wing",
     "prob_leads": 0.0,
     "rate": 340.892602,
-    "n_games_ti15": 19
+    "n_games_ti15": 20
    },
    {
     "account_id": 10366616,
@@ -5153,7 +5153,7 @@
     "team": "Team Resilience",
     "prob_leads": 0.0,
     "rate": 325.492824,
-    "n_games_ti15": 16
+    "n_games_ti15": 15
    },
    {
     "account_id": 111114687,
@@ -5185,7 +5185,7 @@
     "team": "LGD Gaming",
     "prob_leads": 0.0,
     "rate": 325.063244,
-    "n_games_ti15": 17
+    "n_games_ti15": 16
    }
   ],
   "last_hits": [
@@ -5193,7 +5193,7 @@
     "account_id": 1044002267,
     "name": "Satanic",
     "team": "TEAM VISION",
-    "prob_leads": 0.0851,
+    "prob_leads": 0.0843,
     "rate": 498.230678,
     "n_games_ti15": 21
    },
@@ -5201,7 +5201,7 @@
     "account_id": 321580662,
     "name": "Yatoro",
     "team": "Team Spirit",
-    "prob_leads": 0.07205,
+    "prob_leads": 0.07265,
     "rate": 486.409926,
     "n_games_ti15": 20
    },
@@ -5209,7 +5209,7 @@
     "account_id": 331855530,
     "name": "Pure",
     "team": "Iron Wing",
-    "prob_leads": 0.0608,
+    "prob_leads": 0.06065,
     "rate": 467.54877,
     "n_games_ti15": 19
    },
@@ -5217,7 +5217,7 @@
     "account_id": 898754153,
     "name": "Ame",
     "team": "Xtreme Gaming",
-    "prob_leads": 0.05715,
+    "prob_leads": 0.0575,
     "rate": 470.572337,
     "n_games_ti15": 17
    },
@@ -5225,7 +5225,7 @@
     "account_id": 124801257,
     "name": "Nightfall",
     "team": "Aurora Gaming",
-    "prob_leads": 0.0561,
+    "prob_leads": 0.0573,
     "rate": 451.734616,
     "n_games_ti15": 20
    },
@@ -5233,7 +5233,7 @@
     "account_id": 172099728,
     "name": "Kiritych~",
     "team": "BoomBoys",
-    "prob_leads": 0.0533,
+    "prob_leads": 0.05435,
     "rate": 456.172156,
     "n_games_ti15": 19
    },
@@ -5241,7 +5241,7 @@
     "account_id": 152962063,
     "name": "m1CKe",
     "team": "Team Liquid",
-    "prob_leads": 0.0531,
+    "prob_leads": 0.0534,
     "rate": 439.653981,
     "n_games_ti15": 19
    },
@@ -5249,7 +5249,7 @@
     "account_id": 320252024,
     "name": "shiro",
     "team": "Vici Gaming",
-    "prob_leads": 0.05275,
+    "prob_leads": 0.0524,
     "rate": 464.575897,
     "n_games_ti15": 17
    },
@@ -5257,7 +5257,7 @@
     "account_id": 100058342,
     "name": "skiter",
     "team": "Team Falcons",
-    "prob_leads": 0.0522,
+    "prob_leads": 0.05125,
     "rate": 434.309497,
     "n_games_ti15": 20
    },
@@ -5265,7 +5265,7 @@
     "account_id": 320017600,
     "name": "ssnovv1",
     "team": "HULIGANI",
-    "prob_leads": 0.0496,
+    "prob_leads": 0.05015,
     "rate": 486.04057,
     "n_games_ti15": 14
    },
@@ -5273,7 +5273,7 @@
     "account_id": 171262902,
     "name": "watson",
     "team": "Team Yandex",
-    "prob_leads": 0.04715,
+    "prob_leads": 0.04775,
     "rate": 420.092484,
     "n_games_ti15": 20
    },
@@ -5281,7 +5281,7 @@
     "account_id": 177203952,
     "name": "Yuma",
     "team": "LGD Gaming",
-    "prob_leads": 0.0402,
+    "prob_leads": 0.0382,
     "rate": 428.027046,
     "n_games_ti15": 16
    },
@@ -5289,7 +5289,7 @@
     "account_id": 355168766,
     "name": "Natsumi",
     "team": "OG",
-    "prob_leads": 0.0358,
+    "prob_leads": 0.03555,
     "rate": 428.262819,
     "n_games_ti15": 15
    },
@@ -5297,7 +5297,7 @@
     "account_id": 170896543,
     "name": "YSR-04E",
     "team": "Team Resilience",
-    "prob_leads": 0.03465,
+    "prob_leads": 0.0354,
     "rate": 417.356162,
     "n_games_ti15": 15
    },
@@ -5305,15 +5305,15 @@
     "account_id": 206642367,
     "name": "Ghost",
     "team": "GamerLegion",
-    "prob_leads": 0.0335,
+    "prob_leads": 0.03185,
     "rate": 417.585011,
-    "n_games_ti15": 15
+    "n_games_ti15": 14
    },
    {
     "account_id": 111620041,
     "name": "SumaiL",
     "team": "Nigma Galaxy",
-    "prob_leads": 0.02215,
+    "prob_leads": 0.02255,
     "rate": 333.092371,
     "n_games_ti15": 15
    },
@@ -5321,32 +5321,40 @@
     "account_id": 480412663,
     "name": "gpk~",
     "team": "BoomBoys",
-    "prob_leads": 0.0135,
+    "prob_leads": 0.0131,
     "rate": 368.866228,
     "n_games_ti15": 19
-   },
-   {
-    "account_id": 898455820,
-    "name": "Malr1ne",
-    "team": "Team Falcons",
-    "prob_leads": 0.0122,
-    "rate": 351.401953,
-    "n_games_ti15": 20
    },
    {
     "account_id": 106573901,
     "name": "No[o]ne-",
     "team": "TEAM VISION",
-    "prob_leads": 0.0117,
+    "prob_leads": 0.01255,
     "rate": 348.585646,
     "n_games_ti15": 21
+   },
+   {
+    "account_id": 898455820,
+    "name": "Malr1ne",
+    "team": "Team Falcons",
+    "prob_leads": 0.01205,
+    "rate": 351.401953,
+    "n_games_ti15": 20
    },
    {
     "account_id": 301750126,
     "name": "Mikoto",
     "team": "Aurora Gaming",
-    "prob_leads": 0.01155,
+    "prob_leads": 0.0116,
     "rate": 343.934602,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 93618577,
+    "name": "bzm",
+    "team": "Iron Wing",
+    "prob_leads": 0.01075,
+    "rate": 343.046439,
     "n_games_ti15": 20
    },
    {
@@ -5358,6 +5366,14 @@
     "n_games_ti15": 20
    },
    {
+    "account_id": 137129583,
+    "name": "Xm",
+    "team": "Vici Gaming",
+    "prob_leads": 0.01075,
+    "rate": 360.021606,
+    "n_games_ti15": 17
+   },
+   {
     "account_id": 201358612,
     "name": "Nisha",
     "team": "Team Liquid",
@@ -5366,42 +5382,34 @@
     "n_games_ti15": 19
    },
    {
-    "account_id": 137129583,
-    "name": "Xm",
-    "team": "Vici Gaming",
-    "prob_leads": 0.0105,
-    "rate": 360.021606,
-    "n_games_ti15": 17
+    "account_id": 210053851,
+    "name": "lorenof",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0098,
+    "rate": 371.007149,
+    "n_games_ti15": 15
    },
    {
     "account_id": 173978074,
     "name": "NothingToSay",
     "team": "Xtreme Gaming",
-    "prob_leads": 0.0104,
+    "prob_leads": 0.0097,
     "rate": 349.640963,
     "n_games_ti15": 17
    },
    {
-    "account_id": 93618577,
-    "name": "bzm",
-    "team": "Iron Wing",
-    "prob_leads": 0.00975,
-    "rate": 343.046439,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 210053851,
-    "name": "lorenof",
-    "team": "Nigma Galaxy",
-    "prob_leads": 0.0094,
-    "rate": 371.007149,
-    "n_games_ti15": 15
+    "account_id": 1026694469,
+    "name": "TaiLung",
+    "team": "LGD Gaming",
+    "prob_leads": 0.00835,
+    "rate": 323.429295,
+    "n_games_ti15": 16
    },
    {
     "account_id": 312436974,
     "name": "CHIRA_JUNIOR",
     "team": "Team Yandex",
-    "prob_leads": 0.0082,
+    "prob_leads": 0.0075,
     "rate": 304.990723,
     "n_games_ti15": 19
    },
@@ -5409,23 +5417,23 @@
     "account_id": 154974246,
     "name": "RCY",
     "team": "GamerLegion",
-    "prob_leads": 0.00705,
+    "prob_leads": 0.0069,
     "rate": 316.351708,
     "n_games_ti15": 14
    },
    {
-    "account_id": 1026694469,
-    "name": "TaiLung",
-    "team": "LGD Gaming",
-    "prob_leads": 0.00695,
-    "rate": 323.429295,
-    "n_games_ti15": 16
+    "account_id": 324277900,
+    "name": "Yopaj-",
+    "team": "OG",
+    "prob_leads": 0.00595,
+    "rate": 297.011532,
+    "n_games_ti15": 15
    },
    {
     "account_id": 140251702,
     "name": "Mirage`",
     "team": "HULIGANI",
-    "prob_leads": 0.0065,
+    "prob_leads": 0.0058,
     "rate": 311.642466,
     "n_games_ti15": 14
    },
@@ -5433,119 +5441,119 @@
     "account_id": 315272623,
     "name": "Echozz",
     "team": "Team Resilience",
-    "prob_leads": 0.0063,
+    "prob_leads": 0.0058,
     "rate": 291.556692,
-    "n_games_ti15": 16
-   },
-   {
-    "account_id": 324277900,
-    "name": "Yopaj-",
-    "team": "OG",
-    "prob_leads": 0.00585,
-    "rate": 297.011532,
     "n_games_ti15": 15
    },
    {
     "account_id": 183719386,
     "name": "ATF",
     "team": "Team Falcons",
-    "prob_leads": 0.0048,
+    "prob_leads": 0.005,
     "rate": 345.897408,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 302214028,
-    "name": "Collapse",
-    "team": "Team Spirit",
-    "prob_leads": 0.00355,
-    "rate": 304.862748,
     "n_games_ti15": 20
    },
    {
     "account_id": 195108598,
     "name": "Noticed",
     "team": "TEAM VISION",
-    "prob_leads": 0.0035,
+    "prob_leads": 0.00415,
     "rate": 318.784774,
     "n_games_ti15": 20
    },
    {
-    "account_id": 292921272,
-    "name": "Wisper",
-    "team": "LGD Gaming",
-    "prob_leads": 0.00345,
-    "rate": 320.232262,
+    "account_id": 302214028,
+    "name": "Collapse",
+    "team": "Team Spirit",
+    "prob_leads": 0.0039,
+    "rate": 304.862748,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 129958758,
+    "name": "Xxs",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.003,
+    "rate": 329.679133,
     "n_games_ti15": 17
    },
    {
-    "account_id": 97590558,
-    "name": "Ace",
-    "team": "Team Liquid",
-    "prob_leads": 0.00305,
-    "rate": 305.498266,
+    "account_id": 165564598,
+    "name": "MieRo",
+    "team": "BoomBoys",
+    "prob_leads": 0.0027,
+    "rate": 302.623349,
     "n_games_ti15": 19
    },
    {
     "account_id": 56351509,
     "name": "DM",
     "team": "Team Yandex",
-    "prob_leads": 0.00285,
+    "prob_leads": 0.0027,
     "rate": 293.369387,
     "n_games_ti15": 20
    },
    {
-    "account_id": 165564598,
-    "name": "MieRo",
-    "team": "BoomBoys",
-    "prob_leads": 0.0028,
-    "rate": 302.623349,
-    "n_games_ti15": 19
-   },
-   {
-    "account_id": 129958758,
-    "name": "Xxs",
-    "team": "Xtreme Gaming",
-    "prob_leads": 0.00275,
-    "rate": 329.679133,
+    "account_id": 292921272,
+    "name": "Wisper",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0027,
+    "rate": 320.232262,
     "n_games_ti15": 17
-   },
-   {
-    "account_id": 86698277,
-    "name": "33",
-    "team": "Iron Wing",
-    "prob_leads": 0.0026,
-    "rate": 305.780486,
-    "n_games_ti15": 19
    },
    {
     "account_id": 118134220,
     "name": "Bach",
     "team": "Vici Gaming",
-    "prob_leads": 0.0026,
+    "prob_leads": 0.00265,
     "rate": 292.134486,
     "n_games_ti15": 17
+   },
+   {
+    "account_id": 97590558,
+    "name": "Ace",
+    "team": "Team Liquid",
+    "prob_leads": 0.0025,
+    "rate": 305.498266,
+    "n_games_ti15": 19
    },
    {
     "account_id": 126842529,
     "name": "Ws",
     "team": "Aurora Gaming",
-    "prob_leads": 0.00225,
+    "prob_leads": 0.0023,
     "rate": 291.411372,
     "n_games_ti15": 20
+   },
+   {
+    "account_id": 86698277,
+    "name": "33",
+    "team": "Iron Wing",
+    "prob_leads": 0.0022,
+    "rate": 305.780486,
+    "n_games_ti15": 19
    },
    {
     "account_id": 92487440,
     "name": "Corrupted",
     "team": "HULIGANI",
-    "prob_leads": 0.00225,
+    "prob_leads": 0.002,
     "rate": 295.448017,
     "n_games_ti15": 14
+   },
+   {
+    "account_id": 145957968,
+    "name": "niu",
+    "team": "Team Resilience",
+    "prob_leads": 0.0019,
+    "rate": 262.471903,
+    "n_games_ti15": 16
    },
    {
     "account_id": 132309493,
     "name": "Raven",
     "team": "OG",
-    "prob_leads": 0.002,
+    "prob_leads": 0.0019,
     "rate": 303.762754,
     "n_games_ti15": 15
    },
@@ -5553,23 +5561,15 @@
     "account_id": 160119017,
     "name": "Fayde",
     "team": "GamerLegion",
-    "prob_leads": 0.0019,
+    "prob_leads": 0.0018,
     "rate": 278.288308,
     "n_games_ti15": 14
-   },
-   {
-    "account_id": 145957968,
-    "name": "niu",
-    "team": "Team Resilience",
-    "prob_leads": 0.00165,
-    "rate": 262.471903,
-    "n_games_ti15": 16
    },
    {
     "account_id": 138880576,
     "name": "Davai",
     "team": "Nigma Galaxy",
-    "prob_leads": 0.00125,
+    "prob_leads": 0.00145,
     "rate": 278.598546,
     "n_games_ti15": 15
    },
@@ -5723,7 +5723,7 @@
     "team": "Iron Wing",
     "prob_leads": 0.0,
     "rate": 72.721227,
-    "n_games_ti15": 19
+    "n_games_ti15": 20
    },
    {
     "account_id": 10366616,
@@ -5795,7 +5795,7 @@
     "team": "Team Resilience",
     "prob_leads": 0.0,
     "rate": 71.94863,
-    "n_games_ti15": 16
+    "n_games_ti15": 15
    },
    {
     "account_id": 111114687,
@@ -5827,7 +5827,7 @@
     "team": "LGD Gaming",
     "prob_leads": 0.0,
     "rate": 75.134075,
-    "n_games_ti15": 17
+    "n_games_ti15": 16
    }
   ],
   "stuns": [
@@ -5835,7 +5835,7 @@
     "account_id": 256156323,
     "name": "Mira",
     "team": "Aurora Gaming",
-    "prob_leads": 0.04135,
+    "prob_leads": 0.0396,
     "rate": 60.424466,
     "n_games_ti15": 20
    },
@@ -5843,79 +5843,87 @@
     "account_id": 346412363,
     "name": "Ari",
     "team": "Iron Wing",
-    "prob_leads": 0.03525,
+    "prob_leads": 0.03655,
     "rate": 57.705587,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 164199202,
+    "name": "9Class",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0351,
+    "rate": 44.263706,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 218231587,
+    "name": "not me",
+    "team": "Team Spirit",
+    "prob_leads": 0.0343,
+    "rate": 46.426151,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 101695162,
+    "name": "fy",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0336,
+    "rate": 55.26444,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 317880638,
+    "name": "Save-",
+    "team": "BoomBoys",
+    "prob_leads": 0.0335,
+    "rate": 50.952968,
     "n_games_ti15": 19
    },
    {
     "account_id": 25907144,
     "name": "Cr1t-",
     "team": "Team Falcons",
-    "prob_leads": 0.0349,
+    "prob_leads": 0.03225,
     "rate": 44.907118,
     "n_games_ti15": 21
-   },
-   {
-    "account_id": 164199202,
-    "name": "9Class",
-    "team": "TEAM VISION",
-    "prob_leads": 0.0344,
-    "rate": 44.263706,
-    "n_games_ti15": 21
-   },
-   {
-    "account_id": 101695162,
-    "name": "fy",
-    "team": "Xtreme Gaming",
-    "prob_leads": 0.03435,
-    "rate": 55.26444,
-    "n_games_ti15": 17
-   },
-   {
-    "account_id": 218231587,
-    "name": "not me",
-    "team": "Team Spirit",
-    "prob_leads": 0.0325,
-    "rate": 46.426151,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 317880638,
-    "name": "Save-",
-    "team": "BoomBoys",
-    "prob_leads": 0.0318,
-    "rate": 50.952968,
-    "n_games_ti15": 19
    },
    {
     "account_id": 77490514,
     "name": "Boxi",
     "team": "Team Liquid",
-    "prob_leads": 0.0309,
+    "prob_leads": 0.03195,
     "rate": 48.274348,
     "n_games_ti15": 19
-   },
-   {
-    "account_id": 157475523,
-    "name": "XinQ",
-    "team": "Vici Gaming",
-    "prob_leads": 0.0307,
-    "rate": 53.315416,
-    "n_games_ti15": 17
    },
    {
     "account_id": 103735745,
     "name": "Saksa",
     "team": "Team Yandex",
-    "prob_leads": 0.03,
+    "prob_leads": 0.03035,
     "rate": 42.407091,
     "n_games_ti15": 20
+   },
+   {
+    "account_id": 157475523,
+    "name": "XinQ",
+    "team": "Vici Gaming",
+    "prob_leads": 0.02945,
+    "rate": 53.315416,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 152168157,
+    "name": "OmaR",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0292,
+    "rate": 55.394564,
+    "n_games_ti15": 15
    },
    {
     "account_id": 105045291,
     "name": "Thiolicor",
     "team": "LGD Gaming",
-    "prob_leads": 0.02825,
+    "prob_leads": 0.02915,
     "rate": 51.295407,
     "n_games_ti15": 17
    },
@@ -5923,23 +5931,15 @@
     "account_id": 150961567,
     "name": "planet",
     "team": "Team Resilience",
-    "prob_leads": 0.0264,
+    "prob_leads": 0.02425,
     "rate": 41.186765,
-    "n_games_ti15": 15
-   },
-   {
-    "account_id": 152168157,
-    "name": "OmaR",
-    "team": "Nigma Galaxy",
-    "prob_leads": 0.0263,
-    "rate": 55.394564,
     "n_games_ti15": 15
    },
    {
     "account_id": 155494381,
     "name": "TIMS",
     "team": "OG",
-    "prob_leads": 0.02305,
+    "prob_leads": 0.023,
     "rate": 45.545152,
     "n_games_ti15": 15
    },
@@ -5947,7 +5947,7 @@
     "account_id": 90423751,
     "name": "Bignum",
     "team": "GamerLegion",
-    "prob_leads": 0.0223,
+    "prob_leads": 0.022,
     "rate": 45.668483,
     "n_games_ti15": 14
    },
@@ -5955,7 +5955,7 @@
     "account_id": 145065875,
     "name": "sayuw",
     "team": "HULIGANI",
-    "prob_leads": 0.02135,
+    "prob_leads": 0.0203,
     "rate": 43.618499,
     "n_games_ti15": 14
    },
@@ -5963,23 +5963,47 @@
     "account_id": 302214028,
     "name": "Collapse",
     "team": "Team Spirit",
-    "prob_leads": 0.01715,
+    "prob_leads": 0.0162,
     "rate": 40.059978,
     "n_games_ti15": 20
+   },
+   {
+    "account_id": 93618577,
+    "name": "bzm",
+    "team": "Iron Wing",
+    "prob_leads": 0.01545,
+    "rate": 44.949722,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 165564598,
+    "name": "MieRo",
+    "team": "BoomBoys",
+    "prob_leads": 0.0151,
+    "rate": 33.362881,
+    "n_games_ti15": 19
    },
    {
     "account_id": 195108598,
     "name": "Noticed",
     "team": "TEAM VISION",
-    "prob_leads": 0.01685,
+    "prob_leads": 0.0151,
     "rate": 38.203614,
     "n_games_ti15": 20
+   },
+   {
+    "account_id": 97590558,
+    "name": "Ace",
+    "team": "Team Liquid",
+    "prob_leads": 0.01485,
+    "rate": 35.379968,
+    "n_games_ti15": 19
    },
    {
     "account_id": 126842529,
     "name": "Ws",
     "team": "Aurora Gaming",
-    "prob_leads": 0.015,
+    "prob_leads": 0.0148,
     "rate": 32.128496,
     "n_games_ti15": 20
    },
@@ -5987,143 +6011,135 @@
     "account_id": 92487440,
     "name": "Corrupted",
     "team": "HULIGANI",
-    "prob_leads": 0.015,
+    "prob_leads": 0.0146,
     "rate": 47.27493,
     "n_games_ti15": 14
-   },
-   {
-    "account_id": 129958758,
-    "name": "Xxs",
-    "team": "Xtreme Gaming",
-    "prob_leads": 0.01445,
-    "rate": 38.296544,
-    "n_games_ti15": 17
-   },
-   {
-    "account_id": 97590558,
-    "name": "Ace",
-    "team": "Team Liquid",
-    "prob_leads": 0.0143,
-    "rate": 35.379968,
-    "n_games_ti15": 19
    },
    {
     "account_id": 56351509,
     "name": "DM",
     "team": "Team Yandex",
-    "prob_leads": 0.0143,
+    "prob_leads": 0.01455,
     "rate": 32.923881,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 165564598,
-    "name": "MieRo",
-    "team": "BoomBoys",
-    "prob_leads": 0.0141,
-    "rate": 33.362881,
-    "n_games_ti15": 19
-   },
-   {
-    "account_id": 93618577,
-    "name": "bzm",
-    "team": "Iron Wing",
-    "prob_leads": 0.01405,
-    "rate": 44.949722,
     "n_games_ti15": 20
    },
    {
     "account_id": 106573901,
     "name": "No[o]ne-",
     "team": "TEAM VISION",
-    "prob_leads": 0.0136,
+    "prob_leads": 0.01415,
     "rate": 36.609555,
     "n_games_ti15": 21
-   },
-   {
-    "account_id": 106305042,
-    "name": "Larl",
-    "team": "Team Spirit",
-    "prob_leads": 0.0135,
-    "rate": 38.38468,
-    "n_games_ti15": 20
    },
    {
     "account_id": 312436974,
     "name": "CHIRA_JUNIOR",
     "team": "Team Yandex",
-    "prob_leads": 0.01335,
+    "prob_leads": 0.01395,
     "rate": 37.623841,
     "n_games_ti15": 19
    },
    {
-    "account_id": 183719386,
-    "name": "ATF",
-    "team": "Team Falcons",
-    "prob_leads": 0.01335,
-    "rate": 27.989405,
-    "n_games_ti15": 20
-   },
-   {
-    "account_id": 292921272,
-    "name": "Wisper",
-    "team": "LGD Gaming",
-    "prob_leads": 0.01275,
-    "rate": 36.496299,
+    "account_id": 129958758,
+    "name": "Xxs",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.0139,
+    "rate": 38.296544,
     "n_games_ti15": 17
    },
    {
     "account_id": 898455820,
     "name": "Malr1ne",
     "team": "Team Falcons",
-    "prob_leads": 0.0126,
+    "prob_leads": 0.01355,
     "rate": 37.063186,
     "n_games_ti15": 20
+   },
+   {
+    "account_id": 183719386,
+    "name": "ATF",
+    "team": "Team Falcons",
+    "prob_leads": 0.0134,
+    "rate": 27.989405,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 106305042,
+    "name": "Larl",
+    "team": "Team Spirit",
+    "prob_leads": 0.0133,
+    "rate": 38.38468,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 118134220,
+    "name": "Bach",
+    "team": "Vici Gaming",
+    "prob_leads": 0.01255,
+    "rate": 33.405502,
+    "n_games_ti15": 17
    },
    {
     "account_id": 173978074,
     "name": "NothingToSay",
     "team": "Xtreme Gaming",
-    "prob_leads": 0.01215,
+    "prob_leads": 0.0124,
     "rate": 37.14236,
     "n_games_ti15": 17
    },
    {
-    "account_id": 86698277,
-    "name": "33",
-    "team": "Iron Wing",
-    "prob_leads": 0.01215,
-    "rate": 27.714762,
-    "n_games_ti15": 19
-   },
-   {
-    "account_id": 160119017,
-    "name": "Fayde",
-    "team": "GamerLegion",
-    "prob_leads": 0.012,
-    "rate": 33.540214,
-    "n_games_ti15": 14
+    "account_id": 145957968,
+    "name": "niu",
+    "team": "Team Resilience",
+    "prob_leads": 0.0122,
+    "rate": 29.716571,
+    "n_games_ti15": 16
    },
    {
     "account_id": 138880576,
     "name": "Davai",
     "team": "Nigma Galaxy",
-    "prob_leads": 0.01195,
+    "prob_leads": 0.0117,
     "rate": 35.036292,
+    "n_games_ti15": 15
+   },
+   {
+    "account_id": 292921272,
+    "name": "Wisper",
+    "team": "LGD Gaming",
+    "prob_leads": 0.0115,
+    "rate": 36.496299,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 132309493,
+    "name": "Raven",
+    "team": "OG",
+    "prob_leads": 0.01135,
+    "rate": 33.50814,
     "n_games_ti15": 15
    },
    {
     "account_id": 480412663,
     "name": "gpk~",
     "team": "BoomBoys",
-    "prob_leads": 0.0118,
+    "prob_leads": 0.0113,
     "rate": 33.212161,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 86698277,
+    "name": "33",
+    "team": "Iron Wing",
+    "prob_leads": 0.01125,
+    "rate": 27.714762,
     "n_games_ti15": 19
    },
    {
     "account_id": 301750126,
     "name": "Mikoto",
     "team": "Aurora Gaming",
-    "prob_leads": 0.0112,
+    "prob_leads": 0.01095,
     "rate": 29.211891,
     "n_games_ti15": 20
    },
@@ -6131,265 +6147,225 @@
     "account_id": 201358612,
     "name": "Nisha",
     "team": "Team Liquid",
-    "prob_leads": 0.01115,
+    "prob_leads": 0.0107,
     "rate": 35.967129,
     "n_games_ti15": 19
    },
    {
-    "account_id": 145957968,
-    "name": "niu",
-    "team": "Team Resilience",
-    "prob_leads": 0.0111,
-    "rate": 29.716571,
-    "n_games_ti15": 16
+    "account_id": 160119017,
+    "name": "Fayde",
+    "team": "GamerLegion",
+    "prob_leads": 0.01015,
+    "rate": 33.540214,
+    "n_games_ti15": 14
    },
    {
-    "account_id": 118134220,
-    "name": "Bach",
-    "team": "Vici Gaming",
-    "prob_leads": 0.01105,
-    "rate": 33.405502,
-    "n_games_ti15": 17
-   },
-   {
-    "account_id": 132309493,
-    "name": "Raven",
+    "account_id": 324277900,
+    "name": "Yopaj-",
     "team": "OG",
-    "prob_leads": 0.01035,
-    "rate": 33.50814,
+    "prob_leads": 0.00985,
+    "rate": 39.2575,
     "n_games_ti15": 15
    },
    {
     "account_id": 1026694469,
     "name": "TaiLung",
     "team": "LGD Gaming",
-    "prob_leads": 0.00995,
+    "prob_leads": 0.0097,
     "rate": 34.218989,
     "n_games_ti15": 16
-   },
-   {
-    "account_id": 324277900,
-    "name": "Yopaj-",
-    "team": "OG",
-    "prob_leads": 0.00935,
-    "rate": 39.2575,
-    "n_games_ti15": 15
-   },
-   {
-    "account_id": 137129583,
-    "name": "Xm",
-    "team": "Vici Gaming",
-    "prob_leads": 0.0093,
-    "rate": 26.015386,
-    "n_games_ti15": 17
    },
    {
     "account_id": 154974246,
     "name": "RCY",
     "team": "GamerLegion",
-    "prob_leads": 0.00915,
+    "prob_leads": 0.00935,
     "rate": 29.698298,
     "n_games_ti15": 14
-   },
-   {
-    "account_id": 315272623,
-    "name": "Echozz",
-    "team": "Team Resilience",
-    "prob_leads": 0.009,
-    "rate": 32.314504,
-    "n_games_ti15": 16
    },
    {
     "account_id": 847565596,
     "name": "rue",
     "team": "Team Spirit",
-    "prob_leads": 0.00885,
+    "prob_leads": 0.00905,
     "rate": 48.515113,
     "n_games_ti15": 19
    },
    {
-    "account_id": 73401082,
-    "name": "Dukalis",
-    "team": "TEAM VISION",
-    "prob_leads": 0.0084,
-    "rate": 22.05188,
-    "n_games_ti15": 21
-   },
-   {
-    "account_id": 140251702,
-    "name": "Mirage`",
-    "team": "HULIGANI",
-    "prob_leads": 0.0081,
-    "rate": 34.290883,
-    "n_games_ti15": 14
-   },
-   {
-    "account_id": 16497807,
-    "name": "tOfu",
-    "team": "Team Liquid",
-    "prob_leads": 0.0081,
-    "rate": 39.504721,
-    "n_games_ti15": 19
+    "account_id": 315272623,
+    "name": "Echozz",
+    "team": "Team Resilience",
+    "prob_leads": 0.00895,
+    "rate": 32.314504,
+    "n_games_ti15": 15
    },
    {
     "account_id": 210053851,
     "name": "lorenof",
     "team": "Nigma Galaxy",
-    "prob_leads": 0.00795,
+    "prob_leads": 0.00875,
     "rate": 28.626499,
     "n_games_ti15": 15
+   },
+   {
+    "account_id": 140251702,
+    "name": "Mirage`",
+    "team": "HULIGANI",
+    "prob_leads": 0.00875,
+    "rate": 34.290883,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 137129583,
+    "name": "Xm",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0087,
+    "rate": 26.015386,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 16497807,
+    "name": "tOfu",
+    "team": "Team Liquid",
+    "prob_leads": 0.0087,
+    "rate": 39.504721,
+    "n_games_ti15": 19
    },
    {
     "account_id": 196878136,
     "name": "Kataomi",
     "team": "BoomBoys",
-    "prob_leads": 0.0075,
+    "prob_leads": 0.00755,
     "rate": 36.914254,
-    "n_games_ti15": 19
-   },
-   {
-    "account_id": 320219866,
-    "name": "kaori",
-    "team": "Aurora Gaming",
-    "prob_leads": 0.007,
-    "rate": 25.637497,
     "n_games_ti15": 19
    },
    {
     "account_id": 136829091,
     "name": "Whitemon",
     "team": "Iron Wing",
-    "prob_leads": 0.00685,
+    "prob_leads": 0.0074,
     "rate": 29.014089,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 73401082,
+    "name": "Dukalis",
+    "team": "TEAM VISION",
+    "prob_leads": 0.0071,
+    "rate": 22.05188,
+    "n_games_ti15": 21
+   },
+   {
+    "account_id": 320219866,
+    "name": "kaori",
+    "team": "Aurora Gaming",
+    "prob_leads": 0.0067,
+    "rate": 25.637497,
+    "n_games_ti15": 19
+   },
+   {
+    "account_id": 93817671,
+    "name": "Malady",
+    "team": "Team Yandex",
+    "prob_leads": 0.00645,
+    "rate": 25.020535,
     "n_games_ti15": 19
    },
    {
     "account_id": 10366616,
     "name": "Sneyking",
     "team": "Team Falcons",
-    "prob_leads": 0.00655,
+    "prob_leads": 0.0063,
     "rate": 25.371071,
     "n_games_ti15": 20
-   },
-   {
-    "account_id": 93817671,
-    "name": "Malady",
-    "team": "Team Yandex",
-    "prob_leads": 0.00585,
-    "rate": 25.020535,
-    "n_games_ti15": 19
    },
    {
     "account_id": 81306398,
     "name": "KJ",
     "team": "LGD Gaming",
-    "prob_leads": 0.00535,
+    "prob_leads": 0.00555,
     "rate": 29.093777,
-    "n_games_ti15": 17
-   },
-   {
-    "account_id": 249835593,
-    "name": "zzq",
-    "team": "Team Resilience",
-    "prob_leads": 0.005,
-    "rate": 25.459357,
     "n_games_ti15": 16
    },
    {
-    "account_id": 111114687,
-    "name": "y`",
-    "team": "Vici Gaming",
-    "prob_leads": 0.005,
-    "rate": 24.610616,
+    "account_id": 94296097,
+    "name": "xNova",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.00535,
+    "rate": 22.419606,
     "n_games_ti15": 17
    },
    {
     "account_id": 100594231,
     "name": "skem",
     "team": "OG",
-    "prob_leads": 0.005,
+    "prob_leads": 0.00525,
     "rate": 25.77321,
     "n_games_ti15": 16
+   },
+   {
+    "account_id": 111114687,
+    "name": "y`",
+    "team": "Vici Gaming",
+    "prob_leads": 0.0052,
+    "rate": 24.610616,
+    "n_games_ti15": 17
    },
    {
     "account_id": 191362875,
     "name": "Speeed",
     "team": "GamerLegion",
-    "prob_leads": 0.005,
+    "prob_leads": 0.00475,
     "rate": 21.608388,
     "n_games_ti15": 14
    },
    {
-    "account_id": 101356886,
-    "name": "GH",
-    "team": "Nigma Galaxy",
-    "prob_leads": 0.0048,
-    "rate": 31.553451,
+    "account_id": 249835593,
+    "name": "zzq",
+    "team": "Team Resilience",
+    "prob_leads": 0.0046,
+    "rate": 25.459357,
     "n_games_ti15": 15
    },
    {
     "account_id": 123787715,
     "name": "RESPECT",
     "team": "HULIGANI",
-    "prob_leads": 0.0047,
+    "prob_leads": 0.0044,
     "rate": 25.577278,
     "n_games_ti15": 14
    },
    {
-    "account_id": 94296097,
-    "name": "xNova",
-    "team": "Xtreme Gaming",
-    "prob_leads": 0.00435,
-    "rate": 22.419606,
-    "n_games_ti15": 17
+    "account_id": 101356886,
+    "name": "GH",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.004,
+    "rate": 31.553451,
+    "n_games_ti15": 15
    },
    {
-    "account_id": 100058342,
-    "name": "skiter",
-    "team": "Team Falcons",
+    "account_id": 152962063,
+    "name": "m1CKe",
+    "team": "Team Liquid",
     "prob_leads": 0.00195,
-    "rate": 26.695751,
-    "n_games_ti15": 20
+    "rate": 21.765605,
+    "n_games_ti15": 19
    },
    {
-    "account_id": 331855530,
-    "name": "Pure",
-    "team": "Iron Wing",
+    "account_id": 172099728,
+    "name": "Kiritych~",
+    "team": "BoomBoys",
     "prob_leads": 0.0019,
-    "rate": 19.90467,
+    "rate": 19.754896,
     "n_games_ti15": 19
    },
    {
     "account_id": 124801257,
     "name": "Nightfall",
     "team": "Aurora Gaming",
-    "prob_leads": 0.00185,
+    "prob_leads": 0.0018,
     "rate": 21.672402,
     "n_games_ti15": 20
-   },
-   {
-    "account_id": 1044002267,
-    "name": "Satanic",
-    "team": "TEAM VISION",
-    "prob_leads": 0.00185,
-    "rate": 16.617262,
-    "n_games_ti15": 21
-   },
-   {
-    "account_id": 206642367,
-    "name": "Ghost",
-    "team": "GamerLegion",
-    "prob_leads": 0.00185,
-    "rate": 21.19023,
-    "n_games_ti15": 15
-   },
-   {
-    "account_id": 172099728,
-    "name": "Kiritych~",
-    "team": "BoomBoys",
-    "prob_leads": 0.0018,
-    "rate": 19.754896,
-    "n_games_ti15": 19
    },
    {
     "account_id": 321580662,
@@ -6400,36 +6376,36 @@
     "n_games_ti15": 20
    },
    {
-    "account_id": 152962063,
-    "name": "m1CKe",
-    "team": "Team Liquid",
+    "account_id": 100058342,
+    "name": "skiter",
+    "team": "Team Falcons",
     "prob_leads": 0.00175,
-    "rate": 21.765605,
+    "rate": 26.695751,
+    "n_games_ti15": 20
+   },
+   {
+    "account_id": 331855530,
+    "name": "Pure",
+    "team": "Iron Wing",
+    "prob_leads": 0.0017,
+    "rate": 19.90467,
     "n_games_ti15": 19
    },
    {
-    "account_id": 355168766,
-    "name": "Natsumi",
-    "team": "OG",
-    "prob_leads": 0.00155,
-    "rate": 20.30625,
+    "account_id": 111620041,
+    "name": "SumaiL",
+    "team": "Nigma Galaxy",
+    "prob_leads": 0.0016,
+    "rate": 34.427815,
     "n_games_ti15": 15
    },
    {
-    "account_id": 320017600,
-    "name": "ssnovv1",
-    "team": "HULIGANI",
+    "account_id": 1044002267,
+    "name": "Satanic",
+    "team": "TEAM VISION",
     "prob_leads": 0.0015,
-    "rate": 15.977821,
-    "n_games_ti15": 14
-   },
-   {
-    "account_id": 320252024,
-    "name": "shiro",
-    "team": "Vici Gaming",
-    "prob_leads": 0.0015,
-    "rate": 19.340448,
-    "n_games_ti15": 17
+    "rate": 16.617262,
+    "n_games_ti15": 21
    },
    {
     "account_id": 177203952,
@@ -6440,34 +6416,58 @@
     "n_games_ti15": 16
    },
    {
-    "account_id": 111620041,
-    "name": "SumaiL",
-    "team": "Nigma Galaxy",
-    "prob_leads": 0.00145,
-    "rate": 34.427815,
+    "account_id": 898754153,
+    "name": "Ame",
+    "team": "Xtreme Gaming",
+    "prob_leads": 0.00135,
+    "rate": 16.697834,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 320017600,
+    "name": "ssnovv1",
+    "team": "HULIGANI",
+    "prob_leads": 0.00135,
+    "rate": 15.977821,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 206642367,
+    "name": "Ghost",
+    "team": "GamerLegion",
+    "prob_leads": 0.0013,
+    "rate": 21.19023,
+    "n_games_ti15": 14
+   },
+   {
+    "account_id": 320252024,
+    "name": "shiro",
+    "team": "Vici Gaming",
+    "prob_leads": 0.00125,
+    "rate": 19.340448,
+    "n_games_ti15": 17
+   },
+   {
+    "account_id": 355168766,
+    "name": "Natsumi",
+    "team": "OG",
+    "prob_leads": 0.00115,
+    "rate": 20.30625,
     "n_games_ti15": 15
    },
    {
     "account_id": 171262902,
     "name": "watson",
     "team": "Team Yandex",
-    "prob_leads": 0.00135,
+    "prob_leads": 0.0011,
     "rate": 17.460289,
     "n_games_ti15": 20
-   },
-   {
-    "account_id": 898754153,
-    "name": "Ame",
-    "team": "Xtreme Gaming",
-    "prob_leads": 0.0013,
-    "rate": 16.697834,
-    "n_games_ti15": 17
    },
    {
     "account_id": 170896543,
     "name": "YSR-04E",
     "team": "Team Resilience",
-    "prob_leads": 0.00095,
+    "prob_leads": 0.0011,
     "rate": 14.709002,
     "n_games_ti15": 15
    }

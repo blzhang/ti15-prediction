@@ -32,11 +32,47 @@ class DrawError(ValueError):
     """分组配置有问题。信息里必须写清楚哪一项错了、应该怎么改。"""
 
 
+# 分组这件事的出处。首轮对阵可以有两个独立来源、当事实用，分组却可能是
+# 我们自己从转播分流之类的旁证推出来的——两者的可信度差着一整级，混在一个
+# announced=true 里发出去，读者只会读成「官方公布了」。
+# 所以出处是结构化字段，一路带进 l2_predictions.json 和站点，不靠注释。
+GROUPING_OFFICIAL = "official"   # 赛事方公布
+GROUPING_INFERRED = "inferred"   # 我们从旁证推的，可能是错的
+GROUPING_UNKNOWN = "unknown"     # 不知道，也不猜——交给模拟器平均掉
+GROUPING_VALUES = (GROUPING_OFFICIAL, GROUPING_INFERRED, GROUPING_UNKNOWN)
+
+
 def _need_list(cfg, key):
     v = cfg.get(key, [])
     if not isinstance(v, list):
         raise DrawError("draw.json 的 %s 必须是数组，现在是 %s" % (key, type(v).__name__))
     return v
+
+
+def _parse_round1(r1, idx, group_vec):
+    """校验并解析 round1 -> [(i, j), ...]。
+
+    group_vec 为 None 表示分组未知，跳过「必须同组」那一条——分组本身待定，
+    没有可比对的组别。其余校验（8 组、格式、队名、不重不漏）一视同仁。
+    """
+    if len(r1) != 8:
+        raise DrawError("round1 要么留空，要么正好 8 组对阵，现在有 %d 组" % len(r1))
+    flat = []
+    for k, pair in enumerate(r1):
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise DrawError("round1 第 %d 组必须是 [队A, 队B] 两个队名" % (k + 1))
+        for t in pair:
+            if t not in idx:
+                raise DrawError("round1 第 %d 组里的队名不认识：%s" % (k + 1, t))
+        if group_vec is not None and group_vec[idx[pair[0]]] != group_vec[idx[pair[1]]]:
+            raise DrawError(
+                "round1 第 %d 组是跨组对阵（%s vs %s）——首轮只在组内打，"
+                "请核对分组或对阵是否填反了" % (k + 1, pair[0], pair[1]))
+        flat += pair
+    if len(set(flat)) != 16:
+        dup = sorted({t for t in flat if flat.count(t) > 1})
+        raise DrawError("round1 里这些队出现了不止一次：%s" % "、".join(dup))
+    return [(idx[x], idx[y]) for x, y in r1]
 
 
 def load(teams, path=None):
@@ -47,6 +83,7 @@ def load(teams, path=None):
     返回 None 表示"未公布，按原样随机化"；否则返回
         {"group_vec": [0/1]*16,          # 按 teams 顺序的分组标记
          "r1_pairs": [(i, j), ...] 或 None,  # 首轮对阵，队伍索引
+         "grouping": "official"|"inferred",  # 分组是官方公布的还是我们推的
          "source": "..."}                # 出处，写进产物供追溯
     """
     p = path or PATH
@@ -57,8 +94,45 @@ def load(teams, path=None):
     if not cfg.get("announced"):
         return None
 
+    # 出处先校验：写错一个字（"infered"）如果被静默当成 official，
+    # 正好把「推测」悄悄升级成「事实」，是这个字段最该防住的那种失败。
+    grouping = cfg.get("grouping", GROUPING_OFFICIAL)
+    if grouping not in GROUPING_VALUES:
+        raise DrawError(
+            "grouping 只能是 %s 之一，现在是 %r。"
+            "官方公布的填 %r；自己从旁证推出来的填 %r——推的东西不能标成公布的。"
+            % ("、".join(map(repr, GROUPING_VALUES)), grouping,
+               GROUPING_OFFICIAL, GROUPING_INFERRED))
+
     idx = {t: i for i, t in enumerate(teams)}
     a, b = _need_list(cfg, "group_a"), _need_list(cfg, "group_b")
+    r1_raw = _need_list(cfg, "round1")
+
+    # 0. 「只锁首轮、分组未知」模式：两组都留空、round1 填齐。
+    #    2026-08-10 的真实处境正是这样——首轮对阵有两个独立来源可以当事实，
+    #    A/B 分组官方从没公布过。此前一版从转播分流「推」了一个分组填进来，
+    #    那等于在 35 种同样自洽的切法里挑了一种当事实，凭空多一个自由度。
+    #    留空才是诚实的写法：模拟器每次抽一种与首轮自洽的切法，把 35 种平均掉。
+    if not a and not b:
+        if not r1_raw:
+            raise DrawError(
+                "group_a / group_b / round1 三个都是空的，announced 却是 true——"
+                "这份配置什么信息都没有。要么填分组，要么至少填 round1，"
+                "要么把 announced 改回 false。")
+        if grouping != GROUPING_UNKNOWN:
+            raise DrawError(
+                "分组留空时 grouping 必须是 %r，现在是 %r。"
+                "两组都没填却声称分组是 %s，是自相矛盾的配置。"
+                % (GROUPING_UNKNOWN, grouping, grouping))
+        r1_pairs = _parse_round1(r1_raw, idx, group_vec=None)
+        return {"group_vec": None, "r1_pairs": r1_pairs,
+                "grouping": GROUPING_UNKNOWN, "source": cfg.get("source", "")}
+
+    if grouping == GROUPING_UNKNOWN:
+        raise DrawError(
+            "grouping 是 %r 却填了分组名单——想声明「分组未知」就把 group_a / "
+            "group_b 都留空；想用这份分组就把 grouping 改成 %r 或 %r。"
+            % (GROUPING_UNKNOWN, GROUPING_OFFICIAL, GROUPING_INFERRED))
 
     # 1. 每组恰好 8 队 —— 瑞士轮的 1/2/5/5/2/1 分档恒等式依赖两组等分，
     #    一旦不等分，整个分档结构就不成立了，不能放过。
@@ -86,41 +160,32 @@ def load(teams, path=None):
     for t in b:
         group_vec[idx[t]] = 1
 
-    r1 = _need_list(cfg, "round1")
-    r1_pairs = None
-    if r1:
-        # 4. 首轮：8 场，覆盖全部 16 队，且每场必须同组
-        #    （跨组会让两组胜者数不确定，破坏后续分档结构——见 swiss.pair_round）
-        if len(r1) != 8:
-            raise DrawError("round1 要么留空，要么正好 8 组对阵，现在有 %d 组" % len(r1))
-        flat = []
-        for k, pair in enumerate(r1):
-            if not isinstance(pair, list) or len(pair) != 2:
-                raise DrawError("round1 第 %d 组必须是 [队A, 队B] 两个队名" % (k + 1))
-            for t in pair:
-                if t not in idx:
-                    raise DrawError("round1 第 %d 组里的队名不认识：%s" % (k + 1, t))
-            if group_vec[idx[pair[0]]] != group_vec[idx[pair[1]]]:
-                raise DrawError(
-                    "round1 第 %d 组是跨组对阵（%s vs %s）——首轮只在组内打，"
-                    "请核对分组或对阵是否填反了" % (k + 1, pair[0], pair[1]))
-            flat += pair
-        if len(set(flat)) != 16:
-            dup = sorted({t for t in flat if flat.count(t) > 1})
-            raise DrawError("round1 里这些队出现了不止一次：%s" % "、".join(dup))
-        r1_pairs = [(idx[x], idx[y]) for x, y in r1]
+    # 4. 首轮：8 场，覆盖全部 16 队，且每场必须同组
+    #    （跨组会让两组胜者数不确定，破坏后续分档结构——见 swiss.pair_round）
+    r1_pairs = _parse_round1(r1_raw, idx, group_vec) if r1_raw else None
 
     return {"group_vec": group_vec, "r1_pairs": r1_pairs,
-            "source": cfg.get("source", "")}
+            "grouping": grouping, "source": cfg.get("source", "")}
 
 
 def describe(drawn, teams):
-    """给人看的一行摘要，跑重算脚本时打印出来供肉眼复核。"""
+    """给人看的一行摘要，跑重算脚本时打印出来供肉眼复核。
+
+    第一行会被打进重算日志、也会被人直接抄进对外文案，所以分组是推的时候
+    这里绝不能出现「分组已公布」——那是我们没有的东西。
+    """
     if not drawn:
         return "分组未公布 —— 模拟器按原样随机化分组与首轮对阵"
+    src = " · 来源：%s" % drawn["source"] if drawn["source"] else ""
+    if drawn["group_vec"] is None:
+        return ("首轮对阵已锁定，分组未知 —— 模拟器对 35 种与首轮自洽的分法平均" + src
+                + "\n  首轮：" + "；".join("%s vs %s" % (teams[i], teams[j])
+                                            for i, j in drawn["r1_pairs"]))
     ga = [t for t, g in zip(teams, drawn["group_vec"]) if g == 0]
     gb = [t for t, g in zip(teams, drawn["group_vec"]) if g == 1]
-    out = ["分组已公布%s" % (" · 来源：%s" % drawn["source"] if drawn["source"] else ""),
+    head = ("分组已公布" if drawn["grouping"] == GROUPING_OFFICIAL
+            else "⚠️ 分组为推测（官方未公布），首轮对阵已证实")
+    out = [head + src,
            "  A 组：" + "、".join(ga),
            "  B 组：" + "、".join(gb)]
     if drawn["r1_pairs"]:

@@ -38,6 +38,23 @@ rng = np.random.default_rng(20260802)
 DRAW = draw_mod.load(TEAMS)
 
 
+def group_vec_from_pairs(pairs, rng):
+    """在「与已知首轮对阵自洽」的全部分组里均匀抽一种。
+
+    首轮只在组内打，所以每个已公布的对子必须整对落在同一组。8 个对子分 4+4
+    进两组，共 C(8,4)/2 = 35 种切法——洗牌后取前 4 个对子归 0 组即为均匀抽样。
+
+    这是 2026-08-10 的正确做法：首轮对阵有两个独立来源、可以当事实，A/B 分组
+    官方从没公布过。把 35 种切法平均掉，等于「用上全部已证实的信息，且只用
+    已证实的信息」；从转播分流之类的旁证挑一种当事实，是凭空多一个自由度。
+    """
+    gv = [0] * 16
+    for k, pi in enumerate(rng.permutation(len(pairs))):
+        i, j = pairs[pi]
+        gv[i] = gv[j] = (0 if k < len(pairs) // 2 else 1)
+    return gv
+
+
 def run_one(theta, rng, drawn=None):
     p1 = 1.0 / (1.0 + np.exp(-(theta[:, None] - theta[None, :])))   # 单局胜率矩阵
     p3 = p1 ** 2 * (3 - 2 * p1)                                     # BO3
@@ -49,6 +66,9 @@ def run_one(theta, rng, drawn=None):
     # drawn 为 None 时这里的 rng 调用与加分组开关之前完全一致。
     if drawn and drawn.get("group_vec"):
         s.group = list(drawn["group_vec"])
+    elif drawn and drawn.get("r1_pairs"):
+        # 首轮已知、分组未知：只在与首轮自洽的 35 种切法里抽
+        s.group = group_vec_from_pairs(drawn["r1_pairs"], rng)
     else:
         s.group = list(rng.permutation([0] * 8 + [1] * 8))   # 分组未公布，随机化
     fixed_r1 = drawn.get("r1_pairs") if drawn else None
@@ -248,6 +268,24 @@ if __name__ == "__main__":
                "series_dist": {TEAMS[t]: {"group": round(float(series_group[t] / N_SIM), 6),
                                            "playoff": round(float(series_playoff[t] / N_SIM), 6)}
                                for t in range(n)},
+               # 这一版预测建立在什么抽签信息之上，必须跟着产物走。
+               # 站点、更新日志、赛后打分都要靠它区分「什么都不知道」「首轮已证实
+               # 但分组未知」「分组已公布」几种版本——写在文案里会漏，写在这里不会。
+               # grouping=unknown 时 group_vec 是 None：分组名单不存在，落盘为空数组，
+               # 并写明模拟对多少种切法做了平均（n_group_splits）。
+               "draw": ({"announced": False} if not DRAW else {
+                   "announced": True,
+                   "grouping": DRAW["grouping"],
+                   "round1_fixed": DRAW["r1_pairs"] is not None,
+                   "source": DRAW["source"],
+                   "group_a": ([] if DRAW["group_vec"] is None else
+                               [TEAMS[i] for i, g in enumerate(DRAW["group_vec"]) if g == 0]),
+                   "group_b": ([] if DRAW["group_vec"] is None else
+                               [TEAMS[i] for i, g in enumerate(DRAW["group_vec"]) if g == 1]),
+                   "n_group_splits": (35 if DRAW["group_vec"] is None and DRAW["r1_pairs"]
+                                      else None),
+                   "round1": [[TEAMS[i], TEAMS[j]] for i, j in (DRAW["r1_pairs"] or [])],
+               }),
                "n_sim": N_SIM},
               open(f"{HERE}/l2_predictions.json", "w"), indent=1, ensure_ascii=False)
     print(f"\n→ 写入 {HERE}/l2_predictions.json")
