@@ -154,6 +154,56 @@ def dist_table(d, label):
 
 # ---------------------------------------------------------------- 页面
 
+def draw_banner(p, base=None):
+    """抽签状态横幅：这一版用上了哪些抽签信息、哪些没有。
+
+    读者只看一眼就走的话，那一眼必须知道「首轮是确定的、分组不是」。
+    """
+    d = p.get("draw") or {}
+    if not d.get("announced"):
+        return ""
+    link = ' <a href="%s/predictions.html#draw">看首轮对阵 →</a>' % base if base else ""
+    if d.get("grouping") == "official":
+        return '<div class="note"><b>分组已公布</b>，本版预测已按真实抽签重算。' + link + '</div>'
+    if d.get("grouping") == "inferred":
+        return ('<div class="note crit"><b>注意：这一版的分组是推测的。</b>' + link + '</div>')
+    return (
+        '<div class="note"><b>首轮对阵已确定并锁进模型</b>（两个独立来源逐场一致）。'
+        '<b>A/B 分组官方还没公布——我们没有去猜</b>：与已知首轮自洽的分法共 35 种，'
+        '模拟时全部平均掉了。所以下面的数字用上了目前全部已证实的抽签信息，'
+        '也只用了已证实的。' + link + '</div>')
+
+
+def _draw_section(p):
+    """预测详情页的抽签小节：首轮对阵 + 分组为什么留空不猜。"""
+    d = p.get("draw") or {}
+    if not d.get("announced") or not d.get("round1"):
+        return ""
+    pairs = "".join("<li>%s <span class=vs>vs</span> %s</li>" % (esc(a), esc(b))
+                    for a, b in d["round1"])
+    if d.get("grouping") == "official":
+        note = ('<div class="note"><b>分组已由官方公布</b>，本版按真实分组重算。</div>')
+    else:
+        note = """<div class="note"><b>分组我们没有猜——这是有意的。</b>
+瑞士轮前三轮只在组内配对，所以分组会影响前三轮的对手。但官方至今没公布分组，
+而<b>与已知首轮自洽的分法有 35 种</b>（8 个对子分 4+4，每对必须整对同组）。
+我们一度打算从<b>转播分流</b>推一种填进去（A+B 流 8 队一组、C+D 流 8 队一组，正好 8/8 且与首轮自洽），
+最后放弃了：按开赛时段切出来的另一种同样自洽，队伍集合却完全不同——挑哪一种都是凭空多一个自由度。
+<b>现在的做法是把 35 种全部平均掉</b>，即用上目前全部已证实的信息，且只用已证实的。
+实测：推测分组版与平均版逐档逐队比对，差异最大只有 0.87pp（附加轮档位、Nigma），
+抄作业 16 格的档位归属一格不差——赌那个猜测本来也赢不到什么。</div>"""
+    return """
+<h2 id="draw">抽签：首轮已确定，分组仍未公布</h2>
+<div class="note good"><b>首轮 8 场对阵——已确定。</b>
+DLTV 与 Hotspawn 两个独立来源逐场一致，16 队每队恰好出现一次，已锁进模拟。
+（Liquipedia 的对阵表此时仍是空的。）</div>
+<ul class="pairs">%s</ul>
+%s
+<p class="hint">附带一提：公布的这 8 场<b>几乎全是强弱悬殊局</b>。这正是本版瑞士轮数字相对上一版
+发生位移的原因——强队首轮大概率白拿一胜、弱队大概率先背一败，效应顺着瑞士轮往后传导。</p>
+""" % (pairs, note)
+
+
 def page_index(base, p):
     t = p["teams"]
     top = t[0]
@@ -166,7 +216,7 @@ def page_index(base, p):
 <p class="lede">用 2020–2026 的 145,974 场职业比赛，对 The International 2026（8/13–8/23，上海，16 队）
 做了一次战队与选手层面的量化预测。所有预测在开赛前就锁定并加了防篡改校验，赛后会逐场对答案。</p>
 <p class="meta">开赛前生成，已加防篡改校验 · 模拟了 20 万届 TI</p>
-
+%s
 <div class="tiles">
   <div class="tile"><div class="k">夺冠概率最高</div><div class="v">%s</div><div class="s">%.1f%%（已融合市场共识价）</div></div>
   <div class="tile"><div class="k">官方预测面板</div><div class="v">16 格</div><div class="s">已出建议填法</div></div>
@@ -221,7 +271,8 @@ def page_index(base, p):
   </div>
   <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
 </div>
-""" % (esc(top["team"]), top["champ_blended"] * 100,
+""" % (draw_banner(p, base),
+       esc(top["team"]), top["champ_blended"] * 100,
        oos.get("acc", 0) * 100,
        esc(top["team"]), top["champ_blended"] * 100,
        eighth["champ_blended"] * 100, top["champ_blended"] * 100,
@@ -291,6 +342,7 @@ def page_pred(base, p):
 <h1>预测详情</h1>
 <p class="lede">全部数字由构建脚本从冻结产出物读出。夺冠一列已与市场共识价融合（Polymarket ✕ 庄家赔率，市场占七成权重），其余各列是纯模型。</p>
 <p class="meta">蒙特卡洛 %s 次 · 夺冠概率标准误 ≤ 0.09pp</p>
+""" % (esc("{:,}".format(p["n_sim"]))) + draw_banner(p) + _draw_section(p) + """
 
 <div class="note"><b>读表前必看：</b>只有「夺冠」一列做了市场融合。
 「进淘汰赛 / 瑞士轮前3 / 5-0」全部是纯模型，<b>各列并非同一个联合分布</b>。
@@ -318,8 +370,7 @@ def page_pred(base, p):
 <div class="note good"><b>为什么这不是「挑好的算」：</b>概率生成只读赛前数据（固定种子重跑逐格一致）；
 评分时是无条件「有结果就收录」，没有任何挑拣分支；哪些配对会发生由赛果决定，与我们预测得准不准无关。
 这与 FiveThirtyEight 处理赛程的方式一致。</div>
-""" % ("{:,}".format(p.get("n_sim") or 0),
-       falcons["champ_blended"] * 100, falcons["advance"] * 100, falcons["champ_model"] * 100,
+""" % (falcons["champ_blended"] * 100, falcons["advance"] * 100, falcons["champ_model"] * 100,
        dual_bars(t), rows, base, base)
     return shell(base, "predictions.html", "预测详情", body)
 
@@ -574,7 +625,8 @@ def write_all(dist, base, payload):
         "homework.html": shell(
             base, "homework.html", "抄作业",
             homework.render(base, hw, payload["raw_pred"], fan, fan_rec,
-                            payload["raw_draw_sens"]),
+                            payload["raw_draw_sens"],
+                            banner=draw_banner(payload, base)),
             extra_js='<script src="%s/assets/picker.js"></script>'
                      '<script>initPicker(%s);</script>'
                      % (base, __import__("json").dumps(

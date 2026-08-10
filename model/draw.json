@@ -1,24 +1,70 @@
 {
   "_说明": [
-    "赛事方公布的瑞士轮分组与首轮对阵。announced=false 时模拟器完全按原样随机化，",
-    "本文件里其余字段一律不读——所以现在留着它不会影响任何已发布的数字。",
+    "赛事方公布的瑞士轮分组与首轮对阵。announced=false 时模拟器完全按原样随机化。",
     "",
-    "分组一公布，做三件事：",
-    "  1. announced 改成 true",
-    "  2. group_a / group_b 各填 8 支队（队名必须与 model/l1_rating.json 里完全一致）",
-    "  3. 官方若同时公布首轮对阵，填进 round1（8 组，每组必须同属一个组）；",
-    "     只公布分组、没公布对阵，就把 round1 留空数组，首轮仍在组内随机",
-    "然后跑 `bash site/rebuild-with-draw.sh`。",
+    "⚠️ 2026-08-10 状态：两块信息的可信度完全不同，本文件严格区分。",
     "",
-    "填错会直接报错退出，不会静默出一份错的预测——校验见 model/draw.py。",
+    "  round1（首轮 8 场对阵）—— 已证实，照填。",
+    "    两个独立来源逐场一致：DLTV 赛事页（带 UTC 时间戳）与 Hotspawn 首日赛程",
+    "    （带分流 A/B/C/D）。16 队每队恰好出现一次。Liquipedia 此时仍全空。",
+    "",
+    "  group_a / group_b（A/B 分组）—— 官方从未公布，所以**留空**。",
+    "    留空不是「还没填」，是明确的声明：分组未知，且我们不猜。",
+    "    grouping=unknown 时模拟器每次抽一种与首轮自洽的切法，把 C(8,4)/2 = 35 种",
+    "    平均掉（model/l2_simulate.py 的 group_vec_from_pairs）。",
+    "",
+    "    曾经考虑过从转播分流推一个分组填进来（A+B 流 8 队一组、C+D 流 8 队一组，",
+    "    正好 8/8 且与首轮自洽）。放弃了：那只是 35 种自洽切法里的一种，按开赛时段",
+    "    切出来的另一种同样自洽、队伍集合却完全不同。挑一种当事实等于凭空多一个",
+    "    自由度。实测两者差异最大 0.84pp——既然差这么点，更没有理由去赌。",
+    "",
+    "  ⇒ 对外一律表述为「首轮已证实并锁定，分组未公布、已平均掉」，",
+    "     不得写成「分组已公布」。",
+    "",
+    "官方真公布分组后：把 group_a / group_b 各填 8 队，grouping 改 official，",
+    "再跑 bash site/rebuild-with-draw.sh。填错会直接报错退出，校验见 model/draw.py。",
     "16 支队的准确写法：",
     "  Aurora Gaming / BoomBoys / Iron Wing / Team Falcons / Team Liquid /",
     "  Team Yandex / Xtreme Gaming / Team Spirit / TEAM VISION / Nigma Galaxy /",
     "  HULIGANI / Team Resilience / Vici Gaming / OG / GamerLegion / LGD Gaming"
   ],
-  "announced": false,
-  "source": "",
+  "announced": true,
+  "grouping": "unknown",
+  "source": "首轮对阵：DLTV + Hotspawn 两源逐场一致（已证实）；分组：官方未公布，对 35 种自洽切法平均",
   "group_a": [],
   "group_b": [],
-  "round1": []
+  "round1": [
+    [
+      "Team Falcons",
+      "LGD Gaming"
+    ],
+    [
+      "Team Spirit",
+      "Xtreme Gaming"
+    ],
+    [
+      "Iron Wing",
+      "Nigma Galaxy"
+    ],
+    [
+      "Team Liquid",
+      "Vici Gaming"
+    ],
+    [
+      "BoomBoys",
+      "OG"
+    ],
+    [
+      "Aurora Gaming",
+      "GamerLegion"
+    ],
+    [
+      "TEAM VISION",
+      "Team Resilience"
+    ],
+    [
+      "Team Yandex",
+      "HULIGANI"
+    ]
+  ]
 }

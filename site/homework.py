@@ -141,7 +141,7 @@ def compute(pred, strength):
     }
 
 
-def render(base, hw, pred, fan, fan_rec, sens=None):
+def render(base, hw, pred, fan, fan_rec, sens=None, banner=""):
     ep = hw["elim"]
 
     def esc(s):
@@ -194,12 +194,15 @@ def render(base, hw, pred, fan, fan_rec, sens=None):
         for t in sorted(fan["proxy_score_by_slot"]["core"],
                         key=lambda x: -(pred["series_dist"][x]["group"] + pred["series_dist"][x]["playoff"])))
 
-    return """
+    # banner 是拼进格式化字符串的现成 HTML；先把 % 逃逸掉，否则它一旦含
+    # 百分号（概率文案里迟早会有），% 格式化会在这里炸或者错位。
+    banner = (banner or "").replace("%", "%%")
+    return ("""
 <h1>抄作业</h1>
 <p class="lede">这一页是给<b>游戏里那两个要填的东西</b>准备的——<b>赛事预测</b>那 16 个格子，和<b>梦幻挑战</b>那三个位置。
 不想看分析的，看这页就够了，照着填完关掉即可。</p>
 <p class="meta">小组赛部分 %s 锁定</p>
-
+""" + banner + """
 <div class="note crit"><b>抄之前先知道一件事。</b><br>
 这份预测的期望是<b>答对 %.1f 格</b>，闭着眼睛乱填是 <b>%.1f 格</b>——<b>只多一格多一点</b>。<br>
 Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
@@ -264,8 +267,11 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
 今年每一项值多少分，游戏没有公开。</p>
 
 <h2>三件要说在前面的事</h2>
-<p><b>一、分组还没公布，而且知道了也没什么用。</b>第一轮谁打谁是主办方定的，还没出。
-分组公布后我会重算一版，但先把预期压下去：<b>我实测过了，知道分组只让期望答对数变约 %.2f 格</b>——
+<p><b>一、这一版用上了首轮对阵；分组官方没公布，我们也没有猜。</b>
+首轮 8 场对阵两个来源交叉证实，已锁进模拟；「谁跟谁一组」还没公布，
+模拟时把与首轮自洽的全部 35 种分法平均掉了
+（<a href="%s/predictions.html#draw">为什么不挑一种，写在这里</a>）。
+知道分组也别抱期望：<b>我实测过了，知道完整分组只让期望答对数变约 %.2f 格</b>——
 这一页相对乱填的价值是 %.1f 格，分组只在这上面再加不到 5%%。<br>
 <span class="hint">原来这里写的是「那版会准不少」。我做了个对照实验才发现说大了：
 换不同分组，建议填法确实经常变，看着像很重要；但把分组固定住、只换随机种子，
@@ -291,12 +297,12 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
   </div>
   <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
 </div>
-""" % (pages.PANEL_DEADLINE_CN,
+""") % (pages.PANEL_DEADLINE_CN,
        hw["expected_correct"], hw["random_baseline"],
        ep["sv_lo8"], ep["sv_hi8"], ep["sv_min"], ep["sv_gap"],
        ep["ou_min"], ep["ou_gap"],
        detail, ftable,
-       # 「一、分组还没公布」那段：实测数字来自 reports/p6_draw_sensitivity.json
-       sens["draw_spread"], hw["expected_correct"] - hw["random_baseline"],
+       # 「一、分组是推的」那段：实测数字来自 reports/p6_draw_sensitivity.json
+       base, sens["draw_spread"], hw["expected_correct"] - hw["random_baseline"],
        sens["ratio"], sens["max_p40_swing_pp"],
        hw["cost_of_intuition"], base)

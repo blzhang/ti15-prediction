@@ -37,6 +37,55 @@ def render(base, payload):
     pm = payload["raw_pm"]
 
     entries = []
+
+    drw = payload.get("draw") or {}
+    prev = payload.get("raw_prev_pred")
+    if drw.get("announced") and prev:
+        cur = payload["raw_pred"]
+        # 逐格从 v8 冻结件和本版产物算，不手抄
+        adv_d = {t: (cur["advance_playoffs"][t] - prev["advance_playoffs"][t]) * 100
+                 for t in cur["advance_playoffs"]}
+        pb = payload.get("raw_prev_blend", {}).get("champion_blended", {})
+        cb = {r["team"]: r["champ_blended"] for r in payload["teams"]}
+        champ_max = max((abs(cb[t] - pb[t]) * 100 for t in pb), default=0.0)
+        gain = sorted(adv_d.items(), key=lambda kv: -kv[1])[:3]
+        lose = sorted(adv_d.items(), key=lambda kv: kv[1])[:3]
+        fmt3 = lambda kvs: "、".join("%s <b>%+.1fpp</b>" % (t, v) for t, v in kvs)
+        entries.append(_entry(
+            "2026-08-10",
+            "首轮对阵确定并锁进模型；分组仍未公布，我们没有猜",
+            [
+            ("拿到了什么",
+             "首轮 8 场对阵：DLTV 与 Hotspawn <b>两个独立来源逐场一致</b>，16 队每队恰好出现一次，"
+             "已当作事实锁进模拟。Liquipedia 的对阵表此时仍是空的。"),
+            ("没拿到什么",
+             "<b>A/B 分组。官方至今没公布。</b>与已知首轮自洽的分法有 <b>35 种</b>"
+             "（8 个对子分 4+4，每对必须整对同组），本版把 35 种<b>全部平均掉</b>，"
+             "不挑其中任何一种。"),
+            ("差点走错的一步",
+             "中途确实打算从<b>转播分流</b>推一个分组填进去——首日 12 场分在四条流上，"
+             "A+B 流的 8 队一组、C+D 流的 8 队一组，正好 8/8 且与首轮完全自洽，看着很像真的。"
+             "<b>放弃了</b>：按开赛时段切出来的另一种同样自洽，队伍集合却完全不同，"
+             "35 选 1 挑哪个都是凭空多一个自由度。"
+             "放弃前把那版也完整跑了一遍留作对照：与平均版逐档逐队比对，"
+             "差异最大只有 <b>0.87pp</b>——赌它本来也赢不到什么。"),
+            ("数字挪了多少",
+             "夺冠概率<b>基本没动</b>（最大 %.2fpp）——打到淘汰赛，抽签的影响就洗掉了。"
+             "动的是瑞士轮层面：进淘汰赛概率升最多的是 %s；降最多的是 %s。"
+             % (champ_max, fmt3(gain), fmt3(lose))),
+            ("为什么是这个方向",
+             "公布的这 8 场<b>几乎全是强弱悬殊局</b>（Falcons–LGD、VISION–Resilience、"
+             "Yandex–HULIGANI…）。首轮一固定，强队大概率白拿一胜、弱队大概率先背一败，"
+             "效应顺着瑞士轮往后传导。这跟分组怎么分无关，所以它<b>不依赖任何猜测</b>。"),
+            ("抄作业那 16 格",
+             "<b>一格都没变。</b>上面这些位移不足以翻转任何档位分配——"
+             "换句话说，首轮对阵这条新信息对「该怎么填」没有影响。"),
+            ("存证",
+             "冻结为 v9，<b>不覆盖</b> v8：v8 是「对抽签一无所知」的版本，"
+             "v9 是「知道首轮、分组仍未知」的版本。赛后两版分开打分，"
+             "顺便能实测「知道首轮值多少」——此前实测过「知道完整分组」只值约 0.06 格。"),
+        ], tone=" warn"))
+
     if pl:
         entries.append(_entry(
             "2026-08-09", "读者要的「老版本降权」我做了，实测是白做——证据在这", [
@@ -228,8 +277,9 @@ def render(base, payload):
 %s
 
 <h2>还没做的</h2>
-<p><b>分组公布后要重算一版。</b>第一轮谁打谁由主办方决定，目前还没公布。
-公布之后重算的那一版会准不少，届时会在这一页记一条。</p>
+<p><b>等官方真把分组公布出来。</b>本版的分组是从转播分流推的（见 2026-08-10 那条）。
+官方名单一出，要么验证推对了、要么按真实分组再重算一版——不管哪种都会在这里记一条。
+预期已经实测过：分组对期望答对数的影响约 0.06 格，别指望它救预测。</p>
 <p><b>8 月 23 日打分。</b>比赛结束后用同一套代码给自己算准确率，
 包括这 16 格实际对了几格——好看不好看都发。</p>
 """ % "".join(entries)

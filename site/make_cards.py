@@ -158,13 +158,26 @@ def long_image(p):
     if not pl:
         raise SystemExit("site.json 里没有 patch_layer——先跑 "
                          "python3 -m model.l1_strength --refit 再 build_site.py")
+
+    # 抽签状态跟着 site.json 走，别写死——这行字曾经在首轮已经公布之后
+    # 还挂着「分组仍未公布，已把所有可能的抽签平均掉」，图发出去就是错的。
+    drw = p.get("draw") or {}
+    if not drw.get("announced"):
+        draw_line = "分组仍未公布，已把所有可能的抽签平均掉"
+    elif drw.get("grouping") == "official":
+        draw_line = "分组已公布，已按真实抽签重算"
+    elif drw.get("round1"):
+        draw_line = ("首轮对阵已确定并锁进模型 · 分组仍未公布，%d 种自洽分法全部平均掉"
+                     % (drw.get("n_group_splits") or 35))
+    else:
+        draw_line = "分组为推测，非官方公布"
     body = """
 <div class="badge">赛前已哈希存证 · 市场价截至 %s</div>
 <div class="eyebrow">THE INTERNATIONAL 2026 · 8/13–8/23 上海</div>
 <h1>TI15 谁会赢<br><em>一个赛后要认账的预测</em></h1>
 <div class="sub">用 2020–2026 的 <b>145,974 场</b>职业比赛跑出来的量化预测。<br>
 所有结果赛前冻结留证，8/23 赛后用同一套代码打分——好看不好看都发。</div>
-<div class="tagline">蒙特卡洛 20 万次 · 分组仍未公布，已把所有可能的抽签平均掉</div>
+<div class="tagline">蒙特卡洛 20 万次 · %s</div>
 
 <h2><span class="n">01</span>夺冠概率</h2>
 <div class="h2sub">已与市场共识价融合：Polymarket ✕ 庄家赔率（市场权重 0.7）</div>
@@ -232,7 +245,7 @@ def long_image(p):
   <div class="promise">全部数据可下载 · 120 个对阵的赛前胜率全公开 · 改过什么全记在站内「更新日志」<br>
   <b style="color:#fff">8 月 23 日赛后，我会用同一套代码打分，好看不好看都发。</b></div>
 </div>
-""" % (p.get("market_captured", ""), bars(t, "champ_blended"),
+""" % (p.get("market_captured", ""), draw_line, bars(t, "champ_blended"),
        fal["champ_model"] * 100, fal["champ_blended"] * 100,
        yan["champ_model"] * 100, yan["champ_blended"] * 100,
        hw_block(p), SIZES_LONG["fs_note"],
