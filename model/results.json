@@ -1,0 +1,56 @@
+{
+  "_说明": [
+    "TI15 瑞士轮已打完 / 已排定的系列赛。active=false 或文件缺失时模拟器完全按赛前那样跑。",
+    "",
+    "⚠️ 三种状态严格区分，不要混写：",
+    "  1. 有 score  = 已打完，结果是事实，模拟时照抄（不再当随机变量）",
+    "  2. 无 score  = 对阵已排定但还没开打，模拟时用这个固定对阵 + 模拟胜负",
+    "  3. 整轮缺失 = 连对阵都还不知道，模拟时照旧走配对函数",
+    "",
+    "score 一律写 [A 队局数, B 队局数]，必须是打完的 BO3（2-0 或 2-1）。",
+    "**正在进行中的系列赛不要填当前比分**——填了会被当成最终结果，直接产出错预测。",
+    "",
+    "⚠️ 分组是从这里的对阵反推出来的，不是猜的，也不是官方公布的：",
+    "  R1-R3 只在组内配对、R4 只跨组（规则出处见 model/swiss.py），所以每多一轮，",
+    "  「谁跟谁必须同组」的约束就多一层。截至本文件：",
+    "    R1 已知 → 8 个必须同组的块（各 2 队）→ 35 种分法自洽",
+    "    R2 也已知 → 4 个必须同组的块（各 4 队）→ 只剩 3 种自洽",
+    "    R3 打完后 → 2 个块（各 8 队）→ 分组塌缩成唯一解，届时不必再平均",
+    "  现在仍是 3 选 1，所以**仍然不猜**，由模拟器对 3 种平均掉（model/results.py）。",
+    "  排期上这 3 种里有一种看着最像（同一批 8 队总在同一时段打），但那和 2026-08-10",
+    "  被否掉的「按转播分流推分组」是同一级别的旁证——挑一种当事实仍然是凭空加自由度。",
+    "",
+    "数据来源与核对方式见 source 字段。改完这个文件跑 bash site/rebuild-with-results.sh。"
+  ],
+  "active": true,
+  "as_of_utc": "2026-08-13T16:00:00Z",
+  "source": "OpenDota league 19719 逐局详情（29 局，含 radiant/dire 队名与胜负）聚合成系列赛；与 Liquipedia《The International/2026/Group Stage》分组赛页逐场比对一致。第二轮尚未开打的 4 场对阵取自同一 Liquipedia 页的赛程表（北京时间 8/14 10:00）。",
+  "rounds": [
+    {
+      "round": 1,
+      "series": [
+        { "a": "Team Falcons", "b": "LGD Gaming", "score": [2, 1] },
+        { "a": "Iron Wing", "b": "Nigma Galaxy", "score": [2, 0] },
+        { "a": "BoomBoys", "b": "OG", "score": [2, 0] },
+        { "a": "TEAM VISION", "b": "Team Resilience", "score": [2, 1] },
+        { "a": "Team Liquid", "b": "Vici Gaming", "score": [2, 0] },
+        { "a": "Aurora Gaming", "b": "GamerLegion", "score": [2, 0] },
+        { "a": "Team Spirit", "b": "Xtreme Gaming", "score": [2, 0] },
+        { "a": "Team Yandex", "b": "HULIGANI", "score": [2, 0] }
+      ]
+    },
+    {
+      "round": 2,
+      "series": [
+        { "a": "BoomBoys", "b": "Iron Wing", "score": [2, 1] },
+        { "a": "TEAM VISION", "b": "Team Falcons", "score": [2, 1] },
+        { "a": "LGD Gaming", "b": "Team Resilience", "score": [2, 1] },
+        { "a": "Nigma Galaxy", "b": "OG", "score": [2, 0] },
+        { "a": "Team Spirit", "b": "Aurora Gaming" },
+        { "a": "Team Yandex", "b": "Team Liquid" },
+        { "a": "Xtreme Gaming", "b": "GamerLegion" },
+        { "a": "HULIGANI", "b": "Vici Gaming" }
+      ]
+    }
+  ]
+}

@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from swiss import SwissState, pair_round, rank_teams, active_teams
 from bracket import loser_games_prob, run_playoffs
 import draw as draw_mod
+import results as results_mod
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 R = json.load(open(f"{HERE}/l1_rating.json"))
@@ -37,6 +38,10 @@ rng = np.random.default_rng(20260802)
 # 模块级只读一次，与 TEAMS/TH 同级——测试要覆盖时传 run_one(..., drawn=...)。
 DRAW = draw_mod.load(TEAMS)
 
+# 已打完 / 已排定的系列赛。开赛前为 None，run_one 全程模拟；开赛后已发生的
+# 结果照抄、不再当随机变量抽（model/results.py 的完整说明）。
+OBSERVED = results_mod.load(TEAMS)
+
 
 def group_vec_from_pairs(pairs, rng):
     """在「与已知首轮对阵自洽」的全部分组里均匀抽一种。
@@ -47,6 +52,9 @@ def group_vec_from_pairs(pairs, rng):
     这是 2026-08-10 的正确做法：首轮对阵有两个独立来源、可以当事实，A/B 分组
     官方从没公布过。把 35 种切法平均掉，等于「用上全部已证实的信息，且只用
     已证实的信息」；从转播分流之类的旁证挑一种当事实，是凭空多一个自由度。
+
+    开赛之后这条路径被 results.json 接管：多打一轮就多一层「必须同组」约束，
+    候选切法从 35 → 3 → 1 自动收紧（见 model/results.py 与下面的 sample_split）。
     """
     gv = [0] * 16
     for k, pi in enumerate(rng.permutation(len(pairs))):
@@ -55,30 +63,62 @@ def group_vec_from_pairs(pairs, rng):
     return gv
 
 
-def run_one(theta, rng, drawn=None):
+def sample_split(splits, rng):
+    """在「与全部已知对阵自洽」的候选分组里均匀抽一种。
+
+    候选只剩一种时直接返回它，不消耗随机数——分组已经由对阵唯一确定，
+    再抽一次只是浪费，且会让「分组确定」与「分组待定」两种情形的随机数流
+    莫名其妙地不同。
+    """
+    if len(splits) == 1:
+        return list(splits[0])
+    return list(splits[rng.integers(len(splits))])
+
+
+def run_one(theta, rng, drawn=None, observed=None):
     p1 = 1.0 / (1.0 + np.exp(-(theta[:, None] - theta[None, :])))   # 单局胜率矩阵
     p3 = p1 ** 2 * (3 - 2 * p1)                                     # BO3
     q = 1 - p1
     p5 = p1 ** 3 * (1 + 3 * q + 6 * q ** 2)                         # BO5
 
     s = SwissState(n)
-    # 分组已公布就用真实分组；未公布则每次随机抽一组，把所有可能的抽签平均掉。
-    # drawn 为 None 时这里的 rng 调用与加分组开关之前完全一致。
-    if drawn and drawn.get("group_vec"):
+    # 分组来源三选一，优先级 = 信息量从高到低：
+    #   1. observed：已完赛/已排定的对阵反推出的候选集（R1-R3 组内、R4 跨组）。
+    #      每多打一轮候选就少一批，打完 R3 收敛到唯一解——分组不需要猜。
+    #   2. drawn：赛事方公布的分组，或只公布了首轮时的 35 种切法。
+    #   3. 都没有：完全随机化。
+    # drawn 与 observed 都为 None 时，这里的 rng 调用与加这两个开关之前完全一致。
+    if observed and observed.get("splits"):
+        s.group = sample_split(observed["splits"], rng)
+    elif drawn and drawn.get("group_vec"):
         s.group = list(drawn["group_vec"])
     elif drawn and drawn.get("r1_pairs"):
         # 首轮已知、分组未知：只在与首轮自洽的 35 种切法里抽
         s.group = group_vec_from_pairs(drawn["r1_pairs"], rng)
     else:
         s.group = list(rng.permutation([0] * 8 + [1] * 8))   # 分组未公布，随机化
+
     fixed_r1 = drawn.get("r1_pairs") if drawn else None
+    obs_rounds = (observed or {}).get("rounds", {})
     # 打到 4 胜或 4 负即停（见 swiss.active_teams 的说明）。最多 5 轮：
     # 第 5 轮只有 3-1 / 2-2 / 1-3 三组共 14 队 = 7 场，4-0 与 0-4 已停赛。
     for rnd in range(5):
         act = active_teams(s)
         if len(act) < 2:
             break
-        for a, b in pair_round(s, rnd, rng, active=act, fixed_r1=fixed_r1):
+        # 这一轮的对阵已经排定（打完的、或排好还没打的）就照用，不再跑配对函数；
+        # 否则按战绩现配。obs_rounds 的键从 1 计（与对外文案一致），rnd 从 0 计。
+        known = obs_rounds.get(rnd + 1)
+        if known:
+            schedule = [(a, b, a_wins, lg) for a, b, a_wins, lg in known]
+        else:
+            schedule = [(a, b, None, None)
+                        for a, b in pair_round(s, rnd, rng, active=act, fixed_r1=fixed_r1)]
+        for a, b, a_wins, loser_games in schedule:
+            if a_wins is not None:
+                # 已经打完了：这是事实，每次模拟都照抄，一个随机数都不消耗。
+                s.record(a, b, a_wins, loser_games)
+                continue
             a_wins = rng.random() < p3[a, b]
             pg = p1[a, b] if a_wins else p1[b, a]      # 赢方单局胜率，喂给让分小局公式
             s.record(a, b, a_wins, 1 if rng.random() < loser_games_prob(pg) else 0)
@@ -185,6 +225,8 @@ if __name__ == "__main__":
     # 而这份预测会被直接发布，所以每次跑都要看见自己在算哪一种情况。
     print(draw_mod.describe(DRAW, TEAMS))
     print()
+    print(results_mod.describe(OBSERVED, TEAMS))
+    print()
     champ_c = np.zeros(n); place_c = np.zeros((n, 17)); rec_c = collections.Counter()
     rec_dist = [collections.Counter() for _ in range(n)]   # 逐队完整瑞士轮战绩分布
     elim_survive = np.zeros(n); elim_out = np.zeros(n)     # 附加轮生还 / 出局
@@ -195,7 +237,8 @@ if __name__ == "__main__":
 
     for s in range(N_SIM):
         theta = TH + SE * rng.standard_normal(n)        # 后验重抽
-        rec, srank, place, advanced, g_series, p_series, ew, el = run_one(theta, rng, DRAW)
+        rec, srank, place, advanced, g_series, p_series, ew, el = run_one(
+            theta, rng, DRAW, OBSERVED)
         for t in ew: elim_survive[t] += 1
         for t in el: elim_out[t] += 1
         for t in range(n):
@@ -285,6 +328,27 @@ if __name__ == "__main__":
                    "n_group_splits": (35 if DRAW["group_vec"] is None and DRAW["r1_pairs"]
                                       else None),
                    "round1": [[TEAMS[i], TEAMS[j]] for i, j in (DRAW["r1_pairs"] or [])],
+               }),
+               # 这一版预测条件化在哪些**已经发生的结果**之上。与 draw 块同理：
+               # 站点、复盘页、赛后打分都要靠它区分「纯赛前预测」和「打了 N 场之后
+               # 的预测」——两者拿同一套标准打分是不公平的，必须能分辨。
+               # n_group_splits 记录分组还剩几种可能：3 表示仍在平均，1 表示已由
+               # 对阵唯一确定（打完第三轮就会到 1）。
+               "results": ({"active": False} if not OBSERVED else {
+                   "active": True,
+                   "as_of_utc": OBSERVED["as_of_utc"],
+                   "source": OBSERVED["source"],
+                   "n_series_done": OBSERVED["n_done"],
+                   "n_series_scheduled": OBSERVED["n_scheduled"],
+                   "n_group_splits": len(OBSERVED["splits"]),
+                   "records": {t: "%d-%d" % wl
+                               for t, wl in results_mod.records(OBSERVED, TEAMS).items()},
+                   "rounds": [
+                       {"round": rnd,
+                        "series": [{"a": TEAMS[i], "b": TEAMS[j],
+                                    "score": ([2, lg] if aw else [lg, 2]) if aw is not None else None}
+                                   for i, j, aw, lg in series]}
+                       for rnd, series in sorted(OBSERVED["rounds"].items())],
                }),
                "n_sim": N_SIM},
               open(f"{HERE}/l2_predictions.json", "w"), indent=1, ensure_ascii=False)

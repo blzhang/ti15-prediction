@@ -3,13 +3,14 @@ import html
 import os
 import shutil
 
-NAV = [("homework.html", "抄作业"), ("index.html", "结论"), ("predictions.html", "预测详情"),
+NAV = [("homework.html", "抄作业"), ("index.html", "结论"), ("review.html", "复盘"),
+       ("predictions.html", "预测详情"),
        ("odds.html", "市场怎么看"), ("methodology.html", "方法论"), ("data.html", "数据与检索"),
        ("window.html", "版本窗口"), ("group.html", "进群"), ("changelog.html", "更新日志")]
 
 # 微信群二维码 7 天一换。换码只需替换 assets_src/group-qr.jpg 并改这个日期，
 # 知乎/NGA 帖子里挂的始终是 group.html 这个永久链接，不用跟着改。
-QR_EXPIRY = "2026-08-11"
+QR_EXPIRY = "2026-08-20"
 
 # 官方预测面板锁定时间——全站唯一事实源，倒计时和各页文案都读这里。
 #
@@ -155,11 +156,23 @@ def dist_table(d, label):
 # ---------------------------------------------------------------- 页面
 
 def draw_banner(p, base=None):
-    """抽签状态横幅：这一版用上了哪些抽签信息、哪些没有。
+    """状态横幅：这一版预测建立在什么信息之上。
 
-    读者只看一眼就走的话，那一眼必须知道「首轮是确定的、分组不是」。
+    读者只看一眼就走的话，那一眼必须知道当前是哪一种状态——
+    开赛后最重要的一句话已经不是「分组没公布」，而是「已经打了多少场、
+    这些结果已经算进去了」。所以已完赛信息优先于抽签信息。
     """
     d = p.get("draw") or {}
+    res = (p.get("raw_pred") or {}).get("results") or {}
+    if res.get("active"):
+        n = res.get("n_group_splits", 0)
+        grp = ("分组已由已打完的对阵<b>唯一确定</b>" if n == 1 else
+               "分组仍未公布，但已打完的对阵把可能的分法从 35 种压到了 <b>%d 种</b>，"
+               "本版对这 %d 种平均" % (n, n))
+        return ('<div class="note good"><b>赛事进行中：瑞士轮已打完 %d 场系列赛，'
+                '本版预测已把这些结果当成事实代入重算。</b>%s。%s</div>'
+                % (res.get("n_series_done", 0), grp,
+                   '<a href="%s/review.html">看逐场对账与复盘 →</a>' % base if base else ""))
     if not d.get("announced"):
         return ""
     link = ' <a href="%s/predictions.html#draw">看首轮对阵 →</a>' % base if base else ""
@@ -175,10 +188,25 @@ def draw_banner(p, base=None):
 
 
 def _draw_section(p):
-    """预测详情页的抽签小节：首轮对阵 + 分组为什么留空不猜。"""
+    """预测详情页的抽签小节：首轮对阵 + 分组为什么留空不猜。
+
+    开赛后这一节的性质变了：首轮对阵已经打完，它不再是「预测所依据的信息」，
+    而是「当时那个判断后来对不对」。所以开赛后在开头挂一条指向复盘页的说明，
+    正文保留当时的原话不改——把当时的判断悄悄改成事后诸葛，正是这个项目
+    最该避免的事。
+    """
     d = p.get("draw") or {}
     if not d.get("announced") or not d.get("round1"):
         return ""
+    res = (p.get("raw_pred") or {}).get("results") or {}
+    hist = ""
+    if res.get("active"):
+        n = res.get("n_group_splits", 0)
+        hist = ('<div class="note good"><b>赛后回看：这 8 场首轮对阵全部打完，'
+                '与下面锁定的逐场一致，一场不差。</b>分组至今仍未公布，'
+                '但已打完的对阵把可能的分法从 35 种压到了 %d 种——'
+                '下面这段是当时的原话，一个字没改。'
+                '<a href="/dota2/review.html">看逐场对账 →</a></div>' % n)
     pairs = "".join("<li>%s <span class=vs>vs</span> %s</li>" % (esc(a), esc(b))
                     for a, b in d["round1"])
     if d.get("grouping") == "official":
@@ -196,6 +224,7 @@ def _draw_section(p):
 不值得为它引入一个没有出处的假设。</div>"""
     return """
 <h2 id="draw">抽签：首轮已确定，分组仍未公布</h2>
+%s
 <div class="note good"><b>首轮 8 场对阵——已确定。</b>
 DLTV 与 Hotspawn 两个独立来源逐场一致，16 队每队恰好出现一次，已锁进模拟。
 （Liquipedia 的对阵表此时仍是空的。）</div>
@@ -203,7 +232,29 @@ DLTV 与 Hotspawn 两个独立来源逐场一致，16 队每队恰好出现一�
 %s
 <p class="hint">附带一提：公布的这 8 场<b>几乎全是强弱悬殊局</b>。这正是本版瑞士轮数字相对上一版
 发生位移的原因——强队首轮大概率白拿一胜、弱队大概率先背一败，效应顺着瑞士轮往后传导。</p>
-""" % (pairs, note)
+""" % (hist, pairs, note)
+
+
+def _inplay_lede(p, base):
+    """首页导语的结尾半句：赛前是「赛后会对答案」，开赛后就该是「已经在对了」。
+
+    这半句在开赛后如果还写着「赛后会逐场对答案」，等于在比赛已经打了两轮时
+    仍然把自己描述成一份纯赛前预测——而这一版的数字已经不是纯赛前的了。
+    """
+    res = (p.get("raw_pred") or {}).get("results") or {}
+    if not res.get("active"):
+        return "赛后会逐场对答案。"
+    return ('已经打完的 <b>%d 场</b>系列赛结果也已代入重算。'
+            '<a href="%s/review.html">逐场对答案在这里 →</a>'
+            % (res.get("n_series_done", 0), base))
+
+
+def _inplay_meta(p):
+    res = (p.get("raw_pred") or {}).get("results") or {}
+    if not res.get("active"):
+        return "开赛前生成，已加防篡改校验"
+    return ("赛前预测已冻结存证 · 本版已代入截至 %s 的赛果"
+            % esc(res.get("as_of_utc", "")[:10]))
 
 
 def page_index(base, p):
@@ -216,8 +267,8 @@ def page_index(base, p):
     body = """
 <h1>TI15 谁会赢：一个可被证伪的预测</h1>
 <p class="lede">用 2020–2026 的 145,974 场职业比赛，对 The International 2026（8/13–8/23，上海，16 队）
-做了一次战队与选手层面的量化预测。所有预测在开赛前就锁定并加了防篡改校验，赛后会逐场对答案。</p>
-<p class="meta">开赛前生成，已加防篡改校验 · 模拟了 20 万届 TI</p>
+做了一次战队与选手层面的量化预测。所有预测在开赛前就锁定并加了防篡改校验，%s</p>
+<p class="meta">%s · 模拟了 20 万届 TI</p>
 %s
 <div class="tiles">
   <div class="tile"><div class="k">夺冠概率最高</div><div class="v">%s</div><div class="s">%.1f%%（已融合市场共识价）</div></div>
@@ -273,7 +324,8 @@ def page_index(base, p):
   </div>
   <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
 </div>
-""" % (draw_banner(p, base),
+""" % (_inplay_lede(p, base), _inplay_meta(p),
+       draw_banner(p, base),
        esc(top["team"]), top["champ_blended"] * 100,
        oos.get("acc", 0) * 100,
        esc(top["team"]), top["champ_blended"] * 100,
@@ -613,8 +665,10 @@ def write_all(dist, base, payload):
     import odds as _odds
     import changelog as _changelog
     import window as _window
+    import review as _review
     payload = dict(payload, homework_full=hw)
     pages = {
+        "review.html": shell(base, "review.html", "复盘", _review.render(base, payload)),
         "changelog.html": shell(base, "changelog.html", "更新日志",
                                 _changelog.render(base, payload)),
         "window.html": shell(base, "window.html", "版本窗口",

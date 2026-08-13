@@ -150,19 +150,27 @@ def html(body, sizes, cls=""):
 
 def long_image(p):
     t = p["teams"]
-    fal = next(x for x in t if x["team"] == "Team Falcons")
-    yan = next(x for x in t if x["team"] == "Team Yandex")
     oos = p["oos"]
     ep = p["homework"]["elim"]
+    rv = p.get("review") or {}
     pl = p.get("patch_layer")
     if not pl:
         raise SystemExit("site.json 里没有 patch_layer——先跑 "
                          "python3 -m model.l1_strength --refit 再 build_site.py")
 
-    # 抽签状态跟着 site.json 走，别写死——这行字曾经在首轮已经公布之后
+    # 模型与市场分歧最大的两支队**现算**，不写死队名。
+    # 上一版把 Falcons/Yandex 写死在图里，等赛程推进、分歧转移到别的队身上，
+    # 图上那两个框就变成了「过期的争论」——而长图是发出去收不回来的。
+    gap = sorted(t, key=lambda x: x["champ_blended"] - x["champ_model"])
+    dn, up = gap[0], gap[-1]        # dn: 模型高于市场；up: 市场高于模型
+
+    # 状态行跟着 site.json 走，别写死——这行字曾经在首轮已经公布之后
     # 还挂着「分组仍未公布，已把所有可能的抽签平均掉」，图发出去就是错的。
     drw = p.get("draw") or {}
-    if not drw.get("announced"):
+    if rv.get("active"):
+        draw_line = ("已打完 %d 场系列赛，结果已代入重算 · 分组仍未公布，%d 种自洽分法全部平均掉"
+                     % (rv["n_done"], rv["n_group_splits"]))
+    elif not drw.get("announced"):
         draw_line = "分组仍未公布，已把所有可能的抽签平均掉"
     elif drw.get("grouping") == "official":
         draw_line = "分组已公布，已按真实抽签重算"
@@ -171,30 +179,78 @@ def long_image(p):
                      % (drw.get("n_group_splits") or 35))
     else:
         draw_line = "分组为推测，非官方公布"
+
+    badge = ("已打完 %d 场 · 赛前预测已哈希存证 · 市场价截至 %s"
+             % (rv["n_done"], p.get("market_captured", ""))) if rv.get("active") else \
+            ("赛前已哈希存证 · 市场价截至 %s" % p.get("market_captured", ""))
+
+    # 复盘小节只在开赛后出现；赛前这一整块不渲染（数字全是 None，硬渲染必崩）
+    review_block = ("""
+<h2><span class="n">02</span>先交账：赛前预测已经对了 %d 场答案</h2>
+<div class="h2sub">赛前冻结的 120 组两两胜率，逐场回填实际结果</div>
+<div class="tiles">
+  <div class="tile"><div class="v">%d/%d</div><div class="k">方向看对<br>已完赛系列赛</div></div>
+  <div class="tile"><div class="v">%.3f</div><div class="k">Brier 分数<br>低于 0.20 要先怀疑自己</div></div>
+  <div class="tile"><div class="v">%d 种</div><div class="k">分组还剩几种可能<br>赛前是 35 种</div></div>
+</div>
+<div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
+<b style="color:#fff">这个 %.3f 好看得可疑，所以先自己查了一遍。</b>
+本项目设计文档写死一条：<b>Brier 低于 0.20 要先怀疑数据泄漏，而不是庆祝</b>。
+查下来不是泄漏（预测 8/2 就冻结留证了），是<b>赛程太软</b>——
+拆开看：赛前就强弱悬殊的 %d 场，Brier %.3f、全中，这种局本来就该全中；
+真正接近五五开的 %d 场，Brier <b style="color:#fff">%.3f</b>，正好落在 0.21–0.24 的正常区间。
+<b style="color:#fff">能体现水平的那几场，打出来的是「正常」，不是神迹。</b>
+没看对的 %d 场，赛前给强的一方也只有 %s——模型明说了自己不知道。</div>
+
+<h2><span class="n">03</span>分组不用猜，它自己在解开</h2>
+<div class="h2sub">赛前我拒绝去猜分组，现在看这个决定的价值不在「猜没猜对」</div>
+<div class="split">
+  <div class="box"><div class="lbl">与已知对阵自洽的分法</div>
+    <div class="big dn">35 → %d 种</div>
+    <div class="note">瑞士轮前三轮<b>只在组内配对</b>，<br>
+    所以每打完一轮，「谁跟谁必须同组」<br>的约束就多一层。</div></div>
+  <div class="box"><div class="lbl">打完第三轮</div>
+    <div class="big up">→ 1 种</div>
+    <div class="note"><b>分组会自己唯一确定。</b><br>
+    赛前赌那 35 选 1，赢了只是提前<br>两天知道一件必然会揭晓的事。</div></div>
+</div>
+<div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
+<b style="color:#fff">另一个反直觉的结果：这两轮打完，概率的挪动几乎全是市场挪的，不是打出来的。</b>
+战绩带来的位移最大一支只有 <b style="color:#fff">%.1fpp</b>，市场重新定价带来的最大 <b style="color:#fff">%.1fpp</b>——差约 %.0f 倍。
+瑞士轮容错太高（4 胜或 4 负才停，后面还有附加赛和双败），前两轮胜负对夺冠的影响本来就有限。</div>
+""" % (rv["n_scored"], rv["hits"], rv["n_scored"], rv["brier_all"], rv["n_group_splits"],
+       SIZES_LONG["fs_note"], rv["brier_all"],
+       rv["n_far"], rv["brier_far"], rv["n_close"], rv["brier_close"],
+       len(rv["miss_probs"]), "、".join("%.1f%%" % v for v in rv["miss_probs"]),
+       rv["n_group_splits"],
+       SIZES_LONG["fs_note"],
+       rv["max_res_shift"], rv["max_mkt_shift"], rv["shift_ratio"])) if rv.get("active") else ""
+
     body = """
-<div class="badge">赛前已哈希存证 · 市场价截至 %s</div>
+<div class="badge">%s</div>
 <div class="eyebrow">THE INTERNATIONAL 2026 · 8/13–8/23 上海</div>
 <h1>TI15 谁会赢<br><em>一个赛后要认账的预测</em></h1>
 <div class="sub">用 2020–2026 的 <b>145,974 场</b>职业比赛跑出来的量化预测。<br>
-所有结果赛前冻结留证，8/23 赛后用同一套代码打分——好看不好看都发。</div>
+所有结果赛前冻结留证，打一场对一场账——好看不好看都发。</div>
 <div class="tagline">蒙特卡洛 20 万次 · %s</div>
 
 <h2><span class="n">01</span>夺冠概率</h2>
-<div class="h2sub">已与市场共识价融合：Polymarket ✕ 庄家赔率（市场权重 0.7）</div>
+<div class="h2sub">已把已完赛结果代入，并与市场共识价融合（市场权重 0.7）</div>
+%s
 %s
 
-<h2><span class="n">02</span>模型和市场吵起来了</h2>
+<h2><span class="n">04</span>模型和市场吵起来了</h2>
 <div class="h2sub">这是整套预测里最值得赛后复盘的地方</div>
 <div class="split">
-  <div class="box"><div class="lbl">Team Falcons</div>
+  <div class="box"><div class="lbl">%s（%s）</div>
     <div class="big dn">%.1f%% → %.1f%%</div>
-    <div class="note"><b>模型看好，市场不认。</b><br>16 队中唯一阵容零变动的卫冕冠军。</div></div>
-  <div class="box"><div class="lbl">Team Yandex</div>
+    <div class="note"><b>模型看好，市场不认。</b><br>差 %.1f 个百分点，是全场分歧最大的一支。</div></div>
+  <div class="box"><div class="lbl">%s（%s）</div>
     <div class="big up">%.1f%% → %.1f%%</div>
-    <div class="note"><b>模型看淡，市场看好。</b><br>Polymarket 上真金白银把它买到了第二。</div></div>
+    <div class="note"><b>模型看淡，市场看好。</b><br>Polymarket 上真金白银把它买上去的。</div></div>
 </div>
 
-<h2><span class="n">03</span>官方预测题·抄作业</h2>
+<h2><span class="n">05</span>官方预测题·抄作业</h2>
 <div class="h2sub">游戏内「赛事预测」小组赛那 16 格的建议填法</div>
 %s
 <div class="note" style="color:#898781;font-size:%dpx;line-height:1.6">
@@ -202,7 +258,7 @@ def long_image(p):
 <b style="color:#c3c2b7">最贵的两格：</b>「淘汰赛胜者」实力前八全挤在 %.1f%%–%.1f%%，填谁都一样，
 坑是填垫底队（低到 %.1f%%）；「淘汰赛败者」反过来，最该躲开的是最强的那支（%.1f%%，比最优低 %.1f 个百分点）——它根本打不到这一轮。</div>
 
-<h2><span class="n">04</span>凭什么信</h2>
+<h2><span class="n">06</span>凭什么信</h2>
 <div class="h2sub">训练只用 2026-03 之前的数据，在之后没见过的比赛上实测</div>
 <div class="tiles">
   <div class="tile"><div class="v">%.1f%%</div><div class="k">样本外准确率<br>%s 场未见过的比赛</div></div>
@@ -213,7 +269,7 @@ def long_image(p):
 赛前预测的<b>现实上限是 65–70%%</b>。所有号称 85%% 以上准确率的 Dota 预测，
 用的都是实时游戏内数据而不是赛前数据。<b>做到 85%% 一定是泄漏。</b></div>
 
-<h2><span class="n">05</span>这次更新：读者要的功能我做了，实测是白做</h2>
+<h2><span class="n">07</span>上一次更新：读者要的功能我做了，实测是白做</h2>
 <div class="h2sub">「越老的版本权重越低」——直觉对，增量没有</div>
 <div class="split">
   <div class="box"><div class="lbl">加版本层后，验证期提升</div>
@@ -231,7 +287,7 @@ def long_image(p):
 看着少，再往上加就是变差。<b style="color:#fff">「多给近期加权」这件事，数据投的是反对票。</b><br>
 整格搜索的 %d 行结果都能下载核对——判据是事先写死的，看完结果再改判据就是自欺。</div>
 
-<h2><span class="n">06</span>我把自己的错也写上去了</h2>
+<h2><span class="n">08</span>我把自己的错也写上去了</h2>
 <ul>
 <li><b>抄作业那两格的填法说反了</b>：我写「淘汰赛胜者别填最强的」，那条只值 1.9 个百分点；真正值 24 个百分点的「别填垫底队」我没写。NGA 读者指出的。</li>
 <li><b>赛制一开始就建错了</b>：按「固定 5 轮人人打满」建模，产出了现实中不存在的 5-0。真实是打到 4 胜或 4 负即停。读者在评论区抓到的，已重写。</li>\n<li><b>算错了波动幅度</b>：以为选手每局的发挥比实际稳定得多，导致每分钟经济和补刀的<b>误差范围窄了 4–8 倍</b>。已修正。</li>
@@ -243,11 +299,12 @@ def long_image(p):
 <div class="foot">
   <div class="url">%s</div>
   <div class="promise">全部数据可下载 · 120 个对阵的赛前胜率全公开 · 改过什么全记在站内「更新日志」<br>
-  <b style="color:#fff">8 月 23 日赛后，我会用同一套代码打分，好看不好看都发。</b></div>
+  <b style="color:#fff">站内「复盘」页逐场对账，打一场更一场，好看不好看都发。</b></div>
 </div>
-""" % (p.get("market_captured", ""), draw_line, bars(t, "champ_blended"),
-       fal["champ_model"] * 100, fal["champ_blended"] * 100,
-       yan["champ_model"] * 100, yan["champ_blended"] * 100,
+""" % (badge, draw_line, bars(t, "champ_blended"), review_block,
+       dn["team"], dn.get("record", ""), dn["champ_model"] * 100, dn["champ_blended"] * 100,
+       (dn["champ_model"] - dn["champ_blended"]) * 100,
+       up["team"], up.get("record", ""), up["champ_model"] * 100, up["champ_blended"] * 100,
        hw_block(p), SIZES_LONG["fs_note"],
        p["homework"]["expected"], p["homework"]["random"],
        p["homework"]["expected"] - p["homework"]["random"],

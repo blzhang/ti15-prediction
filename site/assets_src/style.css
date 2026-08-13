@@ -290,3 +290,19 @@ footer { border-top: 1px solid var(--grid); margin-top: 56px; padding: 22px 0 40
 @media (max-width: 560px) { .pairs { columns: 1; } }
 .pairs li { margin: 3px 0; break-inside: avoid; }
 .pairs .vs { color: var(--ink-muted); font-size: 12px; padding: 0 4px; }
+
+/* 复盘页（review.html）
+   逐场对账表要一眼看出「哪几场没看对」，所以 miss 行整行标红底；
+   其余单元格靠 lft/num 控制对齐——这张表既有队名（左对齐）又有概率（右对齐数字）。 */
+table.rv td.lft, table.rv th.lft { text-align: left; white-space: normal; }
+table.rv tr.miss { background: color-mix(in srgb, var(--crit) 9%, transparent); }
+table.rv tr.miss td { color: var(--ink); }
+table.rv td.up { color: var(--good); }
+table.rv td.down { color: var(--crit); }
+table.rv td.rec { color: var(--ink-2); font-weight: 600; }
+table.rv .dim { color: var(--ink-muted); }
+table.rv .vs { color: var(--ink-muted); font-size: 12px; padding: 0 4px; }
+/* 「接近五五开」标签：模型自己说了不知道的场次，不该跟看走眼混为一谈 */
+.coin { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+        font-size: 11px; font-weight: 600; color: var(--ink-muted);
+        border: 1px solid var(--grid); vertical-align: 1px; }

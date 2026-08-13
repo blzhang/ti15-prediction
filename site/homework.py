@@ -267,10 +267,12 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
 今年每一项值多少分，游戏没有公开。</p>
 
 <h2>三件要说在前面的事</h2>
-<p><b>一、这一版用上了首轮对阵；分组官方没公布，我们也没有猜。</b>
-首轮 8 场对阵两个来源交叉证实，已锁进模拟；「谁跟谁一组」还没公布，
-模拟时把与首轮自洽的全部 35 种分法平均掉了
-（<a href="%s/predictions.html#draw">为什么不挑一种，写在这里</a>）。
+<p><b>一、这一版用上了已经打完的比赛；分组官方仍没公布，我们也仍然没有猜。</b>
+已完赛的系列赛结果已经当成事实代入重算，不再当随机变量抽；「谁跟谁一组」官方从没公布过，
+但每打完一轮，已知对阵就会把可能的分法收紧一层（赛前 35 种 → 现在更少），
+模拟时对剩下的可能性平均
+（<a href="%s/predictions.html#draw">为什么不挑一种，写在这里</a>；
+逐场对账见<a href="%s/review.html">复盘页</a>）。
 知道分组也别抱期望：<b>我实测过了，知道完整分组只让期望答对数变约 %.2f 格</b>——
 这一页相对乱填的价值是 %.1f 格，分组只在这上面再加不到 5%%。<br>
 <span class="hint">原来这里写的是「那版会准不少」。我做了个对照实验才发现说大了：
@@ -303,6 +305,6 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
        ep["ou_min"], ep["ou_gap"],
        detail, ftable,
        # 「一、分组是推的」那段：实测数字来自 reports/p6_draw_sensitivity.json
-       base, sens["draw_spread"], hw["expected_correct"] - hw["random_baseline"],
+       base, base, sens["draw_spread"], hw["expected_correct"] - hw["random_baseline"],
        sens["ratio"], sens["max_p40_swing_pp"],
        hw["cost_of_intuition"], base)

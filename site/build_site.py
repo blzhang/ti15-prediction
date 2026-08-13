@@ -114,6 +114,23 @@ def need(rel):
     return p
 
 
+def group_blocks():
+    """「必须同组」的队伍块，直接问 model/results.py 要，不在站点侧重算一遍。
+
+    重算一遍就会有两份实现，哪天规则改了必然漏改一处——而漏改的那一处会
+    悄悄印在页面上。返回队名（不是索引），空列表表示还没有已完赛信息。
+    """
+    sys.path.insert(0, ROOT)
+    import json as _json
+    sys.path.insert(0, os.path.join(ROOT, "model"))
+    import results as results_mod
+    teams = list(_json.load(open(need("model/l1_rating.json")))["rating"])
+    obs = results_mod.load(teams)
+    if not obs:
+        return []
+    return [[teams[i] for i in blk] for blk in obs["blocks"]]
+
+
 def load_all():
     blended = json.load(open(need("model/l2_blended.json")))["champion_blended"]
     pred = json.load(open(need("model/l2_predictions.json")))
@@ -140,11 +157,54 @@ def build_search_index(players, rating):
             "rows": rows}
 
 
+STAGE_CN = {"swiss_r1": "第 1 轮", "swiss_r2": "第 2 轮", "swiss_r3": "第 3 轮",
+            "swiss_r4": "第 4 轮", "swiss_r5": "第 5 轮", "advance": "附加轮"}
+
+
+def match_rows(csv_path, results):
+    """赛前冻结的两两胜率表 + 已回填的结果 → 复盘页要用的逐场记录。
+
+    只取已回填结果的行（result_a_wins 非空），并从 results.json 取回真实比分
+    （CSV 只记谁赢，不记 2-0 还是 2-1）。两边按队伍对匹配，对不上直接报错——
+    静默丢一场会让复盘页少算一场却看不出来。
+    """
+    score_of = {}
+    for entry in results.get("rounds", []):
+        for s in entry["series"]:
+            if s.get("score"):
+                score_of[frozenset((s["a"], s["b"]))] = (s["a"], s["score"])
+    out = []
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            raw = (r.get("result_a_wins") or "").strip()
+            if raw == "":
+                continue
+            key = frozenset((r["team_a"], r["team_b"]))
+            if key not in score_of:
+                raise SystemExit(
+                    "对账表里 %s vs %s 已回填结果，但 model/results.json 里没有这一场——"
+                    "两份产出物不同步，请先跑 python3 -m model.backfill_results"
+                    % (r["team_a"], r["team_b"]))
+            first, sc = score_of[key]
+            hi, lo = max(sc), min(sc)
+            out.append({
+                "stage": r["stage"], "stage_cn": STAGE_CN.get(r["stage"], r["stage"]),
+                "team_a": r["team_a"], "team_b": r["team_b"],
+                "p_a": float(r["p_a_wins_series"]), "result_a_wins": int(raw),
+                "score": "%d-%d" % (hi, lo),
+            })
+    order = {s: i for i, s in enumerate(STAGE_CN)}
+    out.sort(key=lambda m: order.get(m["stage"], 99))
+    return out
+
+
 def team_table(blended, pred, rating):
+    records = ((pred.get("results") or {}).get("records") or {})
     out = []
     for t in sorted(blended, key=lambda x: -blended[x]):
         out.append({
             "team": t,
+            "record": records.get(t, ""),
             "champ_blended": blended[t],
             "champ_model": pred["champion"][t],
             "top4": pred["top4"][t],
@@ -222,10 +282,31 @@ def main():
         # 没法证明自己没抄错。
         "raw_prev_pred": json.load(open(need("frozen/frozen_v8-predictions-patchweight.json"))),
         "raw_prev_blend": json.load(open(need("frozen/frozen_v8-blended-patchweight.json"))),
+        # v9 = 开赛那一刻挂在站上的版本（锁首轮、分组不猜、全程模拟）。复盘页的
+        # 「赛前 → 现在」逐队对比以它为基准：v8 是更早的一版，拿它对比会把
+        # 「锁首轮带来的位移」和「打完两轮带来的位移」混成一个数，说不清楚。
+        "raw_prev9_pred": json.load(open(need("frozen/frozen_v9-postdraw-predictions.json"))),
+        "raw_prev9_blend": json.load(open(need("frozen/frozen_v9-postdraw-blended.json"))),
+        # 复盘页的逐场对账表：赛前冻结的概率 + 已回填的真实结果
+        "raw_matches": match_rows(need("reports/ti15_matches.csv"),
+                                  pred.get("results") or {}),
+        # 「必须同组」的块（从已发生的对阵反推，不是官方公布的）
+        "raw_blocks": group_blocks(),
         "manifest": manifest,
         "full_data": [{"file": f, "size": s, "desc": d} for f, s, d in FULL_DATA],
     }
-    json.dump({k: v for k, v in payload.items() if k not in ("raw_pred", "raw_fantasy", "raw_market", "raw_pm", "raw_window", "raw_draw_sens", "raw_prev_pred", "raw_prev_blend")},
+    # 赛前那一版（v9）的头名与它的概率——复盘页要拿它跟现在对比。
+    # 在这里算好放进 payload，避免页面模块自己再 sorted 一遍两份 blend。
+    _p9 = payload["raw_prev9_blend"]["champion_blended"]
+    _top9 = max(_p9, key=lambda t: _p9[t])
+    payload["prev_top_team"], payload["prev_top_p"] = _top9, _p9[_top9]
+
+    # 复盘摘要进 site.json：长图与网页从此读同一份数字（见 review.summary 的说明）
+    sys.path.insert(0, HERE)
+    import review as _review
+    payload["review"] = _review.summary(payload)
+
+    json.dump({k: v for k, v in payload.items() if not k.startswith("raw_")},
               open(os.path.join(DIST, "data", "site.json"), "w"),
               ensure_ascii=False, separators=(",", ":"))
     json.dump(build_search_index(players, rating),

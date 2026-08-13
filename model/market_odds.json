@@ -1,16 +1,56 @@
 {
-  "source": "bookmaker composite, 01-ti15-facts.md §4.2",
-  "captured_utc": "2026-08-01",
-  "note": "仅 5 队有盘口，其余为 null。null 项在融合时退回纯模型概率。",
+  "source": "本版**不使用**庄家盘口（decimal_odds 全为 null）。归档值来自 Thunderpick 冠军盘，经 thesportsgeek.com 2026-08-10 转述。",
+  "captured_utc": "2026-08-10",
+  "status": "retired_in_tournament",
+  "note": "2026-08-13 赛事开打后停用这一路输入。理由：这份盘口采于 8/10、开赛之前，而到本次重算时瑞士轮已打完 12 个系列赛。把一份赛前盘口按 50% 权重混进实时的 Polymarket 价里，等于把共识价往回拖到赛前——它会抵消掉这一版预测最主要的新信息。找过替代：赛中能查到的庄家报价全是二手/三手转述，既标不出采集时刻，报出的排序又与实时盘明显矛盾（例如仍把 Team Liquid 排在 Team Falcons 之前），拿这种数据当第二个信源比不用更糟。所以本版共识价 = 纯 Polymarket（唯一能确认实时、且 16 队全覆盖的来源），w_book 参数不变、靠 null 自然退出融合，这正是本文件第一版就写好的机制。等找到能直连核对的实时盘口，把 decimal_odds 填回去即可自动恢复两源融合。原值完整保留在 decimal_odds_retired_20260810，未做任何删改。",
+  "american_odds_as_printed": {
+    "PARIVISION": 300, "BB Team": 350, "Team Yandex": 350,
+    "Team Falcons": 800, "Aurora Gaming": 800, "Team Spirit": 800,
+    "1w Team": 1200, "Team Liquid": 1200,
+    "Nigma Galaxy": 2500, "Xtreme Gaming": 2500,
+    "ViCi Gaming": 3300, "LGD Gaming": 4000,
+    "GamerLegion": 6600, "OG": 6600,
+    "Team Resilience": 8000, "Huligani": 20000
+  },
+  "name_map_applied": {
+    "PARIVISION": "TEAM VISION", "BB Team": "BoomBoys",
+    "1w Team": "Iron Wing", "ViCi Gaming": "Vici Gaming",
+    "Huligani": "HULIGANI"
+  },
   "decimal_odds": {
-    "TEAM VISION": 4.50,
-    "Team Spirit": 5.00,
-    "Team Yandex": 6.00,
-    "Iron Wing": 7.00,
+    "TEAM VISION": null,
+    "BoomBoys": null,
+    "Team Yandex": null,
+    "Team Falcons": null,
+    "Aurora Gaming": null,
+    "Team Spirit": null,
+    "Iron Wing": null,
+    "Team Liquid": null,
+    "Nigma Galaxy": null,
+    "Xtreme Gaming": null,
+    "Vici Gaming": null,
+    "LGD Gaming": null,
+    "GamerLegion": null,
+    "OG": null,
+    "Team Resilience": null,
+    "HULIGANI": null
+  },
+  "decimal_odds_retired_20260810": {
+    "TEAM VISION": 4.00,
+    "BoomBoys": 4.50,
+    "Team Yandex": 4.50,
     "Team Falcons": 9.00,
-    "Aurora Gaming": null, "BoomBoys": null, "Team Liquid": null,
-    "Xtreme Gaming": null, "Vici Gaming": null, "Team Resilience": null,
-    "Nigma Galaxy": null, "HULIGANI": null, "OG": null,
-    "GamerLegion": null, "LGD Gaming": null
+    "Aurora Gaming": 9.00,
+    "Team Spirit": 9.00,
+    "Iron Wing": 13.00,
+    "Team Liquid": 13.00,
+    "Nigma Galaxy": 26.00,
+    "Xtreme Gaming": 26.00,
+    "Vici Gaming": 34.00,
+    "LGD Gaming": 41.00,
+    "GamerLegion": 67.00,
+    "OG": 67.00,
+    "Team Resilience": 81.00,
+    "HULIGANI": 201.00
   }
 }

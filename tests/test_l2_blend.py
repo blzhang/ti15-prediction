@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from model.l2_blend import build_blend, main, DEFAULT_OUT
+from model.l2_blend import build_blend, main, DEFAULT_ODDS, DEFAULT_OUT
 from model.market import (
     blend_logodds, blend_partial, normalize, round_probs,
     W_BOOK_DEFAULT, W_MARKET_DEFAULT,
@@ -93,5 +93,10 @@ def test_main_cli_writes_file_matching_build_blend_return_value(tmp_path):
     assert len(on_disk["champion_blended"]) == 16
     assert len(on_disk["market_consensus"]) == 16
     assert on_disk["sources"]["polymarket"]["teams_priced"] == 16
-    assert on_disk["sources"]["book"]["teams_priced"] == 5
+    # 庄家侧 2026-08-13 起停用（赛前盘口，赛中已过时，见 model/market_odds.json
+    # 的 note）：teams_priced 归零，共识价退化成纯 Polymarket。这个 0 是有意的，
+    # 不是抓取失败——两者的区别由 status 字段区分，所以一并断言。
+    assert on_disk["sources"]["book"]["teams_priced"] == 0
+    with open(DEFAULT_ODDS) as f:
+        assert json.load(f)["status"] == "retired_in_tournament"
     assert abs(sum(on_disk["champion_blended"].values()) - 1.0) < 1e-5

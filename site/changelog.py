@@ -38,15 +38,76 @@ def render(base, payload):
 
     entries = []
 
+    rv = payload.get("review") or {}
+    if rv.get("active"):
+        entries.append(_entry(
+            "2026-08-13",
+            "开赛：已打完的比赛不再当随机变量，全部代入重算",
+            [
+            ("改了什么",
+             "瑞士轮已打完 <b>%d 场</b>系列赛（另有 %d 场对阵已排定未开打）。"
+             "这些结果现在<b>当成事实逐场 replay</b>，每次模拟都照抄、一个随机数都不消耗；"
+             "只有还没打的部分才继续模拟。新增 <code>model/results.json</code> 与 "
+             "<code>model/results.py</code>，与分组开关同一套从严校验："
+             "正在进行中的比分填进来会直接报错——填了会被当成最终结果。"
+             % (rv["n_done"], rv["n_scheduled"])),
+            ("交了第一次账",
+             "赛前冻结的 120 组两两胜率表按实际对局逐场回填："
+             "<b>方向看对 %d/%d</b>，Brier <b>%.3f</b>。"
+             "<b>这个数低到触发了本项目自己的泄漏护栏</b>（设计文档写死「低于 0.20 先怀疑泄漏，不要庆祝」），"
+             "所以先自查：不是泄漏，是赛程软。拆开看——赛前就强弱悬殊的 %d 场 Brier %.3f、全中；"
+             "真正接近五五开的 %d 场 Brier <b>%.3f</b>，正落在 0.21–0.24 的正常区间。"
+             "没看对的 %d 场，模型给强的一方也只有 %s。"
+             % (rv["hits"], rv["n_scored"], rv["brier_all"], rv["n_far"], rv["brier_far"],
+                rv["n_close"], rv["brier_close"], len(rv["miss_probs"]),
+                "、".join("%.1f%%" % v for v in rv["miss_probs"]))),
+            ("分组：35 种 → %d 种，仍然不猜" % rv["n_group_splits"],
+             "瑞士轮 R1–R3 只在组内配对，所以每打完一轮，「谁跟谁必须同组」的约束就多一层："
+             "只知首轮时 8 个块 × 2 队 = 35 种分法；加上第二轮变成 4 个块 × 4 队 = <b>%d 种</b>；"
+             "<b>打完第三轮会塌缩成唯一解</b>。"
+             "也就是说 8/10 那次「不猜分组」的决定，现在看价值不在猜没猜对——"
+             "<b>而在于它本来就会自己揭晓，赌它没有任何收益</b>。现在仍是 %d 选 1，所以仍然平均掉。"
+             % (rv["n_group_splits"], rv["n_group_splits"])),
+            ("停用了庄家赔率这一路输入",
+             "能拿到的最新庄家盘口采于 8/10、开赛之前，赛中已过时；按原来 50% 权重混进实时 "
+             "Polymarket 价里，会把共识价<b>往回拖到赛前</b>，正好抵消这一版的新信息。"
+             "找过替代：赛中能查到的报价全是二手转述、标不出采集时刻，排序还与实时盘矛盾，"
+             "用了比不用更糟。<b>本版市场共识价 = 纯 Polymarket</b>；旧盘口原值完整归档未删，"
+             "找到能直连核对的实时盘口即可自动恢复两源融合。"),
+            ("没改什么（也是一个可质疑的选择）",
+             "<b>队伍实力评分没有跟着赛果更新。</b>模型没有因为 OG 连输两场就认为 OG 变弱了。"
+             "12 场 BO3 的信息量相对十几万场历史样本太小，临时调分过拟合风险大于收益。"
+             "但拆开位移看：<b>战绩带来的概率变化最大一支只有 %.1fpp，市场重新定价带来的最大 %.1fpp</b>，"
+             "差约 %.0f 倍——真正在动的是市场，不是比赛。"
+             % (rv["max_res_shift"], rv["max_mkt_shift"], rv["shift_ratio"])),
+            ("新增页面",
+             '站内新增<b><a href="%s/review.html">「复盘」页</a></b>，'
+             "逐场对账、分档打分、位移拆解全在那里，打一场更一场。" % base),
+            ("顺手修掉的一个自己的 bug",
+             "下面 8/10 那条历史条目里的位移数字，原来是拿<b>当前产物</b>跟 v8 冻结件比算出来的。"
+             "在「当前产物就是 v9」的那几天里它恰好正确；这次把赛果代入重算之后，"
+             "它就变成了拿 v10 跟 v8 比——于是把<b>赛果带来的位移算进了「首轮对阵带来的位移」</b>，"
+             "数字从 0.11pp 涨到 5.19pp，正文却还写着「基本没动」，自相矛盾。"
+             "已改为两边都钉死在冻结件上（v9 对 v8）。"
+             "<b>教训：历史条目的数字必须钉在冻结件上，不能跟着最新产物漂</b>——"
+             "这类错不会报错，只会安静地把一句真话变成假话。"),
+            ],
+            tone=" good"))
+
     drw = payload.get("draw") or {}
     prev = payload.get("raw_prev_pred")
     if drw.get("announced") and prev:
-        cur = payload["raw_pred"]
-        # 逐格从 v8 冻结件和本版产物算，不手抄
+        # ⚠️ 这是一条**历史**条目，说的是 8/10 那次改动带来的位移，所以两边都必须是
+        # 冻结件：v9（锁首轮那一版）对 v8（对抽签一无所知那一版）。
+        # 原来这里拿的是「当前产物」对 v8——在当前产物就是 v9 的那几天里恰好正确，
+        # 8/13 把赛果代入重算之后就变成了拿 v10 对 v8，于是这条历史条目开始把
+        # 「赛果带来的位移」算进「首轮对阵带来的位移」，正文还写着「基本没动」，
+        # 自相矛盾。历史条目一律钉死在冻结件上，不跟着最新产物漂。
+        cur = payload["raw_prev9_pred"]
         adv_d = {t: (cur["advance_playoffs"][t] - prev["advance_playoffs"][t]) * 100
                  for t in cur["advance_playoffs"]}
         pb = payload.get("raw_prev_blend", {}).get("champion_blended", {})
-        cb = {r["team"]: r["champ_blended"] for r in payload["teams"]}
+        cb = payload["raw_prev9_blend"]["champion_blended"]
         champ_max = max((abs(cb[t] - pb[t]) * 100 for t in pb), default=0.0)
         gain = sorted(adv_d.items(), key=lambda kv: -kv[1])[:3]
         lose = sorted(adv_d.items(), key=lambda kv: kv[1])[:3]

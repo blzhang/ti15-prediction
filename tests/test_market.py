@@ -72,32 +72,63 @@ def test_blend_partial_raises_valueerror_when_priced_mass_is_zero():
         blend_partial(model, odds, w_market=0.5)
 
 
-def test_market_odds_source_cites_traditional_bookmaker_section():
-    """5 队赔率表实际在 01-ti15-facts.md §4.2「传统博彩交叉验证」；
-    §5 是「来源冲突表」，跟赔率无关，之前 source 字段引用的章节号写错了。"""
+def test_market_odds_source_names_a_bookmaker_and_capture_date():
+    """source 字段必须能回答「谁的盘、什么时候的」。
+
+    2026-08-10 起换成 Thunderpick 全 16 队盘（经 thesportsgeek 转述），
+    旧的 5 队版本引 01-ti15-facts.md §4.2，那份已被整体替换、不再是出处，
+    所以这里不再断言章节号，改为断言出处三要素：庄家名、采集日期、
+    以及「二手转述」这个可信度标注不许被悄悄抹掉。"""
     with open(_project_path("model", "market_odds.json")) as f:
-        source = json.load(f)["source"]
-    assert "§4.2" in source
-    assert "§5" not in source
+        blob = json.load(f)
+    assert "Thunderpick" in blob["source"]
+    assert blob["captured_utc"].startswith("2026-")
+    # 没能直连原盘核对，这个限定词是对外表述的依据，不能丢
+    assert "二手" in blob["note"] or "转述" in blob["source"]
 
 
-def test_blend_partial_real_16_team_scenario_preserves_unpriced_teams_exactly():
-    """覆盖真实场景：16 队里只有 5 队有盘口（model/market_odds.json）。
-    核心不变量——11 支无盘口队的融合结果必须逐一精确等于融合前的纯模型概率，
-    不能被市场信息污染。这是本任务的核心不变量，用真实数据文件直接校验。"""
+def test_retired_bookmaker_odds_are_archived_not_deleted():
+    """2026-08-13 起庄家腿停用（赛前盘口，赛中已过时），但**归档值一个都不许丢**。
+
+    停用的做法是把 decimal_odds 全部置 null，原值搬到 decimal_odds_retired_*。
+    这里仍按 O = N/100 + 1 逐队重算归档值——换算错一个，将来把它填回去恢复
+    两源融合时就会静默污染结果，那时候更难查。同时校验队名映射后恰好覆盖
+    模型的 16 队，以及 status 明确标着停用。
+    """
     with open(_project_path("model", "l2_predictions.json")) as f:
         model = json.load(f)["champion"]
     with open(_project_path("model", "market_odds.json")) as f:
+        blob = json.load(f)
+
+    assert blob["status"] == "retired_in_tournament"
+    archived = blob["decimal_odds_retired_20260810"]
+    name_map = blob["name_map_applied"]
+    recomputed = {
+        name_map.get(raw, raw): american / 100.0 + 1.0
+        for raw, american in blob["american_odds_as_printed"].items()
+    }
+    assert recomputed == pytest.approx(archived)
+    assert set(archived) == set(model)
+    assert set(blob["decimal_odds"]) == set(model), "停用不等于删表，16 个键要留着"
+    assert all(v is None for v in blob["decimal_odds"].values())
+
+
+def test_retired_book_leg_leaves_consensus_as_pure_polymarket():
+    """庄家腿停用后，共识价必须逐队精确等于归一化后的 Polymarket 价。
+
+    这是「停用」这个动作的全部含义。如果哪天有人往 decimal_odds 里填回了值
+    却忘了同步文案，这条会红——站点上写着「本版共识价 = 纯 Polymarket」，
+    那句话的真伪就由这条测试守着。
+    """
+    from model.market import normalize
+    with open(_project_path("model", "market_odds.json")) as f:
         odds = json.load(f)["decimal_odds"]
+    with open(_project_path("model", "polymarket_odds.json")) as f:
+        pm = json.load(f)["prices"]
 
-    priced_teams = {k for k, v in odds.items() if v}
-    unpriced_teams = set(model) - priced_teams
-    assert len(priced_teams) == 5
-    assert len(unpriced_teams) == 11
-
-    out = blend_partial(model, odds, w_market=0.7)
-    for team in unpriced_teams:
-        assert out[team] == pytest.approx(model[team]), team
+    pm_probs = normalize({t: rec["mid"] for t, rec in pm.items()})
+    consensus = blend_partial(pm_probs, odds, w_market=0.5)
+    assert consensus == pytest.approx(pm_probs)
 
 
 from model.market import round_probs

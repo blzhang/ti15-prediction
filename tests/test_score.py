@@ -271,10 +271,47 @@ def test_real_ti15_matches_csv_is_well_formed():
         p = float(r["p_a_wins_series"])
         assert 0.0 <= p <= 1.0
         assert round(p, 6) == p
-        assert r["result_a_wins"] == "", "赛前生成时结果列必须留空"
+        # 结果列：赛前留空，赛后由 model/backfill_results.py 回填 0/1。
+        # 两种状态都合法，但 stage 必须跟着走——回填了结果却还标 pending，
+        # 或者标了真实阶段却没结果，都是回填脚本出了问题。
+        res = r["result_a_wins"]
+        assert res in ("", "0", "1"), "结果列只能是空、0 或 1，现在是 %r" % res
+        assert (res == "") == (r["stage"] == "pending"), (
+            "%s vs %s 的 stage=%r 与 result_a_wins=%r 对不上"
+            % (a, b, r["stage"], res))
     assert len(pairs) == len(rows), "不能有重复配对"
 
     out = score_report(path)
     assert out["n_total"] == 120
-    assert out["n_scored"] == 0
-    assert out["verdict"] == "no_data_yet"
+    # 赛前 n_scored=0；开赛后等于已回填的场次数。两种都合法，但打分必须自洽。
+    if out["n_scored"] == 0:
+        assert out["verdict"] == "no_data_yet"
+    else:
+        assert out["brier"] is not None and 0.0 <= out["brier"] <= 1.0
+        assert out["verdict"] != "no_data_yet"
+
+
+def test_backfill_never_touches_the_frozen_pre_match_probabilities():
+    """回填只许写 stage 与 result_a_wins 两列。
+
+    `p_a_wins_series` 是赛前对每一对队伍的唯一承诺，一旦被回填脚本碰过，
+    整张对账表就失去了意义——而且改完看起来一切正常，赛后打分照样出数，
+    只是那个数不再对应任何赛前承诺。所以拿开赛前的冻结件逐行比对。
+    """
+    live = _project_path("reports", "ti15_matches.csv")
+    frozen = _project_path("frozen", "frozen_v3-matchtable.json")
+    if not os.path.exists(frozen):
+        pytest.skip("缺少 v3 冻结件")
+    # 名字是 .json，内容其实是 CSV 原文——freeze.py 对任何源文件都原样复制，
+    # 只是统一按 frozen_<label>.json 命名。这里按它的真实格式读。
+    with open(frozen, newline="", encoding="utf-8") as f:
+        frozen_rows = list(csv.DictReader(f))
+    with open(live, newline="", encoding="utf-8") as f:
+        live_rows = list(csv.DictReader(f))
+    assert len(frozen_rows) == len(live_rows)
+    for fr, lr in zip(frozen_rows, live_rows):
+        assert (fr["team_a"], fr["team_b"]) == (lr["team_a"], lr["team_b"])
+        assert fr["p_a_wins_series"] == lr["p_a_wins_series"], (
+            "%s vs %s 的赛前概率被改过了：冻结件 %s，现在 %s"
+            % (fr["team_a"], fr["team_b"], fr["p_a_wins_series"], lr["p_a_wins_series"]))
+        assert fr["frozen_at"] == lr["frozen_at"]

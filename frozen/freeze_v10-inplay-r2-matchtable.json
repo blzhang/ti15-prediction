@@ -1,0 +1,9 @@
+{
+ "label": "v10-inplay-r2-matchtable",
+ "frozen_at_utc": "2026-08-13T16:26:04Z",
+ "sha256": "551fff9489ba1af1799e3d71d1b25a3eac563389ac84a49dbd120b717ac3e818",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/reports/ti15_matches.csv",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v10-inplay-r2-matchtable.json",
+ "src_rel": "../reports/ti15_matches.csv",
+ "frozen_path_rel": "frozen_v10-inplay-r2-matchtable.json"
+}
