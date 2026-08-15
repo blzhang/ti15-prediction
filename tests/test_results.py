@@ -260,3 +260,84 @@ def test_shipped_results_grouping_is_consistent_with_round1_being_intra_group():
         assert sum(gv) == len(teams) // 2
         for i, j, _, _ in obs["rounds"][1]:
             assert gv[i] == gv[j], "某种候选分组把首轮对手拆到了两个组"
+
+
+# ---------- 半轮：一轮里只知道一部分对阵 ----------
+#
+# 赛程推进到一半时必然出现：第 5 轮 7 场只开了 3 场，另外 8 队的对阵还没出。
+# 早先的实现是「这一轮有已知对阵就整轮照用」，剩下的队会整轮不打球，
+# 直接破坏 1/2/5/5/2/1 的分档恒等式。这一组测试钉住半轮必须补配对。
+
+def _swiss_only(theta, rng, obs):
+    """跑一次 run_one，返回每队的瑞士轮总场次（胜+负）。"""
+    from l2_simulate import run_one
+    rec, _, _, _, _, _, *_ = run_one(theta, rng, None, obs)
+    return [w + l for w, l in rec]
+
+
+def test_partial_round_still_pairs_everyone_else(tmp_path):
+    """一轮里只填了 1 场，其余 14 队必须照常按战绩配对，没有人被漏掉。"""
+    import numpy as np
+    rounds = [{"round": 1, "series": R1},
+              {"round": 2, "series": [{"a": TEAMS[0], "b": TEAMS[2]}]}]
+    obs = res_mod.load(TEAMS, write(tmp_path, rounds=rounds))
+    rng = np.random.default_rng(3)
+    for _ in range(20):
+        n = _swiss_only(rng.standard_normal(16), rng, obs)
+        # 第二轮谁都没停赛（最多 1 胜 1 负），所以人人都该打满两轮以上
+        assert min(n) >= 2, "半轮情形下有队伍被漏配了：每队场次 %s" % n
+
+
+def test_partial_round_keeps_the_bucket_identity(tmp_path):
+    """半轮情形下 1/2/5/5/2/1 的分档恒等式必须仍然成立。
+
+    这是「有人整轮没打球」最容易暴露的地方：少打一场，战绩分布立刻塌掉。
+    """
+    import collections
+    import numpy as np
+    from l2_simulate import run_one
+    rounds = [{"round": 1, "series": R1},
+              {"round": 2, "series": [{"a": TEAMS[0], "b": TEAMS[2]},
+                                      {"a": TEAMS[4], "b": TEAMS[6]}]}]
+    obs = res_mod.load(TEAMS, write(tmp_path, rounds=rounds))
+    rng = np.random.default_rng(11)
+    for _ in range(40):
+        rec, _, _, _, _, _, *_ = run_one(rng.standard_normal(16), rng, None, obs)
+        c = collections.Counter("%d-%d" % r for r in rec)
+        assert c["4-0"] == 1 and c["4-1"] == 2 and c["3-2"] == 5, dict(c)
+        assert c["2-3"] == 5 and c["1-4"] == 2 and c["0-4"] == 1, dict(c)
+
+
+def test_known_pairings_in_a_partial_round_are_still_honoured(tmp_path):
+    """半轮里已知的那几场，对阵必须原样生效，不能被重新配对冲掉。"""
+    import numpy as np
+    from l2_simulate import run_one
+    from swiss import SwissState
+    rounds = [{"round": 1, "series": R1},
+              {"round": 2, "series": [{"a": TEAMS[0], "b": TEAMS[2], "score": [2, 0]}]}]
+    obs = res_mod.load(TEAMS, write(tmp_path, rounds=rounds))
+    rng = np.random.default_rng(5)
+    for _ in range(20):
+        rec, _, _, _, _, _, *_ = run_one(rng.standard_normal(16), rng, None, obs)
+        # T00 两轮全胜（R1 赢 T01、R2 赢 T02），T02 一胜一负
+        assert rec[0][0] >= 2, "已知对阵的胜者在半轮里没被照抄"
+        assert rec[2][1] >= 1, "已知对阵的败者在半轮里没被照抄"
+
+
+def test_shipped_results_grouping_has_collapsed_to_a_unique_answer():
+    """仓库里这份真实数据：分组应当已经由对阵唯一确定，且 R4 全部跨组。
+
+    R1-R3 组内 + R4 跨组是两个**方向相反**的约束，同时成立才说明这个切分是对的。
+    哪天这条红了，多半是某一轮的对阵抄错了、或者赛制规则变了。
+    """
+    teams = list(json.load(open(os.path.join(HERE, "..", "model", "l1_rating.json")))["rating"])
+    obs = res_mod.load(teams)
+    if obs is None or 4 not in obs["rounds"]:
+        pytest.skip("还没打到第四轮")
+    assert len(obs["splits"]) == 1, "分组还没收敛到唯一解"
+    gv = obs["splits"][0]
+    for rnd in (1, 2, 3):
+        for i, j, _, _ in obs["rounds"].get(rnd, []):
+            assert gv[i] == gv[j], "第 %d 轮出现跨组对阵" % rnd
+    for i, j, _, _ in obs["rounds"][4]:
+        assert gv[i] != gv[j], "第 4 轮出现组内对阵"

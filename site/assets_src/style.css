@@ -306,3 +306,29 @@ table.rv .vs { color: var(--ink-muted); font-size: 12px; padding: 0 4px; }
 .coin { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
         font-size: 11px; font-weight: 600; color: var(--ink-muted);
         border: 1px solid var(--grid); vertical-align: 1px; }
+
+/* 复盘页签：每次复盘一个，最新的默认展开。历史页签是「我当时是这么说的」，
+   所以视觉上不弱化——它们不是存档，是证据。 */
+.rv-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 0;
+           border-bottom: 1px solid var(--grid); }
+.rv-tab { background: none; border: none; border-bottom: 2px solid transparent;
+          color: var(--ink-2); font: inherit; font-size: 14.5px; font-weight: 600;
+          padding: 10px 14px 9px; cursor: pointer; display: flex; flex-direction: column;
+          align-items: flex-start; gap: 2px; margin-bottom: -1px; }
+.rv-tab span { font-size: 11.5px; font-weight: 400; color: var(--ink-muted);
+               font-variant-numeric: tabular-nums; }
+.rv-tab:hover { color: var(--ink); }
+.rv-tab.on { color: var(--ink); border-bottom-color: var(--s1); }
+.rv-panel.off { display: none; }
+.rv-head { display: flex; justify-content: space-between; align-items: baseline;
+           gap: 12px 20px; flex-wrap: wrap; margin: 20px 0 4px;
+           padding-bottom: 12px; border-bottom: 1px solid var(--grid); }
+.rv-verdict { color: var(--ink-2); font-size: 13.5px; text-align: right; }
+/* 本次复盘相对上次新增的场次 */
+.fresh { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 3px;
+         font-size: 10.5px; font-weight: 700; color: var(--page); background: var(--s1);
+         vertical-align: 1px; }
+table.rv tr.settled { background: color-mix(in srgb, var(--good) 8%, transparent); }
+.settled-list { margin: 8px 0 10px; padding-left: 20px; }
+.settled-list li { margin: 4px 0; }
+.grouplist { color: var(--ink-2); font-size: 14px; line-height: 1.7; }

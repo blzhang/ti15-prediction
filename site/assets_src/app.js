@@ -166,3 +166,24 @@ function initExplorer(base) {
   tick();
   var timer = setInterval(tick, 1000);
 })();
+
+// 复盘页签：纯前端切换，不改 URL 以外的任何状态。
+// 带 hash（#rv-r2）打开时直接定位到那一次复盘——分享某一次复盘的链接要能用。
+(function () {
+  var tabs = document.querySelectorAll('.rv-tab');
+  if (!tabs.length) return;
+  function show(id) {
+    document.querySelectorAll('.rv-panel').forEach(function (p) {
+      p.classList.toggle('off', p.id !== 'rv-' + id);
+    });
+    tabs.forEach(function (t) { t.classList.toggle('on', t.dataset.rv === id); });
+  }
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      show(t.dataset.rv);
+      history.replaceState(null, '', '#rv-' + t.dataset.rv);
+    });
+  });
+  var h = (location.hash || '').replace(/^#rv-/, '');
+  if (h && document.getElementById('rv-' + h)) show(h);
+})();

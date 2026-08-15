@@ -1,0 +1,9 @@
+{
+ "label": "v11-inplay-r4-results",
+ "frozen_at_utc": "2026-08-15T11:59:17Z",
+ "sha256": "beb18a4368f23dd88ba0eb3270df6c05eae1c0f8cb345af6cd47e4e35fd78a9b",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/results.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v11-inplay-r4-results.json",
+ "src_rel": "../model/results.json",
+ "frozen_path_rel": "frozen_v11-inplay-r4-results.json"
+}

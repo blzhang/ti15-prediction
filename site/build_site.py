@@ -114,6 +114,66 @@ def need(rel):
     return p
 
 
+REVIEWS = [
+    # (id, 截至日期, 冻结的预测, 冻结的融合, 冻结的对账表, 冻结的已完赛数据)
+    # ⚠️ 历史那几次一律指向 frozen/ 下的冻结件，绝不指向 model/ 下的当前产物。
+    #    指向当前产物的话，历史复盘会跟着最新数据漂——那就不再是「我当时是这么说的」。
+    #    更新日志页真的这么错过一次（见 changelog.py 里的注释），所以这里写死。
+    ("r2", "2026-08-13",
+     "frozen/frozen_v10-inplay-r2-predictions.json",
+     "frozen/frozen_v10-inplay-r2-blended.json",
+     "frozen/frozen_v10-inplay-r2-matchtable.json",
+     "frozen/frozen_v10-inplay-r2-results.json"),
+    ("r4", "2026-08-15",
+     "model/l2_predictions.json", "model/l2_blended.json",
+     "reports/ti15_matches.csv", "model/results.json"),
+]
+
+
+def review_snapshots(baseline_pred, baseline_blend):
+    """每次复盘一份快照，全部从各自那一刻的冻结件读。
+
+    baseline_* 是赛前那一版（v9，开赛时挂在站上的），所有快照共用同一个基线——
+    这样「赛前 → 第 N 次复盘」的位移在各次之间可比。
+    """
+    sys.path.insert(0, ROOT)
+    sys.path.insert(0, os.path.join(ROOT, "model"))
+    import results as results_mod
+    teams = list(json.load(open(need("model/l1_rating.json")))["rating"])
+    top = max(baseline_blend["champion_blended"],
+              key=lambda t: baseline_blend["champion_blended"][t])
+
+    snaps = []
+    for i, (sid, as_of, pred_rel, blend_rel, csv_rel, res_rel) in enumerate(REVIEWS, start=1):
+        pred = json.load(open(need(pred_rel)))
+        blend = json.load(open(need(blend_rel)))
+        obs = results_mod.load(teams, need(res_rel))
+        if obs is None:
+            raise SystemExit("复盘快照 %s 的已完赛数据不可用：%s" % (sid, res_rel))
+        res = pred.get("results") or {}
+        champ = blend["champion_blended"]
+        recs = res.get("records") or {}
+        snaps.append({
+            "id": sid, "index": i, "as_of": as_of,
+            "n_done": obs["n_done"], "n_scheduled": obs["n_scheduled"],
+            "n_group_splits": len(obs["splits"]),
+            "blocks": [[teams[t] for t in b] for b in obs["blocks"]],
+            "groups": ([[teams[t] for t, g in enumerate(obs["splits"][0]) if g == 0],
+                        [teams[t] for t, g in enumerate(obs["splits"][0]) if g == 1]]
+                       if len(obs["splits"]) == 1 else None),
+            "pred": pred, "blend": blend, "records": recs,
+            "matches": match_rows(need(csv_rel), res),
+            "teams": [{"team": t, "record": recs.get(t, ""),
+                       "champ_blended": champ[t], "champ_model": pred["champion"][t],
+                       "advance": pred["advance_playoffs"][t]}
+                      for t in sorted(champ, key=lambda x: -champ[x])],
+            "baseline_pred": baseline_pred, "baseline_blend": baseline_blend,
+            "baseline_top_team": top,
+            "baseline_top_p": baseline_blend["champion_blended"][top],
+        })
+    return snaps
+
+
 def group_blocks():
     """「必须同组」的队伍块，直接问 model/results.py 要，不在站点侧重算一遍。
 
@@ -267,7 +327,10 @@ def main():
             "answer": {k: [[t, round(v, 6)] for t, v in vs] for k, vs in hw["answer"].items()},
             "expected": round(hw["expected_correct"], 4),
             "random": round(hw["random_baseline"], 4),
-            "elim": {k: round(v, 4) for k, v in hw["elim"].items()},
+            # elim 里除了数还有 shape_holds / unreachable 这类非数值字段
+            # （8/15 起赛中形状会变，页面要靠它们分叉措辞），只对数值取整。
+            "elim": {k: (round(v, 4) if isinstance(v, float) else v)
+                     for k, v in hw["elim"].items()},
         })(__import__("homework").compute(pred, rating["rating"])))(),
         "raw_pred": pred,
         "raw_fantasy": json.load(open(need("reports/p1_fantasy_matrix.json"))),
@@ -287,9 +350,6 @@ def main():
         # 「锁首轮带来的位移」和「打完两轮带来的位移」混成一个数，说不清楚。
         "raw_prev9_pred": json.load(open(need("frozen/frozen_v9-postdraw-predictions.json"))),
         "raw_prev9_blend": json.load(open(need("frozen/frozen_v9-postdraw-blended.json"))),
-        # 复盘页的逐场对账表：赛前冻结的概率 + 已回填的真实结果
-        "raw_matches": match_rows(need("reports/ti15_matches.csv"),
-                                  pred.get("results") or {}),
         # 「必须同组」的块（从已发生的对阵反推，不是官方公布的）
         "raw_blocks": group_blocks(),
         "manifest": manifest,
@@ -300,6 +360,10 @@ def main():
     _p9 = payload["raw_prev9_blend"]["champion_blended"]
     _top9 = max(_p9, key=lambda t: _p9[t])
     payload["prev_top_team"], payload["prev_top_p"] = _top9, _p9[_top9]
+
+    # 逐次复盘的快照。历史那几次从冻结件读，不会被后来的数据改写。
+    payload["raw_reviews"] = review_snapshots(payload["raw_prev9_pred"],
+                                              payload["raw_prev9_blend"])
 
     # 复盘摘要进 site.json：长图与网页从此读同一份数字（见 review.summary 的说明）
     sys.path.insert(0, HERE)

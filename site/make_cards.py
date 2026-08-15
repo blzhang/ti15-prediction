@@ -184,24 +184,72 @@ def long_image(p):
              % (rv["n_done"], p.get("market_captured", ""))) if rv.get("active") else \
             ("赛前已哈希存证 · 市场价截至 %s" % p.get("market_captured", ""))
 
-    # 复盘小节只在开赛后出现；赛前这一整块不渲染（数字全是 None，硬渲染必崩）
-    review_block = ("""
-<h2><span class="n">02</span>先交账：赛前预测已经对了 %d 场答案</h2>
-<div class="h2sub">赛前冻结的 120 组两两胜率，逐场回填实际结果</div>
-<div class="tiles">
-  <div class="tile"><div class="v">%d/%d</div><div class="k">方向看对<br>已完赛系列赛</div></div>
-  <div class="tile"><div class="v">%.3f</div><div class="k">Brier 分数<br>低于 0.20 要先怀疑自己</div></div>
-  <div class="tile"><div class="v">%d 种</div><div class="k">分组还剩几种可能<br>赛前是 35 种</div></div>
-</div>
+    # 复盘小节只在开赛后出现；赛前这一整块不渲染（数字全是 None，硬渲染必崩）。
+    # 两段措辞随赛况分叉，不写死：
+    #   · 分组还剩多种 → 讲「它正在自己解开」；已收敛到 1 种 → 讲「它解开了」
+    #   · 五五开那档贴近抛硬币（0.25）→ 必须把这件事挑明，而不是只报好看的总分
+    settled = rv.get("settled") or []
+    settled_line = "；".join(
+        "%s 是 %s（赛前押 %s，%s）" % (x["bucket"], "、".join(x["teams"]), x["pick"],
+                                      "押中" if x["hit"] else "押错")
+        for x in settled)
+    coin = rv["brier_close"] >= 0.235
+    lead = ("五五开那一档，已经贴到抛硬币了" if coin
+            else "赛前预测已经对了 %d 场答案" % rv["n_scored"])
+
+    if coin:
+        review_body = """
+<div class="note" style="color:#c3c2b7;font-size:%(fs)dpx;line-height:1.6">
+整体 Brier <b style="color:#fff">%(brier).3f</b>，方向 %(hits)d/%(n)d——看着还行。
+<b style="color:#fff">但把送分题剔掉之后就不好看了。</b><br>
+拆开看：赛前就<b>强弱悬殊</b>的 %(nfar)d 场，Brier %(bfar).3f、%(hfar)d/%(nfar)d；
+赛前<b>接近五五开</b>的 %(nclose)d 场，方向只对了 <b style="color:#fff">%(hclose)d 场</b>，
+Brier <b style="color:#fff">%(bclose).3f</b>——而<b style="color:#fff">抛硬币的 Brier 恒为 0.25</b>。<br><br>
+<b style="color:#fff">正确的读法不是「模型看走眼了」，也不是「模型很准」，而是：
+模型说这些是五五开，它们就真的表现得像五五开。</b>
+校准是对的，但同时意味着一件不好听的事——<b style="color:#fff">在势均力敌的比赛上，这个模型没提供任何信息量</b>。
+它能告诉你的只有「谁明显更强」，而这一点你不看模型也知道。<br><br>
+上一次交账时总分是 0.136，低到触发了项目自己的泄漏护栏，当时的解释是「赛程太软，不是模型神」，
+并预告「等强队互相碰上，这个数会往上走」。<b style="color:#fff">现在它如期走上来了——那句解释是对的。</b>
+当初要是拿 0.136 出去吹，今天就得解释「为什么变差了」。</div>
+""" % {"fs": SIZES_LONG["fs_note"], "brier": rv["brier_all"], "hits": rv["hits"],
+       "n": rv["n_scored"], "nfar": rv["n_far"], "bfar": rv["brier_far"],
+       "hfar": rv["hits_far"], "nclose": rv["n_close"], "hclose": rv["hits_close"],
+       "bclose": rv["brier_close"]}
+    else:
+        review_body = """
 <div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
 <b style="color:#fff">这个 %.3f 好看得可疑，所以先自己查了一遍。</b>
 本项目设计文档写死一条：<b>Brier 低于 0.20 要先怀疑数据泄漏，而不是庆祝</b>。
 查下来不是泄漏（预测 8/2 就冻结留证了），是<b>赛程太软</b>——
 拆开看：赛前就强弱悬殊的 %d 场，Brier %.3f、全中，这种局本来就该全中；
 真正接近五五开的 %d 场，Brier <b style="color:#fff">%.3f</b>，正好落在 0.21–0.24 的正常区间。
-<b style="color:#fff">能体现水平的那几场，打出来的是「正常」，不是神迹。</b>
-没看对的 %d 场，赛前给强的一方也只有 %s——模型明说了自己不知道。</div>
+<b style="color:#fff">能体现水平的那几场，打出来的是「正常」，不是神迹。</b></div>
+""" % (SIZES_LONG["fs_note"], rv["brier_all"], rv["n_far"], rv["brier_far"],
+       rv["n_close"], rv["brier_close"])
 
+    if rv["n_group_splits"] == 1:
+        group_block = """
+<h2><span class="n">03</span>分组解开了——全程一次都没猜过</h2>
+<div class="h2sub">赛前我拒绝去猜分组。上一次复盘预告「打完第三轮它会自己唯一确定」，它真的确定了</div>
+<div class="split">
+  <div class="box"><div class="lbl">与已知对阵自洽的分法</div>
+    <div class="big dn">35 → 3 → 1</div>
+    <div class="note">赛前 35 种 → 打完第二轮剩 3 种<br>
+    → 打完第三轮 <b>只剩 1 种</b>。<br>
+    瑞士轮前三轮<b>只在组内配对</b>，<br>每打完一轮约束就多一层。</div></div>
+  <div class="box"><div class="lbl">而且被反向验证了</div>
+    <div class="big up">24 + 8</div>
+    <div class="note">前三轮组内：<b>24 场全部</b>落在<br>这条分界线之内；<br>
+    第四轮跨组：<b>8 场全部</b>跨越它。<br>错的分组不可能同时满足两边。</div></div>
+</div>
+<div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
+<b style="color:#fff">官方从头到尾没公布过分组，我也从头到尾没猜过——它是被比赛本身解出来的。</b>
+赛前赌那 35 选 1，赌赢了只是提前两天知道一件必然会揭晓的事，赌输了整版预测的前三轮对手全错。<br>
+<b style="color:#fff">两个已经能盖棺定论的格子：</b>%s。瑞士轮打到 4 胜或 4 负即停，这两格已经没有悬念了。</div>
+""" % (SIZES_LONG["fs_note"], settled_line or "暂无")
+    else:
+        group_block = """
 <h2><span class="n">03</span>分组不用猜，它自己在解开</h2>
 <div class="h2sub">赛前我拒绝去猜分组，现在看这个决定的价值不在「猜没猜对」</div>
 <div class="split">
@@ -214,15 +262,24 @@ def long_image(p):
     <div class="note"><b>分组会自己唯一确定。</b><br>
     赛前赌那 35 选 1，赢了只是提前<br>两天知道一件必然会揭晓的事。</div></div>
 </div>
+""" % rv["n_group_splits"]
+
+    review_block = ("""
+<h2><span class="n">02</span>先交账：%s</h2>
+<div class="h2sub">赛前冻结的 120 组两两胜率，逐场回填实际结果（已完赛 %d 场）</div>
+<div class="tiles">
+  <div class="tile"><div class="v">%d/%d</div><div class="k">方向看对<br>已完赛系列赛</div></div>
+  <div class="tile"><div class="v">%.3f</div><div class="k">Brier（全部）<br>低于 0.20 要先怀疑自己</div></div>
+  <div class="tile"><div class="v">%.3f</div><div class="k">Brier（五五开那档）<br>0.25 就是抛硬币</div></div>
+</div>
+%s
+%s
 <div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
-<b style="color:#fff">另一个反直觉的结果：这两轮打完，概率的挪动几乎全是市场挪的，不是打出来的。</b>
+<b style="color:#fff">另一个反直觉的结果：概率的挪动几乎全是市场挪的，不是打出来的。</b>
 战绩带来的位移最大一支只有 <b style="color:#fff">%.1fpp</b>，市场重新定价带来的最大 <b style="color:#fff">%.1fpp</b>——差约 %.0f 倍。
-瑞士轮容错太高（4 胜或 4 负才停，后面还有附加赛和双败），前两轮胜负对夺冠的影响本来就有限。</div>
-""" % (rv["n_scored"], rv["hits"], rv["n_scored"], rv["brier_all"], rv["n_group_splits"],
-       SIZES_LONG["fs_note"], rv["brier_all"],
-       rv["n_far"], rv["brier_far"], rv["n_close"], rv["brier_close"],
-       len(rv["miss_probs"]), "、".join("%.1f%%" % v for v in rv["miss_probs"]),
-       rv["n_group_splits"],
+瑞士轮容错太高（4 胜或 4 负才停，后面还有附加赛和双败），单轮胜负对夺冠的影响本来就有限。</div>
+""" % (lead, rv["n_done"], rv["hits"], rv["n_scored"], rv["brier_all"], rv["brier_close"],
+       review_body, group_block,
        SIZES_LONG["fs_note"],
        rv["max_res_shift"], rv["max_mkt_shift"], rv["shift_ratio"])) if rv.get("active") else ""
 

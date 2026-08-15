@@ -106,14 +106,22 @@ def run_one(theta, rng, drawn=None, observed=None):
         act = active_teams(s)
         if len(act) < 2:
             break
-        # 这一轮的对阵已经排定（打完的、或排好还没打的）就照用，不再跑配对函数；
-        # 否则按战绩现配。obs_rounds 的键从 1 计（与对外文案一致），rnd 从 0 计。
-        known = obs_rounds.get(rnd + 1)
-        if known:
-            schedule = [(a, b, a_wins, lg) for a, b, a_wins, lg in known]
-        else:
-            schedule = [(a, b, None, None)
-                        for a, b in pair_round(s, rnd, rng, active=act, fixed_r1=fixed_r1)]
+        # 这一轮已知的对阵（打完的、或排好/正在打还没分胜负的）照用；**这一轮里
+        # 还没排到的队，按战绩现配**——这是「半轮」情形，赛程推进到一半时必然出现：
+        # 比如第 5 轮 7 场只开了 3 场，另外 8 队的对阵官方还没出。
+        # 早先的写法是「这一轮有已知对阵就整轮照用」，那会让剩下 8 队整轮不打球，
+        # 直接破坏 1/2/5/5/2/1 的分档恒等式（模块末尾那条 assert 会炸）。
+        # obs_rounds 的键从 1 计（与对外文案一致），rnd 从 0 计。
+        known = obs_rounds.get(rnd + 1) or []
+        schedule = [(a, b, a_wins, lg) for a, b, a_wins, lg in known]
+        fixed = {t for a, b, _, _ in known for t in (a, b)}
+        rest = [t for t in act if t not in fixed]
+        if rest:
+            # 已知对阵占掉一部分时，只对剩下的队配对；fixed_r1 只在第一轮
+            # 完全没有已知对阵时才有意义（有已知对阵的话它已经包含在 known 里了）。
+            schedule += [(a, b, None, None)
+                         for a, b in pair_round(s, rnd, rng, active=rest,
+                                                fixed_r1=None if known else fixed_r1)]
         for a, b, a_wins, loser_games in schedule:
             if a_wins is not None:
                 # 已经打完了：这是事实，每次模拟都照抄，一个随机数都不消耗。

@@ -105,15 +105,31 @@ def elim_pitfalls(pred, strength):
 
     早先的文案两格都挑了落差小的那一头讲。所以这里把形状钉成断言——
     重算后若形状变了，构建直接失败，而不是继续印一句错话。
+
+    ⚠️ 这条断言只在**赛前**成立，2026-08-15 被真实赛况打掉过一次：瑞士轮打到
+    4 胜或 4 负即停，一旦有队伍锁定 4-0（直通淘汰赛）或 0-4（出局），它们
+    **根本碰不到附加轮**，两格概率同时归零，「胜者格最低的是垫底队」就不再成立了。
+    那不是 bug，是赛况本身变了。所以开赛后不再断言，改为把形状是否还成立
+    （shape_holds）交出去，由页面自己选措辞——断言的职责是「别印错话」，
+    而不是「不许赛况变化」。
     """
     # 必须按实力参数排序。用模拟出来的夺冠概率当代理会在末尾翻转——
     # 垫底两队的夺冠概率都是 0.1%~0.2% 量级，差异纯粹是蒙特卡洛噪声。
     order = sorted(strength, key=lambda t: -strength[t])
     sv = [pred["elim_round_survive"][t] for t in order]
     ou = [pred["elim_round_out"][t] for t in order]
-    assert sv.index(min(sv)) >= 11, "胜者格最低的不再是垫底队，文案需重写"
-    assert ou.index(min(ou)) == 0, "败者格最低的不再是最强队，文案需重写"
-    return {"sv_lo8": min(sv[:8]) * 100, "sv_hi8": max(sv[:8]) * 100,
+    shape_holds = sv.index(min(sv)) >= 11 and ou.index(min(ou)) == 0
+    in_play = bool((pred.get("results") or {}).get("active"))
+    if not in_play:
+        assert sv.index(min(sv)) >= 11, "胜者格最低的不再是垫底队，文案需重写"
+        assert ou.index(min(ou)) == 0, "败者格最低的不再是最强队，文案需重写"
+    # 已经碰不到附加轮的队：要么已锁定直通（4 胜），要么已出局（4 负）。
+    # 这两类队在两格里都是 0%，赛前那套「填谁都一样 / 别填垫底队」的说法对它们无效。
+    unreachable = [t for t in order
+                   if pred["elim_round_survive"][t] == 0 and pred["elim_round_out"][t] == 0]
+    return {"shape_holds": shape_holds, "in_play": in_play,
+            "unreachable": unreachable,
+            "sv_lo8": min(sv[:8]) * 100, "sv_hi8": max(sv[:8]) * 100,
             "sv_min": min(sv) * 100, "sv_gap": (max(sv) - min(sv)) * 100,
             "ou_min": min(ou) * 100, "ou_gap": (max(ou) - min(ou)) * 100,
             # 「避开最强的那支」在两格里各值多少——更新日志要用这两个数
@@ -139,6 +155,37 @@ def compute(pred, strength):
         "cost_of_intuition": best - intuit,
         "elim": elim_pitfalls(pred, strength),
     }
+
+
+def elim_note(ep, base):
+    """「淘汰赛胜者 / 败者」两格的说明。赛前与赛中是两套说法，不能混用。
+
+    赛前：两格形状相反，坑分别是「填垫底队」和「填最强队」。
+    赛中：一旦有队伍锁定 4 胜（直通）或 4 负（出局），它们**根本碰不到附加轮**，
+          两格概率同时归零——赛前那句「坑是填垫底队」就不成立了
+          （最低的变成了那支 4-0 直通的队）。硬套赛前措辞会印出一句错话，
+          所以这里按 shape_holds 分叉，由 elim_pitfalls 判定形状是否还成立。
+    """
+    if ep["shape_holds"]:
+        return """<div class="note"><b>这两格最贵，而且方向相反。</b><br>
+两格的概率都等于「打得上那一轮」乘「打上了赢还是输」。前一项随实力先升后降——太强的直接晋级，
+太弱的直接出局，两头都碰不到这一轮；后一项则随实力一路走高。两项乘出来是两个完全不同的形状。<br>
+<b>「淘汰赛胜者」：实力前八全挤在 %.1f%%–%.1f%%，填哪支都一样，别在这纠结。</b>
+真正的坑是填垫底队——最低只有 %.1f%%，比最优的一格差 %.1f 个百分点。<br>
+<b>「淘汰赛败者」：反过来，最该躲开的是最强的那支。</b>它只有 %.1f%%，比最优低 %.1f 个百分点——
+强队根本打不到附加轮就直通了，填在这格几乎是白给。</div>""" % (
+            ep["sv_lo8"], ep["sv_hi8"], ep["sv_min"], ep["sv_gap"],
+            ep["ou_min"], ep["ou_gap"])
+
+    unreachable = ep["unreachable"]
+    return """<div class="note crit"><b>赛程推进之后，这两格的形状变了——赛前那句建议现在不成立了。</b><br>
+赛前的说法是「胜者格填谁都一样，坑是填垫底队」。那条依赖一个前提：每支队都还有可能打到附加轮。
+现在这个前提破了：瑞士轮打到 <b>4 胜或 4 负即停</b>，
+<b>%s</b> 已经锁定直通或已经出局，<b>根本碰不到附加轮</b>，两格概率同时归零。
+所以现在两格里最低的不再是垫底队，而是那支已经打完的队。<br>
+<span class="hint">这不是模型改了，是赛况变了。构建脚本里那条守着这句文案的断言在 8/15 被真实赛况打掉，
+本段就是替换上来的新说法——旧说法留在<a href="%s/review.html">复盘页</a>的第一次复盘里，没有删改。</span></div>""" % (
+        "、".join(pages.esc(t) for t in unreachable) or "部分队伍", base)
 
 
 def render(base, hw, pred, fan, fan_rec, sens=None, banner=""):
@@ -231,13 +278,7 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
 <p class="hint">数字都不高很正常——16 支队水平太接近，任何一格都谈不上稳。
 <b>底色条</b>表示相对高低，方便一眼看出哪几个是同一档。</p>
 
-<div class="note"><b>这两格最贵，而且方向相反。</b><br>
-两格的概率都等于「打得上那一轮」乘「打上了赢还是输」。前一项随实力先升后降——太强的直接晋级，
-太弱的直接出局，两头都碰不到这一轮；后一项则随实力一路走高。两项乘出来是两个完全不同的形状。<br>
-<b>「淘汰赛胜者」：实力前八全挤在 %.1f%%–%.1f%%，填哪支都一样，别在这纠结。</b>
-真正的坑是填垫底队——最低只有 %.1f%%，比最优的一格差 %.1f 个百分点。<br>
-<b>「淘汰赛败者」：反过来，最该躲开的是最强的那支。</b>它只有 %.1f%%，比最优低 %.1f 个百分点——
-强队根本打不到附加轮就直通了，填在这格几乎是白给。</div>
+%s
 
 <h2>二、梦幻挑战（3 个位置）</h2>
 <p>这三格选的都是<b>队伍</b>不是选手。核心格算这支队两个核心的分，辅助格算两个辅助的分，中单格只算中单一个人。</p>
@@ -301,8 +342,7 @@ Valve 自己说过：<b>历史上没有任何人完整猜对过小组赛。</b>
 </div>
 """) % (pages.PANEL_DEADLINE_CN,
        hw["expected_correct"], hw["random_baseline"],
-       ep["sv_lo8"], ep["sv_hi8"], ep["sv_min"], ep["sv_gap"],
-       ep["ou_min"], ep["ou_gap"],
+       elim_note(ep, base),
        detail, ftable,
        # 「一、分组是推的」那段：实测数字来自 reports/p6_draw_sensitivity.json
        base, base, sens["draw_spread"], hw["expected_correct"] - hw["random_baseline"],

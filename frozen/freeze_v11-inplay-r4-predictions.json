@@ -1,0 +1,9 @@
+{
+ "label": "v11-inplay-r4-predictions",
+ "frozen_at_utc": "2026-08-15T11:59:17Z",
+ "sha256": "14c6f9ed62461e9bc409e590d218220e7be8da4174739015a516238e4b7bc79a",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/l2_predictions.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v11-inplay-r4-predictions.json",
+ "src_rel": "../model/l2_predictions.json",
+ "frozen_path_rel": "frozen_v11-inplay-r4-predictions.json"
+}
