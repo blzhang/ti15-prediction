@@ -89,6 +89,13 @@ li b{color:#fff}
 .hwt span{color:#898781;font-size:%(fs_note)dpx}
 .hwp{display:flex;justify-content:space-between;padding:5px 0;font-size:%(fs_row)dpx;color:#fff}
 .hwp span{color:#898781;font-variant-numeric:tabular-nums}
+/* 八强对阵卡：一条分割条把「此消彼长」直接画出来，读者不用做减法 */
+.mrow{display:flex;justify-content:space-between;gap:10px;font-size:%(fs_row)dpx;color:#fff}
+.mrow.v{color:#c3c2b7;font-variant-numeric:tabular-nums;margin-top:6px}
+.mbar{display:flex;height:%(barh)dpx;border-radius:6px;overflow:hidden;margin-top:10px}
+.mbar .ma{background:#3987e5}.mbar .mb{background:#eb6834}
+.msub{color:#898781;font-size:%(fs_note)dpx;margin-top:10px;padding-top:10px;
+      border-top:1px solid #2c2c2a}
 .badge{display:inline-block;background:#1a1a19;border:1px solid #3987e5;color:#3987e5;
        border-radius:999px;padding:7px 18px;font-size:%(fs_note)dpx;margin-bottom:20px}
 """
@@ -127,6 +134,60 @@ def dist_kv(d, unit="支"):
 HW_ORDER = [("4-0", "一支全胜"), ("4-1", "两支四胜一负"),
             ("淘汰赛胜者", "五支淘汰赛胜出"), ("淘汰赛败者", "五支淘汰赛失败"),
             ("1-4", "两支一胜四负"), ("0-4", "一支全败")]
+
+# 分歧队各自的理由。队名是**现算**的（见 long_image 里的 by_gap），这里只按队名
+# 查理由；查不到就退回一句通用说明，绝不因为分歧转移到没写过的队身上而崩掉。
+GAP_WHY = {
+    "TEAM VISION": "小组赛 4-0 唯一全胜。分歧不在谁最强——模型也把它排第一——"
+                   "而在<b style='color:#fff'>强多少</b>。",
+    "Team Falcons": "16 队里<b style='color:#fff'>唯一阵容零变动</b>的卫冕冠军。"
+                    "模型按「当前这五个人」算历史战绩，阵容连续性直接兑现成样本量。",
+    "Nigma Galaxy": "赛前实力分是 16 队里<b style='color:#fff'>倒数第四</b>，却打出 4-1 直通八强。",
+    "Team Yandex": "赛前实力分排第三，小组赛却一路走到 2-3 才靠附加轮翻上来。",
+    "Team Spirit": "核心三人留任，但队长兼指挥转任教练，场上指挥体系换了人。",
+    "Team Liquid": "换了 pos3 与 pos5 两人，历史战绩要打折。",
+    "Iron Wing": "Tundra 阵容整体转会，队名变了但班底是连续的。",
+    "BoomBoys": "只换了 pos1，历史战绩基本可用。",
+}
+GAP_WHY_FALLBACK = "模型与市场对这支队的定价差得最远，赛后可以回头判谁对。"
+
+
+def qf_block(p):
+    """八强四场对阵。一场比赛只有两个结果，所以用一条分割条而不是两根独立的条。"""
+    s = SIZES_LONG
+    out = []
+    for m in p["playoffs"]["ubqf"]:
+        pa = m["p_blended"]
+        out.append(
+            '<div class="hwb"><div class="hwt"><b>%s</b><span>%s</span></div>'
+            '<div class="mrow"><span>%s</span><span>%s</span></div>'
+            '<div class="mbar"><div class="ma" style="width:%.1f%%"></div>'
+            '<div class="mb" style="width:%.1f%%"></div></div>'
+            '<div class="mrow v"><span>%.1f%%</span><span>%.1f%%</span></div>'
+            '<div class="msub">纯模型口径 %.1f%% · %.1f%%</div></div>'
+            % (m["a"], m["time_cst"], m["a"], m["b"],
+               pa * 100, (1 - pa) * 100, pa * 100, (1 - pa) * 100,
+               m["p_model"] * 100, (1 - m["p_model"]) * 100))
+    # 队名放在标题位会被截断，改成两行结构：标题只放先手队名不够清楚，
+    # 所以这里标题直接写「谁 vs 谁」的时间，队名单独一行。
+    out = [o.replace('<b>%s</b>' % m["a"], '<b>八强 · %d</b>' % (i + 1))
+           for i, (o, m) in enumerate(zip(out, p["playoffs"]["ubqf"]))]
+    return '<div class="hwgrid">%s</div>' % "".join(out)
+
+
+def hw_score_block(p):
+    """小组赛 16 格：赛前那版逐格对答案。"""
+    sc = p["homework_score"]
+    cells = []
+    for row in sc["buckets"]:
+        picks = "".join(
+            '<div class="hwp">%s %s<span>赛前 %.0f%%</span></div>'
+            % ("✓" if t in row["hit"] else "✗", t, row["pre_p"].get(t, 0) * 100)
+            for t in row["picks"])
+        cells.append(
+            '<div class="hwb"><div class="hwt"><b>%s</b><span>%d/%d</span></div>%s</div>'
+            % (row["bucket"], len(row["hit"]), row["cap"], picks))
+    return '<div class="hwgrid">%s</div>' % "".join(cells)
 
 
 def hw_block(p):
@@ -167,7 +228,12 @@ def long_image(p):
     # 状态行跟着 site.json 走，别写死——这行字曾经在首轮已经公布之后
     # 还挂着「分组仍未公布，已把所有可能的抽签平均掉」，图发出去就是错的。
     drw = p.get("draw") or {}
-    if rv.get("active"):
+    if rv.get("active") and rv.get("n_group_splits") == 1:
+        # 分组已被比赛本身解出唯一解。此时再说「N 种分法全部平均掉」是句废话
+        # （N=1，平均个什么），而且会让人以为还有不确定性。
+        draw_line = ("已打完 %d 场系列赛，结果全部当事实代入 · 分组已由对阵唯一解出，全程未猜"
+                     % rv["n_done"])
+    elif rv.get("active"):
         draw_line = ("已打完 %d 场系列赛，结果已代入重算 · 分组仍未公布，%d 种自洽分法全部平均掉"
                      % (rv["n_done"], rv["n_group_splits"]))
     elif not drw.get("announced"):
@@ -228,44 +294,11 @@ Brier <b style="color:#fff">%(bclose).3f</b>——而<b style="color:#fff">抛�
 """ % (SIZES_LONG["fs_note"], rv["brier_all"], rv["n_far"], rv["brier_far"],
        rv["n_close"], rv["brier_close"])
 
-    if rv["n_group_splits"] == 1:
-        group_block = """
-<h2><span class="n">03</span>分组解开了——全程一次都没猜过</h2>
-<div class="h2sub">赛前我拒绝去猜分组。上一次复盘预告「打完第三轮它会自己唯一确定」，它真的确定了</div>
-<div class="split">
-  <div class="box"><div class="lbl">与已知对阵自洽的分法</div>
-    <div class="big dn">35 → 3 → 1</div>
-    <div class="note">赛前 35 种 → 打完第二轮剩 3 种<br>
-    → 打完第三轮 <b>只剩 1 种</b>。<br>
-    瑞士轮前三轮<b>只在组内配对</b>，<br>每打完一轮约束就多一层。</div></div>
-  <div class="box"><div class="lbl">而且被反向验证了</div>
-    <div class="big up">24 + 8</div>
-    <div class="note">前三轮组内：<b>24 场全部</b>落在<br>这条分界线之内；<br>
-    第四轮跨组：<b>8 场全部</b>跨越它。<br>错的分组不可能同时满足两边。</div></div>
-</div>
-<div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
-<b style="color:#fff">官方从头到尾没公布过分组，我也从头到尾没猜过——它是被比赛本身解出来的。</b>
-赛前赌那 35 选 1，赌赢了只是提前两天知道一件必然会揭晓的事，赌输了整版预测的前三轮对手全错。<br>
-<b style="color:#fff">两个已经能盖棺定论的格子：</b>%s。瑞士轮打到 4 胜或 4 负即停，这两格已经没有悬念了。</div>
-""" % (SIZES_LONG["fs_note"], settled_line or "暂无")
-    else:
-        group_block = """
-<h2><span class="n">03</span>分组不用猜，它自己在解开</h2>
-<div class="h2sub">赛前我拒绝去猜分组，现在看这个决定的价值不在「猜没猜对」</div>
-<div class="split">
-  <div class="box"><div class="lbl">与已知对阵自洽的分法</div>
-    <div class="big dn">35 → %d 种</div>
-    <div class="note">瑞士轮前三轮<b>只在组内配对</b>，<br>
-    所以每打完一轮，「谁跟谁必须同组」<br>的约束就多一层。</div></div>
-  <div class="box"><div class="lbl">打完第三轮</div>
-    <div class="big up">→ 1 种</div>
-    <div class="note"><b>分组会自己唯一确定。</b><br>
-    赛前赌那 35 选 1，赢了只是提前<br>两天知道一件必然会揭晓的事。</div></div>
-</div>
-""" % rv["n_group_splits"]
-
+    # 「分组自己解开了」那一节已经是上一版的头条，站内复盘页第三页签留着完整版；
+    # 这张图讲的是接下来 14 场，塞进一段旧新闻只会挤掉前瞻的篇幅。settled_line
+    # 仍然算（下面 05 节的自查要用），但不再单独占一节。
     review_block = ("""
-<h2><span class="n">02</span>先交账：%s</h2>
+<h2><span class="n">03</span>先交账：%s</h2>
 <div class="h2sub">赛前冻结的 120 组两两胜率，逐场回填实际结果（已完赛 %d 场）</div>
 <div class="tiles">
   <div class="tile"><div class="v">%d/%d</div><div class="k">方向看对<br>已完赛系列赛</div></div>
@@ -273,47 +306,80 @@ Brier <b style="color:#fff">%(bclose).3f</b>——而<b style="color:#fff">抛�
   <div class="tile"><div class="v">%.3f</div><div class="k">Brier（五五开那档）<br>0.25 就是抛硬币</div></div>
 </div>
 %s
-%s
 <div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
 <b style="color:#fff">另一个反直觉的结果：概率的挪动几乎全是市场挪的，不是打出来的。</b>
 战绩带来的位移最大一支只有 <b style="color:#fff">%.1fpp</b>，市场重新定价带来的最大 <b style="color:#fff">%.1fpp</b>——差约 %.0f 倍。
 瑞士轮容错太高（4 胜或 4 负才停，后面还有附加赛和双败），单轮胜负对夺冠的影响本来就有限。</div>
 """ % (lead, rv["n_done"], rv["hits"], rv["n_scored"], rv["brier_all"], rv["brier_close"],
-       review_body, group_block,
+       review_body,
        SIZES_LONG["fs_note"],
        rv["max_res_shift"], rv["max_mkt_shift"], rv["shift_ratio"])) if rv.get("active") else ""
 
+    pw = p["playoffs"]
+    hs = p["homework_score"]
+    rb = pw["robustness"]
+    # 分歧队**现算**，不写死队名——赛程推进时分歧会转移到别的队身上，
+    # 而长图是发出去收不回来的（上一版把 Falcons/Yandex 写死过，就吃过这个亏）。
+    by_gap = sorted(pw["teams"], key=lambda r: r["model"] - r["market"])
+    up, dn = by_gap[0], by_gap[-1]      # up: 市场看好；dn: 模型看好
+    big = [r for r in sorted(pw["teams"], key=lambda r: -abs(r["model"] - r["market"]))
+           if abs(r["model"] - r["market"]) > 0.05]
+    prem = "".join(
+        '<div class="hwp">%s<span>市场 %+.3f ／ 数据 %+.3f</span></div>'
+        % (r["team"], r["market_delta"], r["data_delta"]) for r in big)
+
     body = """
 <div class="badge">%s</div>
-<div class="eyebrow">THE INTERNATIONAL 2026 · 8/13–8/23 上海</div>
-<h1>TI15 谁会赢<br><em>一个赛后要认账的预测</em></h1>
-<div class="sub">用 2020–2026 的 <b>145,974 场</b>职业比赛跑出来的量化预测。<br>
-所有结果赛前冻结留证，打一场对一场账——好看不好看都发。</div>
-<div class="tagline">蒙特卡洛 20 万次 · %s</div>
+<div class="eyebrow">THE INTERNATIONAL 2026 · 主赛事 8/20–8/23 上海</div>
+<h1>TI15 还剩 14 场<br><em>八强前瞻，赛后要认账</em></h1>
+<div class="sub">小组赛已经打完——瑞士轮加附加淘汰轮共 <b>44 场系列赛</b>全部结束。<br>
+这份图只讲<b>还没打的那 14 场</b>，所有数字都代入了已发生的全部赛果与实时市场价。</div>
+<div class="tagline">精确枚举 8192 条路径 · %s</div>
 
-<h2><span class="n">01</span>夺冠概率</h2>
-<div class="h2sub">已把已完赛结果代入，并与市场共识价融合（市场权重 0.7）</div>
+<h2><span class="n">01</span>八强四场：这是事实，不是预测</h2>
+<div class="h2sub">对阵由官方排定；附加轮是「高排位队自己挑对手」的选人制，签表与名次规则对不上</div>
+%s
+
+<h2><span class="n">02</span>夺冠概率</h2>
+<div class="h2sub">已代入全部赛果，并与市场共识价融合（市场权重 0.7）</div>
 %s
 %s
 
-<h2><span class="n">04</span>模型和市场吵起来了</h2>
-<div class="h2sub">这是整套预测里最值得赛后复盘的地方</div>
+<h2><span class="n">04</span>模型和市场吵得最凶的三支队</h2>
+<div class="h2sub">这是整份预测里最值得赛后复盘的地方——而且赛后能判对错</div>
 <div class="split">
-  <div class="box"><div class="lbl">%s（%s）</div>
-    <div class="big dn">%.1f%% → %.1f%%</div>
-    <div class="note"><b>模型看好，市场不认。</b><br>差 %.1f 个百分点，是全场分歧最大的一支。</div></div>
-  <div class="box"><div class="lbl">%s（%s）</div>
-    <div class="big up">%.1f%% → %.1f%%</div>
-    <div class="note"><b>模型看淡，市场看好。</b><br>Polymarket 上真金白银把它买上去的。</div></div>
+  <div class="box"><div class="lbl">%s</div>
+    <div class="big dn">%.1f%% ／ %.1f%%</div>
+    <div class="note"><b>模型 ／ 市场。</b><br>%s</div></div>
+  <div class="box"><div class="lbl">%s</div>
+    <div class="big up">%.1f%% ／ %.1f%%</div>
+    <div class="note"><b>模型 ／ 市场。</b><br>%s</div></div>
 </div>
+<div class="hwb" style="margin:20px 0">
+  <div class="hwt"><b>换成实力分再看一遍</b><span>市场给的加减分 ／ TI15 战绩支持的加减分</span></div>
+  %s
+</div>
+<div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
+<b style="color:#fff">「你只是数据没更新」——这条质疑我算过了，不成立。</b>
+模型的实力分训练截止 2026-08-02，<b>没见过 TI15 任何一局</b>。
+把已打完的 <b style="color:#fff">%d 小局</b>按贝叶斯折进实力分（先验就用赛前那次拟合的后验），
+结果是<b style="color:#fff">几乎不动</b>：实力分最大位移 %.3f，夺冠概率最大位移
+<b style="color:#fff">%.1fpp</b>。Nigma 仍是 16 队里倒数第五。<br>
+原因是先验太紧——赛前那个分是几百场比赛拟合的，TI15 它只打了十来局，信息量差着近 20 倍。
+<b style="color:#fff">所以这几笔是真分歧，不是数据新旧的问题。8 月 23 日见分晓。</b></div>
 
-<h2><span class="n">05</span>官方预测题·抄作业</h2>
-<div class="h2sub">游戏内「赛事预测」小组赛那 16 格的建议填法</div>
+<h2><span class="n">05</span>小组赛那 16 格：答案揭晓了</h2>
+<div class="h2sub">下面是 8/13 面板锁定前挂在站上的那一版，逐格对答案</div>
+<div class="tiles">
+  <div class="tile"><div class="v">%d/16</div><div class="k">赛前那版<br>实际答对</div></div>
+  <div class="tile"><div class="v">%.2f</div><div class="k">它当时<br>自称的期望</div></div>
+  <div class="tile"><div class="v">%.2f</div><div class="k">闭眼乱填<br>的基线</div></div>
+</div>
 %s
 <div class="note" style="color:#898781;font-size:%dpx;line-height:1.6">
-期望答对 %.2f / 16 格，随机乱填 %.2f 格——只多约 %.1f 格。够到保底奖励有用，冲榜不够。<br>
-<b style="color:#c3c2b7">最贵的两格：</b>「淘汰赛胜者」实力前八全挤在 %.1f%%–%.1f%%，填谁都一样，
-坑是填垫底队（低到 %.1f%%）；「淘汰赛败者」反过来，最该躲开的是最强的那支（%.1f%%，比最优低 %.1f 个百分点）——它根本打不到这一轮。</div>
+<b style="color:#c3c2b7">比期望多 %.2f 格，但别当成本事。</b>
+超出的部分主要是运气——每一格赛前的命中概率都印在上面，<b style="color:#fff">最高的一格也只有 %.1f%%</b>。
+要判断这套方法有没有用，该看的是上面 03 节那 44 场的 Brier 分解，不是这 16 格的命中数。</div>
 
 <h2><span class="n">06</span>凭什么信</h2>
 <div class="h2sub">训练只用 2026-03 之前的数据，在之后没见过的比赛上实测</div>
@@ -358,14 +424,19 @@ Brier <b style="color:#fff">%(bclose).3f</b>——而<b style="color:#fff">抛�
   <div class="promise">全部数据可下载 · 120 个对阵的赛前胜率全公开 · 改过什么全记在站内「更新日志」<br>
   <b style="color:#fff">站内「复盘」页逐场对账，打一场更一场，好看不好看都发。</b></div>
 </div>
-""" % (badge, draw_line, bars(t, "champ_blended"), review_block,
-       dn["team"], dn.get("record", ""), dn["champ_model"] * 100, dn["champ_blended"] * 100,
-       (dn["champ_model"] - dn["champ_blended"]) * 100,
-       up["team"], up.get("record", ""), up["champ_model"] * 100, up["champ_blended"] * 100,
-       hw_block(p), SIZES_LONG["fs_note"],
-       p["homework"]["expected"], p["homework"]["random"],
-       p["homework"]["expected"] - p["homework"]["random"],
-       ep["sv_lo8"], ep["sv_hi8"], ep["sv_min"], ep["ou_min"], ep["ou_gap"],
+""" % (badge, draw_line,
+       qf_block(p),
+       bars([r for r in t if r["champ_blended"] > 0], "champ_blended"), review_block,
+       "%s（模型看好，市场不认）" % dn["team"],
+       dn["model"] * 100, dn["market"] * 100, GAP_WHY.get(dn["team"], GAP_WHY_FALLBACK),
+       "%s（模型看淡，市场看好）" % up["team"],
+       up["model"] * 100, up["market"] * 100, GAP_WHY.get(up["team"], GAP_WHY_FALLBACK),
+       prem, SIZES_LONG["fs_note"],
+       rb["n_games"], rb["max_abs_dtheta"], rb["max_abs_dchampion"] * 100,
+       hs["hits"], hs["expected"], hs["random"],
+       hw_score_block(p), SIZES_LONG["fs_note"],
+       hs["hits"] - hs["expected"],
+       max((v for row in hs["buckets"] for v in row["pre_p"].values()), default=0) * 100,
        oos.get("acc", 0) * 100, "{:,}".format(oos.get("n", 0)), oos.get("brier", 0),
        SIZES_LONG["fs_note"],
        pl["delta_abs"], pl["se"], pl["se_ratio"],
@@ -467,13 +538,20 @@ def cards(p):
     return [html(c, S, "card") for c in (c1, c2, c3, c4)]
 
 
+# 截图窗口高度。必须**明显高于**任何一张图的实际内容，否则超出的部分会被静默切掉。
+# 2026-08-17 修：原来写死 6000，而长图内容早已超过 6000——底部两节（版本层、
+# 「我把自己的错也写上去了」）被切掉了好几版都没人发现，因为产物尺寸恰好是
+# 1080x6000，看起来"正好"。现在窗口给到 20000 并加了截断自检。
+SHOOT_H = 20000
+
+
 def shoot(htmlstr, name, width, min_h=800):
     tmp = os.path.join(OUT, "_tmp.html")
     open(tmp, "w").write(htmlstr)
     png = os.path.join(OUT, name)
     subprocess.run([CHROME, "--headless", "--disable-gpu", "--hide-scrollbars",
                     "--force-device-scale-factor=1",
-                    "--screenshot=" + png, "--window-size=%d,%d" % (width, 6000),
+                    "--screenshot=" + png, "--window-size=%d,%d" % (width, SHOOT_H),
                     "file://" + tmp], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     # 裁掉底部多余背景
@@ -487,6 +565,12 @@ def shoot(htmlstr, name, width, min_h=800):
         if any(abs(px[0] - bg[0]) + abs(px[1] - bg[1]) + abs(px[2] - bg[2]) > 24 for px in row):
             bottom = min(h, y + 64)
             break
+    # 内容一直贴到窗口底边 = 很可能还有没截到的部分。宁可报错也不发一张缺尾巴的图：
+    # 长图是发出去收不回来的，而"少了最后两节"这种缺陷肉眼极难发现。
+    if bottom >= h:
+        raise SystemExit(
+            "%s 的内容顶到了截图窗口底边（%dpx），可能被截断。把 SHOOT_H 调大再跑。"
+            % (name, h))
     im.crop((0, 0, w, max(bottom, min_h))).save(png)
     os.remove(tmp)
     return png, im.crop((0, 0, w, max(bottom, min_h))).size

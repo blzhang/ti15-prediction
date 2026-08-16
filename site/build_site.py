@@ -32,6 +32,7 @@ ASSETS = [
     ("reports/p1_fantasy_matrix.json", "p1_fantasy_matrix.json", "梦幻挑战：各队三个位置的分项预期表现"),
     ("reports/p6_draw_sensitivity.json", "p6_draw_sensitivity.json", "分组敏感度实测：知道抽签结果能让预测准多少，含噪声对照组"),
     ("reports/p2_extremes.json", "p2_extremes.json", "谁会打出全场最高纪录，以及各种纪录出现的可能性"),
+    ("reports/p8_playoffs.json", "p8_playoffs.json", "八强前瞻：剩余 14 场的逐场胜率、各轮晋级与最终名次分布（精确枚举，三套口径）"),
     ("reports/p5_window_backtest.json", "p5_window_backtest.json", "取数窗口回测：四届 TI 上七种取数起点的逐单元成绩与判定过程"),
 ]
 
@@ -177,6 +178,37 @@ def review_snapshots(baseline_pred, baseline_blend):
             "baseline_top_p": baseline_blend["champion_blended"][top],
         })
     return snaps
+
+
+def playoffs_summary(pl):
+    """把 p8_playoffs.json 压成长图要用的那几项，放进 site.json。
+
+    只挑长图真正会画的字段——整份 p8 有几百 KB 的逐阶段对阵分布，塞进
+    site.json 会让每个访问者都下载一遍自己用不到的数据。完整版仍然在
+    /data/p8_playoffs.json 可下载。
+    """
+    m, b = pl["views"]["model"]["place"], pl["views"]["blended"]["place"]
+    mk = pl["market"]["implied"]
+    th, ti, dth = pl["theta"], pl["theta_implied"], pl["robustness"]["dtheta"]
+    alive = pl["alive"]
+    return {
+        "as_of": pl["as_of_utc"][:10],
+        "market_captured": pl["market"]["captured_utc"][:10],
+        "market_volume": pl["market"]["event_volume"],
+        "ubqf": [dict(r, p_blended=pl["views"]["blended"]["h2h"]["%s|%s" % (r["a"], r["b"])],
+                      p_model=pl["views"]["model"]["h2h"]["%s|%s" % (r["a"], r["b"])])
+                 for r in pl["ubqf"]],
+        "teams": sorted(
+            ({"team": t, "blended": b[t]["champion"], "model": m[t]["champion"],
+              "market": mk[t], "final": b[t]["final"], "top4": b[t]["top4"],
+              "market_delta": ti[t] - th[t], "data_delta": dth[t]}
+             for t in alive),
+            key=lambda r: -r["blended"]),
+        "gf_top": pl["views"]["blended"]["stage_pairs"]["GF"][0],
+        "gf_n": len(pl["views"]["blended"]["stage_pairs"]["GF"]),
+        "robustness": {k: pl["robustness"][k]
+                       for k in ("n_games", "max_abs_dtheta", "max_abs_dchampion")},
+    }
 
 
 def group_blocks():
@@ -344,6 +376,11 @@ def main():
                      for k, v in hw["elim"].items()},
         })(__import__("homework").compute(pred, rating["rating"])))(),
         "raw_pred": pred,
+        # 八强前瞻（model/l6_playoffs.py 产出）。首页整页从它读，一个数字都不手抄。
+        "raw_playoffs": json.load(open(need("reports/p8_playoffs.json"))),
+        # 长图要用的八强摘要。site.json 会把 raw_* 全部剔掉，而 make_cards.py
+        # 只读 site.json——所以这一份必须是非 raw_ 键，否则长图取不到。
+        "playoffs": playoffs_summary(json.load(open(need("reports/p8_playoffs.json")))),
         "raw_fantasy": json.load(open(need("reports/p1_fantasy_matrix.json"))),
         "raw_market": json.load(open(need("model/market_odds.json"))),
         "raw_pm": json.load(open(need("model/polymarket_odds.json"))),
@@ -380,6 +417,14 @@ def main():
     sys.path.insert(0, HERE)
     import review as _review
     payload["review"] = _review.summary(payload)
+
+    # 小组赛 16 格揭晓之后，抄作业页从「建议填法」切成「公布答案 + 给赛前那版打分」。
+    # 赛前那一版一律取 v9 冻结件（8/13 面板锁定前挂在站上的那版）——拿现在的产物
+    # 去算「赛前建议」是开卷考试，与 REVIEWS 表指向冻结件是同一条纪律。
+    import homework as _homework
+    payload["homework_score"] = (
+        _homework.score_against(payload["raw_prev9_pred"], pred, rating["rating"])
+        if _homework.resolved(pred) else None)
 
     json.dump({k: v for k, v in payload.items() if not k.startswith("raw_")},
               open(os.path.join(DIST, "data", "site.json"), "w"),

@@ -3,8 +3,8 @@ import html
 import os
 import shutil
 
-NAV = [("homework.html", "抄作业"), ("index.html", "结论"), ("review.html", "复盘"),
-       ("predictions.html", "预测详情"),
+NAV = [("index.html", "八强前瞻"), ("homework.html", "抄作业"), ("review.html", "复盘"),
+       ("overview.html", "结论"), ("predictions.html", "预测详情"),
        ("odds.html", "市场怎么看"), ("methodology.html", "方法论"), ("data.html", "数据与检索"),
        ("window.html", "版本窗口"), ("group.html", "进群"), ("changelog.html", "更新日志")]
 
@@ -75,9 +75,10 @@ def countdown(base, cur):
         "" if on_hw else '<a class="cd-btn" href="%s/homework.html">看建议填法 →</a>' % base)
 
 
-# 倒计时只挂在这两页：占全站约四分之三的浏览量，且都与「填不填得上」直接相关。
-# 方法论/数据页挂上去只是噪音。
-CD_PAGES = ("homework.html", "index.html")
+# 倒计时只挂在抄作业页。8/13 面板已锁定，横幅早已切成「已锁定」态——
+# 一条讲「小组赛那 16 格来不及改了」的横幅，挂在讲未来 14 场的首页上是纯噪音，
+# 挂在抄作业页上才有意义（那一页正是讲这 16 格的）。
+CD_PAGES = ("homework.html",)
 
 
 def shell(base, cur, title, body, extra_js=""):
@@ -337,7 +338,11 @@ def page_index(base, p):
        "{:,}".format(oos.get("n", 0)),
        oos.get("acc", 0) * 100, oos.get("brier", 0),
        base, base, base)
-    return shell(base, "index.html", "结论", body)
+    # 2026-08-16 起这一页不再是首页：小组赛打完之后，读者的第一落点应该是
+    # 「接下来 14 场怎么打」（site/playoffs.py → index.html），而这一页讲的是
+    # 「这套预测是怎么做的、结论是什么」，迁到 overview.html。首页 URL 本身没变，
+    # 外链不失效；导航里两页都在。
+    return shell(base, "overview.html", "结论", body)
 
 
 def page_group(base, p, qr="group-qr.jpg"):
@@ -666,6 +671,7 @@ def write_all(dist, base, payload):
     import changelog as _changelog
     import window as _window
     import review as _review
+    import playoffs as _playoffs
     payload = dict(payload, homework_full=hw)
     pages = {
         "review.html": shell(base, "review.html", "复盘", _review.render(base, payload)),
@@ -677,13 +683,21 @@ def write_all(dist, base, payload):
                            _odds.render(base, payload["raw_pred"],
                                         {r["team"]: r["champ_blended"] for r in payload["teams"]},
                                         payload["raw_market"], payload["raw_pm"])),
-        "index.html": page_index(base, payload),
+        # 首页 = 八强前瞻（往前看）；原「结论」页迁到 overview.html（往回看）。
+        "index.html": _playoffs.render(base, payload),
+        "overview.html": page_index(base, payload),
+        # 小组赛 16 格揭晓之后换一套渲染：不再是「建议填法 + 交互选择器」，
+        # 而是「公布答案 + 给赛前那版打分」。选择器也一并撤掉——答案都出来了
+        # 还让人点着填，是在浪费读者的时间。
         "homework.html": shell(
             base, "homework.html", "抄作业",
+            homework.render_settled(base, payload["homework_score"], fan, fan_rec)
+            if payload.get("homework_score") else
             homework.render(base, hw, payload["raw_pred"], fan, fan_rec,
                             payload["raw_draw_sens"],
                             banner=draw_banner(payload, base)),
-            extra_js='<script src="%s/assets/picker.js"></script>'
+            extra_js="" if payload.get("homework_score") else
+                     '<script src="%s/assets/picker.js"></script>'
                      '<script>initPicker(%s);</script>'
                      % (base, __import__("json").dumps(
                          homework.picker_data(payload["raw_pred"], hw, fan_rec),

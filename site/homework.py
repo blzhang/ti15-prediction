@@ -11,6 +11,7 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 import pages
+from pages import esc
 
 BUCKETS = [
     ("4-0", 1, "一支全胜的队伍", "record_dist", "4-0"),
@@ -157,6 +158,50 @@ def compute(pred, strength):
     }
 
 
+def resolved(pred):
+    """小组赛那 16 格是否已经全部揭晓。
+
+    判据是概率退化成 0/1：瑞士轮与附加轮全部打完之后，每支队落在哪一档
+    已经是事实，record_dist 与 elim_round_* 里不再有中间值。
+    用「期望答对数 == 16」当判据也等价，但那要多跑一次匈牙利算法；
+    这里直接看分布本身，更便宜也更直白。
+    """
+    for _, _, _, src, key in BUCKETS:
+        for team in pred["record_dist"]:
+            p = _prob(pred, src, key, team)
+            if 1e-9 < p < 1 - 1e-9:
+                return False
+    return True
+
+
+def score_against(pre_pred, pred, strength):
+    """拿赛前那一版的建议填法，对着已揭晓的答案打分。
+
+    pre_pred 必须是**冻结件**（8/13 锁定前挂在站上的那一版），不能是当前产物——
+    当前产物已经知道答案了，拿它算「赛前建议」等于开卷考试。这条纪律与
+    site/build_site.py 的 REVIEWS 表是同一条：历史条目只能指向冻结件。
+
+    返回 {"buckets": [...], "hits": n, "expected": 赛前自称期望, "random": 乱填基线}。
+    """
+    truth = {b: [t for t, _ in v] for b, v in compute(pred, strength)["answer"].items()}
+    pre = compute(pre_pred, strength)
+    rows, hits = [], 0
+    for nm, cap, desc, src, key in BUCKETS:
+        picks = [t for t, _ in pre["answer"].get(nm, [])]
+        got = truth.get(nm, [])
+        hit = [t for t in picks if t in got]
+        hits += len(hit)
+        rows.append({
+            "bucket": nm, "cap": cap, "desc": desc,
+            "picks": picks, "truth": got, "hit": hit,
+            # 赛前给每个人选的命中概率。押中一个 17.6% 的格子说明不了什么，
+            # 所以打分时必须把「当时有多不确定」一并摆出来，而不是只报命中数。
+            "pre_p": {t: _prob(pre_pred, src, key, t) for t in picks},
+        })
+    return {"buckets": rows, "hits": hits, "total": sum(c for _, c, _, _, _ in BUCKETS),
+            "expected": pre["expected_correct"], "random": pre["random_baseline"]}
+
+
 def elim_note(ep, base):
     """「淘汰赛胜者 / 败者」两格的说明。赛前与赛中是两套说法，不能混用。
 
@@ -186,6 +231,113 @@ def elim_note(ep, base):
 <span class="hint">这不是模型改了，是赛况变了。构建脚本里那条守着这句文案的断言在 8/15 被真实赛况打掉，
 本段就是替换上来的新说法——旧说法留在<a href="%s/review.html">复盘页</a>的第一次复盘里，没有删改。</span></div>""" % (
         "、".join(pages.esc(t) for t in unreachable) or "部分队伍", base)
+
+
+def render_settled(base, score, fan, fan_rec):
+    """小组赛 16 格已全部揭晓时的版本：公布答案 + 给赛前那一版打分。
+
+    为什么必须换一套渲染：揭晓之后 record_dist 退化成 0/1，solve() 会原样吐出
+    标准答案、期望答对数变成 16。照旧渲染就是「建议你填正确答案，期望答对 16 格」——
+    一句正确但毫无意义的话，而且看着像在吹牛。这一页的价值在揭晓那一刻从
+    「帮你填」变成「我填的对了几格」，所以整页换成对账。
+    """
+    cards = []
+    for row in score["buckets"]:
+        picked = []
+        for t in row["picks"]:
+            ok = t in row["hit"]
+            picked.append(
+                '<div class="pick"><span class="t">%s%s</span>'
+                '<span class="p">赛前 %.1f%%</span></div>'
+                % ("✓ " if ok else "✗ ", esc(t), row["pre_p"].get(t, 0) * 100))
+        missed = [t for t in row["truth"] if t not in row["hit"]]
+        miss_line = ('<div class="picksub">没押中的实际是：%s</div>'
+                     % "、".join(esc(t) for t in missed)) if missed else ""
+        cards.append(
+            '<div class="hwcard"><div class="hwhead"><b>%s</b>'
+            '<span>%s · %d/%d</span></div>%s%s</div>'
+            % (esc(row["bucket"]), esc(row["desc"]), len(row["hit"]), row["cap"],
+               "".join(picked), miss_line))
+
+    key_rows = "".join(
+        "<tr><td class=lft>%s</td><td class=lft>%s</td></tr>"
+        % (esc(row["bucket"]), "、".join(esc(t) for t in row["truth"]))
+        for row in score["buckets"])
+
+    fslots = []
+    for key, cn, desc in SLOT_CN:
+        d = fan_rec[key]
+        best = d["rows"][0]
+        alts = "".join(
+            '<div class="pick"><span class="t">%s</span><span class="p">%+.1f%%</span></div>'
+            % (esc(r["team"]), r["gap"] * 100) for r in d["rows"][1:4])
+        fslots.append(
+            '<div class="hwcard"><div class="hwhead"><b>%s</b><span>%s</span></div>'
+            '<div class="pickbig">%s</div>'
+            '<div class="picksub">备选（差距）</div>%s</div>'
+            % (esc(cn), esc(desc), esc(best["team"]), alts))
+
+    beat = score["hits"] - score["expected"]
+    return """
+<h1>抄作业 · 小组赛这 16 格已经揭晓了</h1>
+<p class="lede">这一页原本是给游戏里「赛事预测」那 16 个格子准备的建议填法。
+小组赛已经打完，<b>16 格的答案全部揭晓</b>——所以这一页现在的任务不是帮你填，
+而是<b>公布答案，并且给我自己赛前那一版打分</b>。</p>
+<p class="meta">面板已于 %s 锁定 · 想看还没打的那 14 场，去<a href="%s/">八强前瞻</a></p>
+
+<div class="pkbar">
+  <div class="pkstats">
+    <div><span class="pklab">赛前那版实际答对</span><span class="pkbig">%d</span><span class="pkunit">/ %d 格</span></div>
+    <div><span class="pklab">它当时自称的期望</span><span class="pkbig">%.2f</span><span class="pkunit">格</span></div>
+    <div><span class="pklab">闭眼乱填</span><span class="pkbig">%.2f</span><span class="pkunit">格</span></div>
+  </div>
+  <div class="pkmeter"><div style="width:%.1f%%"></div></div>
+  <div class="pkbtns"><span class="pkstat ok">比自己的期望多 %.2f 格，比乱填多 %.2f 格</span></div>
+</div>
+
+<div class="note %s"><b>这个成绩比期望好，但别当成本事。</b><br>
+16 格里押中 %d 格，而赛前这一版自己算出来的期望是 %.2f 格——<b>超出了 %.2f 格</b>。
+超出的部分主要是运气：每一格的命中概率赛前都写在下面，<b>最高的一格也只有 %.1f%%</b>——
+没有哪一格是稳的，押中的每一格都是在赌一件多半不会发生的事。<br>
+<span class="hint">要判断这套方法有没有用，该看的是<a href="%s/review.html">复盘页</a>那 44 场系列赛的
+Brier 分解，不是这 16 格的命中数。</span></div>
+
+<h2>一、标准答案</h2>
+<div class="tbl-wrap"><table class="rv">
+<thead><tr><th class=lft>格子</th><th class=lft>实际是谁</th></tr></thead>
+<tbody>%s</tbody></table></div>
+
+<h2>二、我赛前是怎么填的，对了几格</h2>
+<p>下面是 <b>8 月 13 日面板锁定前</b>挂在站上的那一版建议填法，逐格对答案。
+用的是当时的冻结件，不是现在的产物——<b>拿知道答案之后的模型去算「赛前建议」，那是开卷考试。</b></p>
+<div class="hwgrid">%s</div>
+
+<h2>三、梦幻挑战还在计分</h2>
+<p>梦幻挑战算的是<b>整届赛事</b>，淘汰赛这 14 场还在往里加分，所以这三格现在依然有效。</p>
+<div class="hwgrid">%s</div>
+<div class="note"><b>决定分数的不是选谁打得好，而是选的队能走多远。</b>
+小组赛就回家的队大概打 6 个系列赛，一路杀进决赛的能打 9 个以上——
+这个差距比选手之间的每局表现差距大得多。<b>八支队各自能走多远，在<a href="%s/">八强前瞻</a>那页。</b></div>
+
+<div class="note good"><b>剩下的账还会继续对。</b>8 月 23 日打完，淘汰赛那 14 场也会逐场回填、
+连同这 16 格一起公布最终成绩——好看不好看都发。</div>
+
+<div class="cta">
+  <div>
+    <b>「TI15 抄作业群」还在</b>
+    <span>8/20 淘汰赛开打，群里一起看这份预测被打成什么样。</span>
+  </div>
+  <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
+</div>
+""" % (pages.PANEL_DEADLINE_CN, base,
+       score["hits"], score["total"], score["expected"], score["random"],
+       score["hits"] / score["total"] * 100,
+       beat, score["hits"] - score["random"],
+       "good" if beat > 0 else "crit",
+       score["hits"], score["expected"], beat,
+       max((p for row in score["buckets"] for p in row["pre_p"].values()), default=0) * 100,
+       base,
+       key_rows, "".join(cards), "".join(fslots), base, base)
 
 
 def render(base, hw, pred, fan, fan_rec, sens=None, banner=""):

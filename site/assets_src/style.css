@@ -332,3 +332,49 @@ table.rv tr.settled { background: color-mix(in srgb, var(--good) 8%, transparent
 .settled-list { margin: 8px 0 10px; padding-left: 20px; }
 .settled-list li { margin: 4px 0; }
 .grouplist { color: var(--ink-2); font-size: 14px; line-height: 1.7; }
+
+/* 八强前瞻页（index.html）
+   —— 对阵卡片。一场比赛只有两个结果，所以用一条分割条比两根独立的条更贴切：
+   条形本身就把「此消彼长」画出来了，读者不用做减法。 */
+.mgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+         gap: 14px; margin: 18px 0; }
+.mcard { background: var(--surface-1); border: 1px solid var(--grid);
+         border-radius: 10px; padding: 15px 17px; }
+.mhead { display: flex; justify-content: space-between; align-items: baseline;
+         gap: 10px; font-size: 12px; color: var(--ink-muted); margin-bottom: 9px; }
+.mstage { font-weight: 600; }
+.mtime { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mteams { display: flex; align-items: baseline; justify-content: space-between;
+          gap: 8px; margin-bottom: 9px; }
+.mteams b { font-size: 15.5px; letter-spacing: -.2px; flex: 1; }
+.mteams b:last-child { text-align: right; }
+.mteams i { font-style: normal; color: var(--ink-muted); font-size: 11.5px;
+            flex-shrink: 0; }
+.mbar { display: flex; height: 16px; border-radius: var(--radius); overflow: hidden;
+        background: var(--grid); }
+.mfill { height: 100%; }
+.mfill.a { background: var(--s1); }
+.mfill.b { background: var(--s2); }
+.mpct { display: flex; justify-content: space-between; font-size: 13px;
+        font-variant-numeric: tabular-nums; margin-top: 4px; }
+.msub { color: var(--ink-muted); font-size: 12px; margin-top: 7px;
+        padding-top: 7px; border-top: 1px solid var(--grid); }
+/* 模型与市场分歧超过 5pp 的行 —— 本页最该被看见的地方 */
+table.rv tr.gap { background: color-mix(in srgb, var(--s2) 10%, transparent); }
+
+/* 赛制结构图。只画连线，不画数字：概率在表里，画进图会挤成一团。 */
+.bracket { margin: 16px 0; overflow-x: auto; }
+.bracket svg { width: 100%; min-width: 620px; height: auto;
+               color: var(--ink-muted); }
+.bk-lane rect { fill: var(--surface-1); stroke: var(--s1); stroke-width: 1.2; }
+.bk-lb rect { stroke: var(--ink-muted); }
+.bk-lane text { fill: var(--ink); font-size: 13px; text-anchor: middle;
+                dominant-baseline: middle; }
+.bk-lane-t { fill: var(--ink-muted) !important; font-size: 12px !important;
+             text-anchor: start !important; font-weight: 600; }
+.bk-lane path { stroke: var(--ink-muted); stroke-width: 1.2; fill: none; }
+.bk-gf { stroke: var(--s2) !important; stroke-width: 1.8 !important; }
+.bk-gft { font-weight: 650; }
+.bk-drop path { stroke: var(--crit); stroke-width: 1.1; fill: none;
+                stroke-dasharray: 4 3; opacity: .75; }
+.bk-drop text { fill: var(--crit); font-size: 11.5px; opacity: .9; }
