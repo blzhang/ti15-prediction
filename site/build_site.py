@@ -125,6 +125,11 @@ REVIEWS = [
      "frozen/frozen_v10-inplay-r2-matchtable.json",
      "frozen/frozen_v10-inplay-r2-results.json"),
     ("r4", "2026-08-15",
+     "frozen/frozen_v11-inplay-r4-predictions.json",
+     "frozen/frozen_v11-inplay-r4-blended.json",
+     "frozen/frozen_v11-inplay-r4-matchtable.json",
+     "frozen/frozen_v11-inplay-r4-results.json"),
+    ("gs", "2026-08-16",
      "model/l2_predictions.json", "model/l2_blended.json",
      "reports/ti15_matches.csv", "model/results.json"),
 ]
@@ -225,26 +230,32 @@ def match_rows(csv_path, results):
     """赛前冻结的两两胜率表 + 已回填的结果 → 复盘页要用的逐场记录。
 
     只取已回填结果的行（result_a_wins 非空），并从 results.json 取回真实比分
-    （CSV 只记谁赢，不记 2-0 还是 2-1）。两边按队伍对匹配，对不上直接报错——
-    静默丢一场会让复盘页少算一场却看不出来。
+    （CSV 只记谁赢，不记 2-0 还是 2-1）。两边按**队伍对 + 阶段**匹配——只按
+    队伍对的话，二次相遇（瑞士轮打过、附加轮又碰上，8/16 真实发生：Aurora vs
+    BoomBoys）会拿同一个比分冒充两场。对不上直接报错——静默丢一场会让复盘页
+    少算一场却看不出来。
     """
     score_of = {}
     for entry in results.get("rounds", []):
+        stg = "swiss_r%d" % entry["round"]
         for s in entry["series"]:
             if s.get("score"):
-                score_of[frozenset((s["a"], s["b"]))] = (s["a"], s["score"])
+                score_of[(frozenset((s["a"], s["b"])), stg)] = (s["a"], s["score"])
+    for s in results.get("elimination") or []:
+        if s.get("score"):
+            score_of[(frozenset((s["a"], s["b"])), "advance")] = (s["a"], s["score"])
     out = []
     with open(csv_path, newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
             raw = (r.get("result_a_wins") or "").strip()
             if raw == "":
                 continue
-            key = frozenset((r["team_a"], r["team_b"]))
+            key = (frozenset((r["team_a"], r["team_b"])), r["stage"])
             if key not in score_of:
                 raise SystemExit(
-                    "对账表里 %s vs %s 已回填结果，但 model/results.json 里没有这一场——"
+                    "对账表里 %s vs %s（%s）已回填结果，但 model/results.json 里没有这一场——"
                     "两份产出物不同步，请先跑 python3 -m model.backfill_results"
-                    % (r["team_a"], r["team_b"]))
+                    % (r["team_a"], r["team_b"], r["stage"]))
             first, sc = score_of[key]
             hi, lo = max(sc), min(sc)
             out.append({

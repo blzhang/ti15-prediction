@@ -59,10 +59,16 @@ def parse_event(event, teams):
 
 
 def validate_prices(prices, lo=0.8, hi=1.5):
-    """价格哨兵：mid ∈ (0,1)；mid 之和 ∈ [lo, hi]（2026-08-05 实测 1.18）。"""
+    """价格哨兵：mid ∈ [0,1)；mid 之和 ∈ [lo, hi]（2026-08-05 实测 1.18）。
+
+    赛前这里要求严格大于 0——那时 mid=0 只可能是占位坏数据。开赛后不再成立：
+    被淘汰的队冠军盘价格**真实归零**（2026-08-16 小组赛收官，Aurora 等 8 队
+    出局，实测 mid=0.0），0 从「坏数据」变成了「市场的正确报价」。
+    所以只拦 <0 与 ≥1；整批占位数据仍然会被下面的总和哨兵拦住（全 0 → 和为 0）。
+    """
     for team, rec in prices.items():
-        if not 0.0 < rec["mid"] < 1.0:
-            raise ValueError("%s 的 mid=%r 不在 (0,1) 内" % (team, rec["mid"]))
+        if not 0.0 <= rec["mid"] < 1.0:
+            raise ValueError("%s 的 mid=%r 不在 [0,1) 内" % (team, rec["mid"]))
     total = sum(rec["mid"] for rec in prices.values())
     if not lo <= total <= hi:
         raise ValueError(

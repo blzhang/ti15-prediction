@@ -44,6 +44,12 @@ MAX_ROUND = 5
 
 BO3_WIN = 2                     # 全部瑞士轮系列赛都是 BO3
 
+# 附加淘汰轮（Liquipedia 叫 Elimination Round）：3-2 挑 2-3，5 场 BO3。
+# 实际配对是**选人制**（最高排位的 3-2 队先挑），与模拟器里那条
+# 「hi[k] vs lo[4-k]」的规则近似不是一回事——所以附加轮的对阵一旦公布，
+# 必须当事实录进来，绝不能让模拟器用规则近似去「替」已经发生的选择。
+ELIM_MATCHES = 5
+
 
 class ResultsError(ValueError):
     """results.json 有问题。信息里必须写清楚哪一项错了、应该怎么改。"""
@@ -111,6 +117,116 @@ def _parse_rounds(cfg, idx):
                 "填了第 %d 轮却缺第 %d 轮。中间缺一轮会让后面几轮的战绩前提失真，"
                 "请补齐或删掉靠后的轮次。" % (max(out), r))
     return out
+
+
+def _swiss_records(rounds, n):
+    """从瑞士轮已完赛结果算每队 (胜, 负)。附加轮校验要用它判断 3-2 / 2-3。"""
+    w, l = [0] * n, [0] * n
+    for series in rounds.values():
+        for i, j, a_wins, _ in series:
+            if a_wins is None:
+                continue
+            win, lose = (i, j) if a_wins else (j, i)
+            w[win] += 1
+            l[lose] += 1
+    return w, l
+
+
+def _parse_elimination(cfg, idx, rounds):
+    """校验附加淘汰轮 -> [(i, j, a_wins|None, loser_games|None)]。
+
+    附加轮的参赛资格由瑞士轮**最终**战绩决定（3-2 挑 2-3），所以只有瑞士轮
+    全部打完（每队 4 胜或 4 负）才允许填附加轮——瑞士轮没打完就有附加轮对阵，
+    要么是抄错了，要么是把某场瑞士轮当成了附加轮，都必须拦下来。
+    """
+    raw = cfg.get("elimination")
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not raw:
+        raise ResultsError("elimination 要么整个不写，要么是非空数组")
+    n = len(idx)
+    w, l = _swiss_records(rounds, n)
+    # 瑞士轮打完 = 打满 5 场，或 4-0 / 0-4 提前停赛（这两档只打 4 场）。
+    done = lambda i: w[i] + l[i] == 5 or (w[i], l[i]) in ((4, 0), (0, 4))
+    unfinished = [t for t, i in idx.items() if not done(i)]
+    if unfinished:
+        raise ResultsError(
+            "填了附加轮，但瑞士轮还没打完（%s 还没打完自己的场次）。"
+            "附加轮资格由瑞士轮最终战绩决定，请先补齐瑞士轮。"
+            % "、".join(sorted(unfinished)))
+    seen, parsed = set(), []
+    for k, s in enumerate(raw, start=1):
+        where = "附加轮第 %d 场" % k
+        a, b = s.get("a"), s.get("b")
+        for t in (a, b):
+            if t not in idx:
+                raise ResultsError(
+                    "%s 里的队名不认识：%r（大小写和空格必须与 l1_rating.json 完全一致）"
+                    % (where, t))
+        if a == b:
+            raise ResultsError("%s 的两侧是同一支队：%s" % (where, a))
+        for t in (a, b):
+            if t in seen:
+                raise ResultsError(
+                    "%s：%s 出现了不止一次——附加轮一支队只打一场" % (where, t))
+            seen.add(t)
+        recs = {(w[idx[t]], l[idx[t]]) for t in (a, b)}
+        if recs != {(3, 2), (2, 3)}:
+            raise ResultsError(
+                "%s：%s(%d-%d) vs %s(%d-%d) 不是「3-2 对 2-3」——附加轮只在这两档"
+                "之间打，战绩对不上说明对阵抄错了或瑞士轮结果有误。"
+                % (where, a, w[idx[a]], l[idx[a]], b, w[idx[b]], l[idx[b]]))
+        a_wins, loser_games = _parse_score(s.get("score"), a, b, where)
+        parsed.append((idx[a], idx[b], a_wins, loser_games))
+    if len(parsed) > ELIM_MATCHES:
+        raise ResultsError("附加轮只有 %d 场，填了 %d 场" % (ELIM_MATCHES, len(parsed)))
+    return parsed
+
+
+def _parse_playoffs(cfg, idx, rounds, elim):
+    """校验八强真实对阵 -> [(i, j)] × 4（按 Liquipedia R1M1–R1M4 槽位顺序）。
+
+    TI 的八强对阵不是按瑞士轮名次机械排的（8/16 公布的对阵与「1v8/2v7/3v6/4v5
+    按名次」完全对不上），所以一旦公布就必须当事实录入。槽位顺序不能乱：
+    败者组的交叉连法依赖它（UBSF1 = M1 胜 × M2 胜；LBQF-1 = LBR1-1 胜 × UBSF2 负）。
+    """
+    raw = cfg.get("playoffs")
+    if raw is None:
+        return None
+    ubqf = raw.get("ubqf")
+    if not isinstance(ubqf, list) or len(ubqf) != 4:
+        raise ResultsError(
+            "playoffs.ubqf 必须是恰好 4 场对阵（按 Liquipedia R1M1–R1M4 槽位顺序），"
+            "现在是 %r" % ubqf)
+    if len(elim) != ELIM_MATCHES or any(r[2] is None for r in elim):
+        raise ResultsError(
+            "填了八强对阵，但附加轮还没打完或没填全——八强名单由附加轮结果决定，"
+            "请先补齐附加轮 5 场的结果。")
+    n = len(idx)
+    w, l = _swiss_records(rounds, n)
+    direct = {i for i in range(n) if (w[i], l[i]) in ((4, 0), (4, 1))}
+    winners = {(i if aw else j) for i, j, aw, _ in elim}
+    qualified = direct | winners
+    seen, parsed = set(), []
+    for k, pair in enumerate(ubqf, start=1):
+        where = "八强对阵第 %d 场（R1M%d）" % (k, k)
+        if not isinstance(pair, list) or len(pair) != 2:
+            raise ResultsError("%s 必须是 [队A, 队B]，现在是 %r" % (where, pair))
+        a, b = pair
+        for t in (a, b):
+            if t not in idx:
+                raise ResultsError(
+                    "%s 里的队名不认识：%r（大小写和空格必须与 l1_rating.json 完全一致）"
+                    % (where, t))
+            if idx[t] not in qualified:
+                raise ResultsError(
+                    "%s：%s 没有晋级八强（既不在直通三队里，也不是附加轮胜者）。"
+                    "对阵抄错了，或附加轮结果有误。" % (where, t))
+            if t in seen:
+                raise ResultsError("%s：%s 出现了不止一次" % (where, t))
+            seen.add(t)
+        parsed.append((idx[a], idx[b]))
+    return parsed
 
 
 def _constraints(rounds):
@@ -189,6 +305,8 @@ def load(teams, path=None):
 
     返回 None 表示「还没有任何已完赛信息，按赛前那样全程模拟」；否则返回
         {"rounds": {rnd（从 1 计）: [(i, j, a_wins|None, loser_games|None)]},
+         "elim": [(i, j, a_wins|None, loser_games|None)],   # 附加淘汰轮，可为空
+         "ubqf": [(i, j)] × 4 或 None,       # 八强真实对阵（R1M1–R1M4 槽位顺序）
          "blocks": [[队伍索引, ...], ...],   # 必须同组的块
          "splits": [[0/1]*16, ...],          # 与全部已知对阵自洽的分组，可能不止一种
          "n_done": 已打完系列赛数, "n_scheduled": 已排定未开打系列赛数,
@@ -204,16 +322,21 @@ def load(teams, path=None):
 
     idx = {t: i for i, t in enumerate(teams)}
     rounds = _parse_rounds(cfg, idx)
+    elim = _parse_elimination(cfg, idx, rounds)
+    ubqf = _parse_playoffs(cfg, idx, rounds, elim)
     same, diff = _constraints(rounds)
     blocks = _blocks(same, len(teams))
     splits = consistent_splits(blocks, diff, len(teams))
 
-    n_done = sum(1 for s in rounds.values() for r in s if r[2] is not None)
-    n_sched = sum(1 for s in rounds.values() for r in s if r[2] is None)
+    all_series = [r for s in rounds.values() for r in s] + elim
+    n_done = sum(1 for r in all_series if r[2] is not None)
+    n_sched = sum(1 for r in all_series if r[2] is None)
     if not n_done and not n_sched:
         raise ResultsError("rounds 里一场系列赛都没有，active 却是 true")
     return {
         "rounds": rounds,
+        "elim": elim,
+        "ubqf": ubqf,
         "blocks": blocks,
         "splits": splits,
         "n_done": n_done,
@@ -247,8 +370,13 @@ def describe(observed, teams):
     if not observed:
         return "无已完赛结果 —— 全程按赛前模拟"
     n = len(observed["splits"])
-    head = ("已完赛 %d 场系列赛、已排定未开打 %d 场（截至 %s）"
-            % (observed["n_done"], observed["n_scheduled"], observed["as_of_utc"]))
+    n_elim = len(observed.get("elim") or [])
+    head = ("已完赛 %d 场系列赛、已排定未开打 %d 场（截至 %s）%s%s"
+            % (observed["n_done"], observed["n_scheduled"], observed["as_of_utc"],
+               "，其中附加淘汰轮 %d 场（实际选人制对阵，非规则近似）" % n_elim
+               if n_elim else "",
+               "；八强对阵已按官方公布锁定（非名次规则近似）"
+               if observed.get("ubqf") else ""))
     if n == 1:
         ga = [teams[i] for i, g in enumerate(observed["splits"][0]) if g == 0]
         gb = [teams[i] for i, g in enumerate(observed["splits"][0]) if g == 1]

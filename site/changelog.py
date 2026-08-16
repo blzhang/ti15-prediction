@@ -39,12 +39,84 @@ def render(base, payload):
     entries = []
 
     rv = payload.get("review") or {}
-    # 第二次及以后的复盘：每次交账都在这里留一条。rv 里的 prev 是上一次复盘的
-    # 关键数，用来说明「变化」而不是只报当前值——只报当前值看不出趋势，
-    # 而这一版最重要的信息恰恰是趋势（题目变难、总分回升、五五开那档贴到抛硬币）。
-    if rv.get("active") and rv.get("prev"):
-        pv = rv["prev"]
-        settled = rv.get("settled") or []
+    # 每次交账在这里留一条**历史**条目。⚠️ 每一条只能读**它自己那一次**的快照
+    # （snapshots[i]），绝不能读 rv 顶层（= 最新那次）——这个错已经犯过两次
+    # （8/10 位移数字、8/13 复盘数字），第三次复盘上线前差点第三次：8/15 这条
+    # 原来写的就是 rv["..."]，在「最新=第二次」的两天里恰好正确，第三次复盘
+    # 一上线它就会开始自称「已打完 44 场」。
+    snaps = rv.get("snapshots") or []
+
+    if len(snaps) >= 3:
+        r3, r2s = snaps[2], snaps[1]
+        settled3 = r3.get("settled") or []
+        hit3 = [s for s in settled3 if s["hit"]]
+        adv_now = payload["raw_pred"]["advance_playoffs"]
+        through = [t for t, v in sorted(adv_now.items(), key=lambda kv: -kv[1]) if v >= 0.999]
+        entries.append(_entry(
+            "2026-08-16",
+            "第三次交账：小组赛全部打完，44 场逐场对完账",
+            [
+            ("小组赛收官",
+             "瑞士轮 5 轮 39 场 + 附加淘汰轮 5 场，<b>共 %d 场系列赛全部打完</b>。"
+             "八强就位：%s。主赛事 8/20 开打。"
+             % (r3["n_scored"], "、".join("<b>%s</b>" % t for t in through))),
+            ("第三次交账",
+             "已完赛系列赛 %d → <b>%d</b> 场。方向 %d/%d → <b>%d/%d</b>，"
+             "Brier %.3f → <b>%.3f</b>。三次复盘的完整轨迹在"
+             "<a href=\"%s/review.html\">复盘页</a>顶部那张对比表里，逐次可查。"
+             % (r2s["n_scored"], r3["n_scored"], r2s["hits"], r2s["n_scored"],
+                r3["hits"], r3["n_scored"], r2s["brier_all"], r3["brier_all"], base)),
+            ("五五开那一档",
+             "赛前就接近五五开的 <b>%d 场，方向对 %d 场（%.0f%%），Brier %.3f</b>"
+             "（上一次 %.3f；抛硬币恒为 0.25）。读法与上次相同：模型说是五五开的比赛，"
+             "打出来就是五五开——校准没错，但在势均力敌的比赛上它不提供信息量。"
+             % (r3["n_close"], r3["hits_close"],
+                100.0 * r3["hits_close"] / max(r3["n_close"], 1),
+                r3["brier_close"], r2s["brier_close"])),
+            ("附加淘汰轮：当事实录入，不用规则近似",
+             "附加轮实际是<b>选人制</b>（最高排位的 3-2 队先挑 2-3 的对手），与模拟器里"
+             "「第 k 名对倒数第 k 名」的规则近似完全不同——<b>五场实际对阵与规则近似"
+             "排出来的五场没有一场相同</b>。所以 <code>model/results.json</code> 新增"
+             " elimination 段，实际对阵与结果照实 replay；校验从严：瑞士轮没打完不许填，"
+             "对阵不是「3-2 对 2-3」直接报错。<br>"
+             "其中 <b>Aurora vs BoomBoys 是与瑞士轮第 4 轮的二次相遇</b>（附加轮允许重赛，"
+             "而且 BoomBoys 把第 4 轮 0-2 的账讨回来了，2-0）——对账表按赛前说明追加一行，"
+             "赛前概率照抄第一行：<b>赛前概率是对这对队伍的唯一承诺，不为第二次相遇重新估计</b>。"),
+            ("八强对阵也已锁进模型",
+             "官方公布的四场八强对阵（Iron Wing–Spirit、VISION–BoomBoys、"
+             "Liquid–Yandex、Nigma–Falcons）与「按瑞士轮名次 1v8/2v7/3v6/4v5」的"
+             "规则近似只有两场相同。<code>results.json</code> 新增 playoffs.ubqf 段"
+             "（按 Liquipedia 槽位顺序，槽位错一位败者组交叉连法就全串，"
+             "映射有往返测试钉住），这一版的夺冠概率就条件化在真实对阵上。"),
+            ("市场哨兵撞上了「真实归零」",
+             "抓取脚本赛前写死了「价格必须在 0 到 1 之间（不含端点）」——那时 0 只可能是"
+             "占位坏数据。小组赛收官后被淘汰的 8 队冠军价<b>真实归零</b>，哨兵直接拒收。"
+             "已放宽为「0 合法」（整批占位 0 仍被总和哨兵拦住）；融合侧同步改为："
+             "模型概率精确为 0 的出局队<b>不进 log-odds 融合、按 0 直通</b>——"
+             "靠 1e-9 裁剪硬算，会把「不可能」悄悄变成「万分之几」。"),
+            ("四个战绩档全部盖棺：%d 对 %d" % (len(hit3), len(settled3) - len(hit3)),
+             "；".join("<b>%s</b> 是 <b>%s</b>，赛前押 %s（%.0f%%）——%s"
+                      % (s["bucket"], "、".join(s["teams"]), s["pick"], s["p"] * 100,
+                         "<b>押中了</b>" if s["hit"] else "<b>押错了</b>")
+                      for s in settled3) + "。"),
+            ("顺手修掉的一个显示 bug",
+             "复盘页「还够得着的队」那张表原来只判「战绩没超出上限」，"
+             "不区分还在打和已停赛——已锁定 4-0 的队会被继续算成「够得着 4-1」。"
+             "瑞士轮全部打完后四个档位明明都已落定，表上却还显示「3 支队够得着」。"
+             "已改为：停赛的队只有恰好落在该档才算，在打的队才谈「够得着」。"),
+            ("又拦了一次「历史条目漂移」——同一类错的第三次未遂",
+             "下面 8/15 那条历史条目，原来直接读「最新那次复盘」的数字。"
+             "在最新=第二次的那两天里它恰好正确；这次第三次复盘一上线，"
+             "它就会开始自称<b>「已打完 44 场」</b>——与 8/10、8/13 修过的是"
+             "<b>同一类错</b>。这次在上线前改成了逐条钉死到自己那一次的快照上。"
+             "错还是那个错，唯一的进步是这次它没能上线。"),
+            ],
+            tone=" good"))
+
+    # 第二次交账（2026-08-15）。⚠️ 历史条目：只读 snapshots[1] 与 snapshots[0]。
+    if len(snaps) >= 2:
+        rv2, pv = snaps[1], snaps[0]
+        settled = rv2.get("settled") or []
         hit = [s for s in settled if s["hit"]]
         entries.append(_entry(
             "2026-08-15",
@@ -63,8 +135,8 @@ def render(base, payload):
              "上一次那个 0.136 触发了泄漏护栏，当时的解释是「赛程太软，不是模型神」，"
              "并预告「等强队互相碰上，这个数会往上走」。<b>现在它如期走上来了——"
              "这正是当时那个解释成立的证据。</b>当初要是拿 0.136 出去吹，今天就得解释「为什么变差了」。"
-             % (pv["n_scored"], rv["n_scored"], pv["hits"], pv["n_scored"],
-                rv["hits"], rv["n_scored"], pv["brier_all"], rv["brier_all"])),
+             % (pv["n_scored"], rv2["n_scored"], pv["hits"], pv["n_scored"],
+                rv2["hits"], rv2["n_scored"], pv["brier_all"], rv2["brier_all"])),
             ("但真正该看的那一档，结果并不好看",
              "把送分题剔掉之后：<b>赛前就接近五五开的 %d 场，方向只对了 %d 场（%.0f%%），"
              "Brier %.3f</b>——而<b>抛硬币的 Brier 恒为 0.25</b>。"
@@ -72,8 +144,9 @@ def render(base, payload):
              "<b>模型说这些是五五开，它们就真的表现得像五五开</b>。校准是对的，"
              "但同时意味着一件不好听的事——<b>在势均力敌的比赛上，这个模型没提供任何信息量</b>。"
              "整体那个 %.3f 是被另外 %d 场强弱悬殊局拉下来的。"
-             % (rv["n_close"], rv["hits_close"], 100.0 * rv["hits_close"] / max(rv["n_close"], 1),
-                rv["brier_close"], rv["brier_all"], rv["n_far"])),
+             % (rv2["n_close"], rv2["hits_close"],
+                100.0 * rv2["hits_close"] / max(rv2["n_close"], 1),
+                rv2["brier_close"], rv2["brier_all"], rv2["n_far"])),
             ("已经能盖棺定论的两格：%d 对 %d" % (len(hit), len(settled) - len(hit)),
              "瑞士轮打到 4 胜或 4 负即停，所以两个单人格已经落定："
              + "；".join("<b>%s</b> 是 <b>%s</b>，赛前押的是 %s（%.0f%%）——%s"

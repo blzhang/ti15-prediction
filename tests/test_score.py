@@ -261,13 +261,14 @@ def test_real_ti15_matches_csv_is_well_formed():
         reader = csv.DictReader(f)
         assert reader.fieldnames == FIELDNAMES
         rows = list(reader)
-    assert len(rows) == 16 * 15 // 2
+    # 基础 120 行（两两配对）+ 二次相遇的追加行（同一对队伍瑞士轮打过、
+    # 附加轮/主赛事又碰上，按 emit_match_table.py 的说明逐场追加）。
+    assert len(rows) >= 16 * 15 // 2
 
-    pairs = set()
+    first_of = {}
     for r in rows:
         a, b = r["team_a"], r["team_b"]
         assert a < b, "team_a 必须字典序小于 team_b（去重规范）"
-        pairs.add((a, b))
         p = float(r["p_a_wins_series"])
         assert 0.0 <= p <= 1.0
         assert round(p, 6) == p
@@ -279,10 +280,20 @@ def test_real_ti15_matches_csv_is_well_formed():
         assert (res == "") == (r["stage"] == "pending"), (
             "%s vs %s 的 stage=%r 与 result_a_wins=%r 对不上"
             % (a, b, r["stage"], res))
-    assert len(pairs) == len(rows), "不能有重复配对"
+        if (a, b) not in first_of:
+            first_of[(a, b)] = r
+        else:
+            # 追加行必须是真实发生的第二场（有结果、有真实阶段），且赛前概率
+            # 照抄第一行——赛前概率是对这对队伍的唯一承诺。
+            base = first_of[(a, b)]
+            assert res in ("0", "1") and r["stage"] not in ("", "pending")
+            assert r["stage"] != base["stage"], "同一对同一阶段不能有两行"
+            assert r["p_a_wins_series"] == base["p_a_wins_series"]
+            assert r["frozen_at"] == base["frozen_at"]
+    assert len(first_of) == 16 * 15 // 2, "基础配对必须恰好覆盖全部 120 组"
 
     out = score_report(path)
-    assert out["n_total"] == 120
+    assert out["n_total"] == len(rows)
     # 赛前 n_scored=0；开赛后等于已回填的场次数。两种都合法，但打分必须自洽。
     if out["n_scored"] == 0:
         assert out["verdict"] == "no_data_yet"
@@ -308,10 +319,19 @@ def test_backfill_never_touches_the_frozen_pre_match_probabilities():
         frozen_rows = list(csv.DictReader(f))
     with open(live, newline="", encoding="utf-8") as f:
         live_rows = list(csv.DictReader(f))
-    assert len(frozen_rows) == len(live_rows)
-    for fr, lr in zip(frozen_rows, live_rows):
+    # 二次相遇的追加行排在表尾（回填脚本只 append），基础 120 行与冻结件
+    # 逐行对齐；追加行按队伍对反查冻结件，概率同样必须逐字节一致。
+    assert len(live_rows) >= len(frozen_rows)
+    for fr, lr in zip(frozen_rows, live_rows[:len(frozen_rows)]):
         assert (fr["team_a"], fr["team_b"]) == (lr["team_a"], lr["team_b"])
         assert fr["p_a_wins_series"] == lr["p_a_wins_series"], (
             "%s vs %s 的赛前概率被改过了：冻结件 %s，现在 %s"
             % (fr["team_a"], fr["team_b"], fr["p_a_wins_series"], lr["p_a_wins_series"]))
+        assert fr["frozen_at"] == lr["frozen_at"]
+    frozen_of = {(r["team_a"], r["team_b"]): r for r in frozen_rows}
+    for lr in live_rows[len(frozen_rows):]:
+        fr = frozen_of[(lr["team_a"], lr["team_b"])]
+        assert fr["p_a_wins_series"] == lr["p_a_wins_series"], (
+            "追加行 %s vs %s 的赛前概率没有照抄冻结件：冻结件 %s，现在 %s"
+            % (lr["team_a"], lr["team_b"], fr["p_a_wins_series"], lr["p_a_wins_series"]))
         assert fr["frozen_at"] == lr["frozen_at"]

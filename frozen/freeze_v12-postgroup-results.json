@@ -1,0 +1,9 @@
+{
+ "label": "v12-postgroup-results",
+ "frozen_at_utc": "2026-08-16T15:22:19Z",
+ "sha256": "8440ec0af23b3f0c009d278f7b750161087c0a1b72507124fc2b0af85c2403c7",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/model/results.json",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v12-postgroup-results.json",
+ "src_rel": "../model/results.json",
+ "frozen_path_rel": "frozen_v12-postgroup-results.json"
+}

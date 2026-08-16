@@ -1,105 +1,105 @@
 {
  "source": "Polymarket Gamma API",
  "event_slug": "the-international-2026-winner-20260629212545745",
- "captured_utc": "2026-08-15T11:53:45Z",
- "event_liquidity": 582007.94026,
- "event_volume": 1230585.126122,
+ "captured_utc": "2026-08-16T15:06:07Z",
+ "event_liquidity": 328900.45961,
+ "event_volume": 1480075.297515,
  "prices": {
   "Aurora Gaming": {
-   "mid": 0.052,
-   "bid": 0.051,
-   "ask": 0.053,
-   "last": 0.051
+   "mid": 0.0,
+   "bid": null,
+   "ask": 0.001,
+   "last": 0.001
   },
   "BoomBoys": {
-   "mid": 0.08,
+   "mid": 0.075,
    "bid": 0.07,
-   "ask": 0.09,
-   "last": 0.11
+   "ask": 0.08,
+   "last": 0.08
   },
   "Team Falcons": {
-   "mid": 0.095,
-   "bid": 0.09,
+   "mid": 0.09,
+   "bid": 0.08,
    "ask": 0.1,
-   "last": 0.1
+   "last": 0.08
   },
   "Team Liquid": {
-   "mid": 0.12,
+   "mid": 0.105,
    "bid": 0.09,
-   "ask": 0.15,
-   "last": 0.1
+   "ask": 0.12,
+   "last": 0.12
   },
   "Iron Wing": {
-   "mid": 0.042,
-   "bid": 0.038,
-   "ask": 0.046,
-   "last": 0.042
+   "mid": 0.0845,
+   "bid": 0.074,
+   "ask": 0.095,
+   "last": 0.075
   },
   "Xtreme Gaming": {
-   "mid": 0.0005,
+   "mid": 0.0,
    "bid": null,
    "ask": 0.001,
    "last": 0.001
   },
   "Team Yandex": {
-   "mid": 0.072,
-   "bid": 0.062,
-   "ask": 0.082,
-   "last": 0.066
+   "mid": 0.0995,
+   "bid": 0.091,
+   "ask": 0.108,
+   "last": 0.11
   },
   "Team Spirit": {
    "mid": 0.115,
-   "bid": 0.11,
-   "ask": 0.12,
-   "last": 0.11
+   "bid": 0.1,
+   "ask": 0.13,
+   "last": 0.12
   },
   "TEAM VISION": {
-   "mid": 0.425,
-   "bid": 0.4,
-   "ask": 0.45,
-   "last": 0.53
+   "mid": 0.385,
+   "bid": 0.37,
+   "ask": 0.4,
+   "last": 0.4
   },
   "Nigma Galaxy": {
-   "mid": 0.017,
-   "bid": 0.014,
-   "ask": 0.02,
-   "last": 0.035
+   "mid": 0.082,
+   "bid": 0.077,
+   "ask": 0.087,
+   "last": 0.085
   },
   "HULIGANI": {
-   "mid": 0.0005,
+   "mid": 0.0,
    "bid": null,
    "ask": 0.001,
    "last": 0.001
   },
   "Team Resilience": {
-   "mid": 0.0125,
-   "bid": 0.01,
-   "ask": 0.015,
-   "last": 0.014
+   "mid": 0.0,
+   "bid": null,
+   "ask": 0.001,
+   "last": 0.016
   },
   "Vici Gaming": {
-   "mid": 0.0115,
-   "bid": 0.009,
-   "ask": 0.014,
-   "last": 0.012
+   "mid": 0.0,
+   "bid": null,
+   "ask": 0.001,
+   "last": 0.001
   },
   "OG": {
-   "mid": 0.0005,
+   "mid": 0.0,
    "bid": null,
    "ask": 0.001,
    "last": 0.004
   },
   "GamerLegion": {
-   "mid": 0.0045,
-   "bid": 0.004,
-   "ask": 0.005,
-   "last": 0.005
+   "mid": 0.0,
+   "bid": null,
+   "ask": 0.001,
+   "last": 0.001
   },
   "LGD Gaming": {
-   "mid": 0.0125,
-   "bid": 0.012,
-   "ask": 0.013,
-   "last": 0.012
+   "mid": 0.0005,
+   "bid": null,
+   "ask": 0.001,
+   "last": 0.001
   }
  },
  "name_map_applied": {

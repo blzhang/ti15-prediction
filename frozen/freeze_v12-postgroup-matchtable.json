@@ -1,0 +1,9 @@
+{
+ "label": "v12-postgroup-matchtable",
+ "frozen_at_utc": "2026-08-16T15:22:19Z",
+ "sha256": "0aeaa290aee35fbe267c82b5ea6ab9a71e1a47f663a8f71ce71a870367c9725c",
+ "src": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/reports/ti15_matches.csv",
+ "frozen_path": "/Users/zhangbeilong/Documents/Claude/Projects/TI15-Prediction/frozen/frozen_v12-postgroup-matchtable.json",
+ "src_rel": "../reports/ti15_matches.csv",
+ "frozen_path_rel": "frozen_v12-postgroup-matchtable.json"
+}

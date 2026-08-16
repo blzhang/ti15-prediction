@@ -75,6 +75,18 @@ def sample_split(splits, rng):
     return list(splits[rng.integers(len(splits))])
 
 
+def seeds_from_ubqf(pairs):
+    """把 Liquipedia 槽位顺序的四场八强对阵（R1M1–R1M4）编码成 bracket.py 的
+    seeds 列表，使 run_playoffs 内部构造的 QF 恰好逐场还原这四场对阵。
+
+    bracket.py 的 QF 构造顺序是 [(s0,s7), (s3,s4), (s1,s6), (s2,s5)]，对应
+    R1M1–R1M4——这个映射被 tests/test_results.py 里的往返测试钉住：编码后
+    再按 bracket.py 的构造展开，必须逐场还原输入。
+    """
+    (m1a, m1b), (m2a, m2b), (m3a, m3b), (m4a, m4b) = pairs
+    return [m1a, m3a, m4a, m2a, m2b, m4b, m3b, m1b]
+
+
 def run_one(theta, rng, drawn=None, observed=None):
     p1 = 1.0 / (1.0 + np.exp(-(theta[:, None] - theta[None, :])))   # 单局胜率矩阵
     p3 = p1 ** 2 * (3 - 2 * p1)                                     # BO3
@@ -157,19 +169,38 @@ def run_one(theta, rng, drawn=None, observed=None):
     group_series = [s.wins[t] + s.losses[t] + (1 if t in elim_pool_set else 0)
                     for t in range(n)]
 
-    # 附加淘汰轮：高排位 vs 低排位（对应 Liquipedia 的 3-2 vs 2-3）
-    # 附加淘汰轮：Liquipedia 原文「Teams with a 3-2 record will be paired
-    # against teams with a 2-3 record」——3-2 组内按名次 vs 2-3 组内按名次
+    # 附加淘汰轮。实际规则是**选人制**（最高排位的 3-2 队先挑 2-3 的对手），
+    # 选择本身没法模拟，所以分两层：
+    #   · observed 里已录的附加轮对阵（选人结果）当事实照用；已有比分的连胜负
+    #     都照抄，一个随机数不消耗——与瑞士轮 replay 同一条纪律。
+    #   · 还没被选走的队，退回「hi[k] vs lo[倒数第 k]」的规则近似（对应
+    #     Liquipedia 原文「3-2 will be paired against 2-3」，赛前只能这么近似）。
+    obs_elim = (observed or {}).get("elim") or []
     elim_win, elim_lose = [], []
-    for k in range(5):
-        a, b = hi[k], lo[4 - k]
+    picked = set()
+    for a, b, a_wins, _ in obs_elim:
+        if a_wins is None:
+            a_wins = rng.random() < p3[a, b]
+        w_, l_ = (a, b) if a_wins else (b, a)
+        elim_win.append(w_); elim_lose.append(l_)
+        picked.add(a); picked.add(b)
+    hi_rest = [t for t in hi if t not in picked]
+    lo_rest = [t for t in lo if t not in picked]
+    for k in range(len(hi_rest)):
+        a, b = hi_rest[k], lo_rest[len(lo_rest) - 1 - k]
         if rng.random() < p3[a, b]:
             elim_win.append(a); elim_lose.append(b)
         else:
             elim_win.append(b); elim_lose.append(a)
 
-    # 淘汰赛种子：3 直通队按瑞士轮名次占 1-3 号种子，5 附加轮晋级队按瑞士轮名次占 4-8
-    seeds = direct + sorted(elim_win, key=lambda t: swiss_rank.index(t))
+    # 淘汰赛种子。官方公布的八强对阵优先（TI15 实际对阵与名次规则近似完全
+    # 对不上，8/16 实测）；未公布时退回规则近似：3 直通队按瑞士轮名次占
+    # 1-3 号种子，5 附加轮晋级队按瑞士轮名次占 4-8。
+    obs_qf = (observed or {}).get("ubqf")
+    if obs_qf:
+        seeds = seeds_from_ubqf(obs_qf)
+    else:
+        seeds = direct + sorted(elim_win, key=lambda t: swiss_rank.index(t))
     place = [None] * n
     for t in out3:
         place[t] = 14
@@ -357,6 +388,15 @@ if __name__ == "__main__":
                                     "score": ([2, lg] if aw else [lg, 2]) if aw is not None else None}
                                    for i, j, aw, lg in series]}
                        for rnd, series in sorted(OBSERVED["rounds"].items())],
+                   # 附加淘汰轮的实际对阵（选人制，不是规则近似）。复盘页要拿它
+                   # 逐场对账，没有就是空数组——键始终存在，读侧不用判空。
+                   "elimination": [{"a": TEAMS[i], "b": TEAMS[j],
+                                    "score": ([2, lg] if aw else [lg, 2]) if aw is not None else None}
+                                   for i, j, aw, lg in (OBSERVED.get("elim") or [])],
+                   # 八强真实对阵（Liquipedia R1M1–R1M4 槽位顺序）；未公布为 null。
+                   # 这一版预测的夺冠概率就条件化在它之上，站点要能看见这个前提。
+                   "playoff_ubqf": ([[TEAMS[i], TEAMS[j]] for i, j in OBSERVED["ubqf"]]
+                                    if OBSERVED.get("ubqf") else None),
                }),
                "n_sim": N_SIM},
               open(f"{HERE}/l2_predictions.json", "w"), indent=1, ensure_ascii=False)

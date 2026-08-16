@@ -61,14 +61,28 @@ def build_blend(l2_path=DEFAULT_L2, odds_path=DEFAULT_ODDS, pm_path=DEFAULT_PM,
     book = json.load(open(odds_path))
     pm = json.load(open(pm_path))
 
-    pm_probs = normalize({t: rec["mid"] for t, rec in pm["prices"].items()})
-    if set(pm_probs) != set(model):
+    mids = {t: rec["mid"] for t, rec in pm["prices"].items()}
+    if set(mids) != set(model):
         raise ValueError(
             "Polymarket 与模型的队伍集合不一致，只在一侧出现：%s"
-            % sorted(set(pm_probs) ^ set(model)))
+            % sorted(set(mids) ^ set(model)))
 
-    consensus = blend_partial(pm_probs, book["decimal_odds"], w_market=w_book)
-    blended = blend_logodds(model, consensus, w_market)
+    # 已经结构性出局的队：模型概率**精确为 0**——这是把已完赛结果 replay 进
+    # 模拟后的事实（不可能夺冠），不是一个很小的数。这样的队不进 log-odds
+    # 融合：logit(0) 没有定义，靠 1e-9 裁剪会把「不可能」悄悄变成「万分之几」；
+    # 市场侧它们的价也归零了（2026-08-16 实测），偶尔残留的尘埃挂单同样按 0 处理。
+    # 开赛前 settled 恒为空集，这条路径与旧行为逐字节一致。
+    settled = sorted(t for t, p in model.items() if p == 0.0)
+    alive = {t: p for t, p in model.items() if p > 0.0}
+    pm_probs = normalize({t: mids[t] for t in alive})
+
+    consensus = blend_partial(
+        pm_probs, {t: v for t, v in book["decimal_odds"].items() if t in alive},
+        w_market=w_book)
+    blended = blend_logodds(alive, consensus, w_market)
+    blended.update({t: 0.0 for t in settled})
+    consensus = dict(consensus)
+    consensus.update({t: 0.0 for t in settled})
     rounded = round_probs(blended, 6)
 
     # 口径不变：四舍五入后不重新归一化，只校验偏差在文档化容差内
@@ -91,6 +105,8 @@ def build_blend(l2_path=DEFAULT_L2, odds_path=DEFAULT_ODDS, pm_path=DEFAULT_PM,
                 "event_slug": pm.get("event_slug"),
                 "teams_priced": len(pm_probs),
             },
+            # 结构性出局、按 0 直通（不进 log-odds 融合）的队。开赛前为空。
+            "teams_settled_zero": settled,
             "w_book": w_book,
         },
     }

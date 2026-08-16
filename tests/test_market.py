@@ -126,8 +126,11 @@ def test_retired_book_leg_leaves_consensus_as_pure_polymarket():
     with open(_project_path("model", "polymarket_odds.json")) as f:
         pm = json.load(f)["prices"]
 
-    pm_probs = normalize({t: rec["mid"] for t, rec in pm.items()})
-    consensus = blend_partial(pm_probs, odds, w_market=0.5)
+    # 出局队（mid 已归零）不参与共识——l2_blend 里它们按 0 直通，不进融合。
+    # 开赛前没有归零的队，这个过滤等于不存在。
+    pm_probs = normalize({t: rec["mid"] for t, rec in pm.items() if rec["mid"] > 0})
+    consensus = blend_partial(pm_probs, {t: v for t, v in odds.items() if t in pm_probs},
+                              w_market=0.5)
     assert consensus == pytest.approx(pm_probs)
 
 

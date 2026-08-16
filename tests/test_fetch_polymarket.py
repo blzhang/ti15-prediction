@@ -80,9 +80,26 @@ def test_parse_fails_loudly_on_duplicate_team(event, teams):
 
 
 def test_validate_rejects_mid_outside_unit_interval():
-    bad = {"X": {"mid": 0.0, "bid": None, "ask": None, "last": None}}
+    bad = {"X": {"mid": 1.0, "bid": None, "ask": None, "last": None}}
     with pytest.raises(ValueError):
         validate_prices(bad)
+    bad = {"X": {"mid": -0.01, "bid": None, "ask": None, "last": None}}
+    with pytest.raises(ValueError):
+        validate_prices(bad)
+
+
+def test_validate_accepts_zero_mid_for_eliminated_teams():
+    """开赛后被淘汰的队冠军价真实归零（8/16 实测 Aurora mid=0.0），
+    0 不再是坏数据——单队 0 要放行，整批占位 0 仍被总和哨兵拦住。"""
+    prices = {"OUT%d" % i: {"mid": 0.0, "bid": None, "ask": None, "last": None}
+              for i in range(8)}
+    prices.update({"IN%d" % i: {"mid": 0.13, "bid": None, "ask": None, "last": None}
+                   for i in range(8)})
+    validate_prices(prices)          # 和 = 1.04，落在哨兵区间
+    all_zero = {"T%d" % i: {"mid": 0.0, "bid": None, "ask": None, "last": None}
+                for i in range(16)}
+    with pytest.raises(ValueError):
+        validate_prices(all_zero)    # 整批 0 → 和为 0 → 总和哨兵拦下
 
 
 def test_validate_rejects_sum_outside_sentinel_band():

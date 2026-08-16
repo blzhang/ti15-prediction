@@ -117,7 +117,10 @@ def _match_table(matches, since=None):
         hit = (m["p_a"] > 0.5) == (m["result_a_wins"] == 1)
         fav, p_fav = _fav(m)
         coin = abs(p_fav - 0.5) < CLOSE_MARGIN
-        fresh = since is not None and frozenset((m["team_a"], m["team_b"])) not in since
+        # 「新」按（队伍对, 阶段）判，不能只按队伍对——二次相遇（瑞士轮打过、
+        # 附加轮又碰上）的第二场是新场次，只按队伍对会把它标成旧的。
+        fresh = (since is not None
+                 and (frozenset((m["team_a"], m["team_b"])), m["stage"]) not in since)
         out.append(
             '<tr class="%s"><td>%s%s</td><td class="lft">%s <span class=vs>vs</span> %s</td>'
             '<td class="num">%s %.0f%%%s</td><td class="lft"><b>%s</b> %s %s</td>'
@@ -205,11 +208,17 @@ def _bucket_status(snap):
         for t, r in rec_now.items():
             w, l = (int(x) for x in r.split("-"))
             was = snap["baseline_pred"]["record_dist"].get(t, {}).get(label, 0.0)
-            if w > need_w or l > need_l:
-                if was >= 0.05:                 # 赛前有戏（≥5%）才值得点名
-                    killed.append((t, was))
-            else:
+            # 「够得着」要区分还在打和已停赛：4 胜或 4 负即停、3-2/2-3 打满
+            # 5 场也停。停了的队战绩就是终局，只有恰好等于该档才算「在这一格」；
+            # 早先只判「没超出上限」，会把已锁定 4-0 的队继续算成「够得着 4-1」，
+            # 瑞士轮全部打完后四个档位明明都已落定，页面却显示 3 支队够得着。
+            done_playing = w >= 4 or l >= 4 or w + l >= 5
+            ok = ((w, l) == (need_w, need_l) if done_playing
+                  else (w <= need_w and l <= need_l))
+            if ok:
                 alive.append(t)
+            elif was >= 0.05:                   # 赛前有戏（≥5%）才值得点名
+                killed.append((t, was))
         killed.sort(key=lambda x: -x[1])
         done = len(alive) == cap
         if done:
@@ -224,9 +233,9 @@ def _bucket_status(snap):
             % (" class='settled'" if done else "", esc(label),
                ("<b>已定：%s</b>" % esc("、".join(alive))) if done else "%d 支" % len(alive),
                "、".join("<b>%s</b>（赛前 %.0f%%）" % (esc(t), p * 100) for t, p in killed)
-               or "<span class=dim>没有赛前看好的队被排除</span>"))
+               or "<span class=dim>没有赛前有戏的队被排除</span>"))
     table = ('<div class="tbl-wrap"><table class="rv"><thead><tr><th>档位</th>'
-             "<th>还够得着的队</th><th>赛前看好、现在已出局的</th></tr></thead>"
+             "<th>还够得着的队</th><th>赛前有戏、现在已够不着的</th></tr></thead>"
              "<tbody>%s</tbody></table></div>" % "".join(rows))
     return table, settled
 
@@ -272,6 +281,18 @@ def _group_section(snap):
 <div class="note">这 4 个「必须同组」的块是从已发生的对阵反推的，不是官方公布的：%s</div>
 """ % (n, n, "；".join("<b>{%s}</b>" % esc("、".join(b)) for b in snap["blocks"]))
 
+    if snap["index"] >= 3:
+        # 第三次起，「分组自己解开」已经是上一次复盘讲完的旧闻，压成一段存档——
+        # 每次都整节重讲，读者会以为又发生了一次。
+        ga, gb = snap["groups"]
+        return """
+<h3>二、「分组不猜」——已在第二次复盘验证完毕，存档不再展开</h3>
+<div class="note">分组从没猜过，也从没被公布过：它被比赛本身解出来了（赛前 35 种候选 →
+打完第三轮收敛到唯一解），并被组内轮 24 场与跨组轮 8 场<b>两个方向相反的约束同时验证</b>。
+完整推导在第二次复盘的页签里，一字未改。<br>
+一组：%s；另一组：%s。</div>
+""" % ("、".join(esc(t) for t in ga), "、".join(esc(t) for t in gb))
+
     ga, gb = snap["groups"]
     return """
 <h3>二、「分组不猜」——它自己解开了，一次都没猜过</h3>
@@ -300,6 +321,49 @@ def _group_section(snap):
 """ % ("、".join(esc(t) for t in ga), "、".join(esc(t) for t in gb))
 
 
+def _misses_note(st):
+    """没看对的场次那条按语。**必须按数据分叉**：只要有一场给到 60% 以上却输了，
+    「模型也只给了五五开」的说法就是假话——2026-08-16 起真实出现（XG 66.1%、
+    Spirit 71.7% 都输了），所以这条不能写死。"""
+    if not st["misses"]:
+        return ""
+    big = [v for v in st["misses"] if v >= 60.0]
+    small = [v for v in st["misses"] if v < 60.0]
+    if not big:
+        return """<div class="note"><b>没看对的 %d 场，模型赛前给强的一方也只有 %s。</b>
+它对这几场的判断本来就是「五五开，不知道」——它没有看错，它是明说了自己不知道。
+真正该扣分的是那种「给了 80%% 结果输了」的场次。</div>""" % (
+            len(st["misses"]), "、".join("%.1f%%" % v for v in st["misses"]))
+    return """<div class="note crit"><b>没看对的 %d 场里，有 %d 场不能拿「五五开」当挡箭牌：
+模型给了 %s，结果输了。</b>这几场是真看错了，照实扣分——
+「给得有把握却输了」正是前两次复盘里说要扣分的那类场次，现在它出现了。
+其余 %d 场给强的一方都不到 60%%（%s），那些是模型明说了自己不知道的。</div>""" % (
+        len(st["misses"]), len(big), "、".join("%.1f%%" % v for v in big),
+        len(small), "、".join("%.1f%%" % v for v in small))
+
+
+def _favourite_note(snap):
+    """「没有真正的大热门」那一节。赛前这条断言的内容是「所有队挤在 20% 以下」；
+    市场把头名推过 25% 之后再喊「还是没有」就是嘴硬，必须按数据降级。"""
+    base_t = snap["baseline_top_team"]
+    base_p = snap["baseline_top_p"] * 100
+    now_t = snap["teams"][0]["team"]
+    now_p = snap["teams"][0]["champ_blended"] * 100
+    if now_p < 25.0:
+        return """
+<h3>三、「没有真正的大热门」——还是没有</h3>
+<p>赛前头名 %s 是 %.1f%%，现在是 <b>%.1f%%</b>。
+瑞士轮之后还要打附加赛和双败，路径太长，任何单一队伍都稀释得厉害。这一条到目前为止完全成立。</p>
+""" % (esc(base_t), base_p, now_p)
+    return """
+<h3>三、「没有真正的大热门」——这一条开始松动了</h3>
+<p>赛前头名 %s 是 %.1f%%，现在 <b>%s 到了 %.1f%%</b>。
+%.0f%% 仍然算不上「锁定夺冠」——反面仍有约 %.0f%% 的可能——但赛前那个
+「所有队挤成一团、没有谁值得单独下注」的格局确实结束了。
+这条赛前断言从「完全成立」降级为「部分成立」，照实写在这里。</p>
+""" % (esc(base_t), base_p, esc(now_t), now_p, now_p, 100 - now_p)
+
+
 def _coinflip_note(st):
     """「接近五五开」那一档逼近抛硬币时，必须把这件事挑明。
 
@@ -326,12 +390,13 @@ def _coinflip_note(st):
         st["brier_close"], st["brier"], st["n_far"])
 
 
-def _one_review(snap, base, since):
-    """渲染一次复盘的正文。"""
+def _one_review(snap, base, since, prev=None):
+    """渲染一次复盘的正文。prev 是上一次复盘的快照（已挂 stats），第一次为 None。"""
     st = snap["stats"]
     sh = _shift_summary(snap)
     buckets, settled = _bucket_status(snap)
     suspect = st["brier"] < LEAKAGE_SUSPECT_BELOW
+    prev_brier = prev["stats"]["brier"] if prev else None
 
     if suspect:
         guard = """
@@ -344,14 +409,23 @@ def _one_review(snap, base, since):
 比赛 8 月 13 日才开打，时间上不可能漏。真正的原因是——已经打完的这 %d 场里，
 <b>有 %d 场是模型赛前就认为强弱悬殊的对局</b>（给分离 50%% 超过 10 个百分点）。</p>
 """ % (st["brier"], st["n"], st["n_far"])
-    else:
+    elif prev_brier is not None and prev_brier < LEAKAGE_SUSPECT_BELOW:
+        # 上一次触发过泄漏护栏、这一次回到正常区间——这条弧线本身就是信息，
+        # 数字从上一次的冻结件取，不写死（写死的 0.136 只对第二次复盘成立）。
         guard = """
 <h3 style="margin-top:0">总分回到了正常区间——这是好事，不是变差</h3>
-<div class="note"><b>Brier %.3f。</b>上一次复盘时这个数是 0.136，低到触发了项目自己的泄漏护栏
+<div class="note"><b>Brier %.3f。</b>上一次复盘时这个数是 %.3f，低到触发了项目自己的泄漏护栏
 （<b>低于 0.20 要先怀疑数据泄漏，而不是庆祝</b>），当时的解释是「赛程太软，不是模型神」。
 现在题目变难了，数字如期回升——<b>这正是当时那个解释成立的证据</b>。
-如果当初拿 0.136 出去吹，今天就得解释「为什么变差了」。</div>
-""" % st["brier"]
+如果当初拿 %.3f 出去吹，今天就得解释「为什么变差了」。</div>
+""" % (st["brier"], prev_brier, prev_brier)
+    else:
+        guard = """
+<h3 style="margin-top:0">总分停在正常区间</h3>
+<div class="note"><b>Brier %.3f</b>%s——健康区间是 0.21–0.24，抛硬币恒为 0.25。
+没有触发泄漏护栏，也没有什么可庆祝的：这个量级就是赛前 Dota 预测的现实水平。</div>
+""" % (st["brier"],
+       ("（上一次 %.3f）" % prev_brier) if prev_brier is not None else "")
 
     return """
 <div class="rv-head">
@@ -385,20 +459,14 @@ def _one_review(snap, base, since):
 <p>赛前那张 120 组两两胜率表（对照 538 的 <code>spi_matches.csv</code> 做的）在开赛前就冻结了。
 下面是已经发生的对局按它逐场回填的结果，<b>看错的行标红</b>：</p>
 %s
-<div class="note"><b>没看对的 %d 场，模型赛前给强的一方也只有 %s。</b>
-它对这几场的判断本来就是「五五开，不知道」——它没有看错，它是明说了自己不知道。
-真正该扣分的是那种「给了 80%% 结果输了」的场次。</div>
+%s
 
 <h3>一、「首轮对阵已锁定」——8 场全部对上</h3>
 <div class="note good">赛前锁进模型的 8 场首轮对阵，与实际开打的<b>逐场一致，一场不差</b>。
 当时 Liquipedia 的对阵表还是空的，靠 DLTV 与 Hotspawn 两个独立来源交叉核对填进去的。</div>
 
 %s
-
-<h3>三、「没有真正的大热门」——还是没有</h3>
-<p>赛前头名 %s 是 %.1f%%，现在是 <b>%.1f%%</b>。
-瑞士轮之后还要打附加赛和双败，路径太长，任何单一队伍都稀释得厉害。这一条到目前为止完全成立。</p>
-
+%s
 <h3>预测怎么变的</h3>
 <div class="note"><b>「总变化」被拆成了两栏，因为这两件事的含义完全不同。</b>
 交付概率 = 模型 ✕ 市场共识（市场占七成权重），从赛前到现在<b>两边都动了</b>。
@@ -425,10 +493,9 @@ def _one_review(snap, base, since):
         st["n"],
         _settled_note(settled),
         _match_table(snap["matches"], since),
-        len(st["misses"]), "、".join("%.1f%%" % v for v in st["misses"]),
+        _misses_note(st),
         _group_section(snap),
-        esc(snap["baseline_top_team"]), snap["baseline_top_p"] * 100,
-        snap["teams"][0]["champ_blended"] * 100,
+        _favourite_note(snap),
         _shift_table(snap),
         sh["max_res"], esc(sh["team_res"]), sh["max_mkt"], esc(sh["team_mkt"]),
         ("——差约 %.0f 倍" % sh["ratio"]) if sh["ratio"] >= 2 else "",
@@ -520,11 +587,11 @@ def render(base, p):
 
     panels = []
     for i, s in enumerate(snaps):
-        since = (frozenset(frozenset((m["team_a"], m["team_b"]))
+        since = (frozenset((frozenset((m["team_a"], m["team_b"])), m["stage"])
                            for m in _scored(snaps[i - 1]["matches"])) if i else None)
         panels.append('<div class="rv-panel%s" id="rv-%s">%s</div>'
                       % ("" if i == len(snaps) - 1 else " off", esc(s["id"]),
-                         _one_review(s, base, since)))
+                         _one_review(s, base, since, snaps[i - 1] if i else None)))
 
     latest = snaps[-1]
     return """

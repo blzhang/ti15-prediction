@@ -92,7 +92,9 @@ def test_main_cli_writes_file_matching_build_blend_return_value(tmp_path):
     assert on_disk["w_market"] == 0.7
     assert len(on_disk["champion_blended"]) == 16
     assert len(on_disk["market_consensus"]) == 16
-    assert on_disk["sources"]["polymarket"]["teams_priced"] == 16
+    # 进入融合的队数 = 16 减去按 0 直通的出局队数（开赛前后都成立）
+    assert on_disk["sources"]["polymarket"]["teams_priced"] == \
+        16 - len(on_disk["sources"]["teams_settled_zero"])
     # 庄家侧 2026-08-13 起停用（赛前盘口，赛中已过时，见 model/market_odds.json
     # 的 note）：teams_priced 归零，共识价退化成纯 Polymarket。这个 0 是有意的，
     # 不是抓取失败——两者的区别由 status 字段区分，所以一并断言。
@@ -100,3 +102,32 @@ def test_main_cli_writes_file_matching_build_blend_return_value(tmp_path):
     with open(DEFAULT_ODDS) as f:
         assert json.load(f)["status"] == "retired_in_tournament"
     assert abs(sum(on_disk["champion_blended"].values()) - 1.0) < 1e-5
+
+
+def test_build_blend_passes_structurally_settled_teams_through_at_zero(tmp_path):
+    """已出局的队（模型概率精确为 0）不进 log-odds 融合，直接带 0——
+    靠 1e-9 裁剪会把「不可能」悄悄变成「万分之几」。市场侧的尘埃挂单同样按 0。
+    活着的队之间的融合结果必须与「只拿活队单独融合」逐字节一致。"""
+    l2_path = tmp_path / "l2.json"
+    odds_path = tmp_path / "odds.json"
+    pm_path = tmp_path / "pm.json"
+    model = {"A": 0.6, "B": 0.4, "OUT1": 0.0, "OUT2": 0.0}
+    mids = {"A": 0.55, "B": 0.5, "OUT1": 0.0, "OUT2": 0.004}   # OUT2 是尘埃挂单
+    l2_path.write_text(json.dumps({"champion": model}))
+    odds_path.write_text(json.dumps({"decimal_odds": {t: None for t in model},
+                                     "captured_utc": "x"}))
+    pm_path.write_text(json.dumps({
+        "prices": {t: {"mid": v} for t, v in mids.items()},
+        "captured_utc": "x", "event_slug": "toy"}))
+    result = build_blend(l2_path=str(l2_path), odds_path=str(odds_path),
+                         pm_path=str(pm_path))
+    champ = result["champion_blended"]
+    assert champ["OUT1"] == 0.0 and champ["OUT2"] == 0.0
+    assert result["market_consensus"]["OUT1"] == 0.0
+    assert result["sources"]["teams_settled_zero"] == ["OUT1", "OUT2"]
+    assert abs(sum(champ.values()) - 1.0) < 1e-5
+    # 活队部分 == 只拿活队融合的结果
+    alive = {"A": model["A"], "B": model["B"]}
+    pm_alive = normalize({"A": mids["A"], "B": mids["B"]})
+    expect = round_probs(blend_logodds(alive, pm_alive, W_MARKET_DEFAULT), 6)
+    assert {t: champ[t] for t in alive} == expect

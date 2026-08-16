@@ -59,53 +59,53 @@
 
 | 排名 | 选手 | 战队 | 夺得全场最高的概率 | 每局期望值 | 预计参赛局数 |
 |---|---|---|---|---|---|
-| 1 | Satanic | TEAM VISION | 5.08% | 8.2 | 19 |
-| 2 | watson | Team Yandex | 4.77% | 8.1 | 20 |
-| 3 | Yatoro | Team Spirit | 4.75% | 7.9 | 21 |
-| 4 | Pure | Iron Wing | 4.58% | 8.0 | 19 |
-| 5 | Nightfall | Aurora Gaming | 4.54% | 7.8 | 21 |
-| 6 | Yuma | LGD Gaming | 4.06% | 8.1 | 17 |
-| 7 | m1CKe | Team Liquid | 4.00% | 7.9 | 20 |
-| 8 | skiter | Team Falcons | 3.14% | 7.0 | 20 |
+| 1 | watson | Team Yandex | 5.62% | 8.1 | 24 |
+| 2 | Yatoro | Team Spirit | 5.42% | 7.9 | 24 |
+| 3 | Pure | Iron Wing | 5.22% | 8.0 | 23 |
+| 4 | Satanic | TEAM VISION | 4.93% | 8.2 | 19 |
+| 5 | m1CKe | Team Liquid | 4.23% | 7.9 | 21 |
+| 6 | Kiritych~ | BoomBoys | 3.84% | 7.3 | 23 |
+| 7 | skiter | Team Falcons | 3.65% | 7.0 | 24 |
+| 8 | Yuma | LGD Gaming | 3.52% | 8.1 | 14 |
 
 ### GPM
 
 | 排名 | 选手 | 战队 | 夺得全场最高的概率 | 每局期望值 | 预计参赛局数 |
 |---|---|---|---|---|---|
-| 1 | Satanic | TEAM VISION | 17.24% | 766.5 | 19 |
-| 2 | Pure | Iron Wing | 11.55% | 746.5 | 19 |
-| 3 | Yatoro | Team Spirit | 10.66% | 736.0 | 21 |
-| 4 | Nightfall | Aurora Gaming | 8.25% | 722.2 | 21 |
-| 5 | shiro | Vici Gaming | 6.31% | 716.1 | 18 |
-| 6 | Kiritych~ | BoomBoys | 5.65% | 709.4 | 19 |
-| 7 | Ame | Xtreme Gaming | 5.47% | 720.6 | 15 |
-| 8 | ssnovv1 | HULIGANI | 5.31% | 739.7 | 10 |
+| 1 | Satanic | TEAM VISION | 17.05% | 766.5 | 19 |
+| 2 | Pure | Iron Wing | 13.98% | 746.5 | 23 |
+| 3 | Yatoro | Team Spirit | 11.89% | 736.0 | 24 |
+| 4 | Kiritych~ | BoomBoys | 6.54% | 709.4 | 23 |
+| 5 | Nightfall | Aurora Gaming | 5.96% | 722.2 | 15 |
+| 6 | watson | Team Yandex | 5.50% | 699.3 | 24 |
+| 7 | ssnovv1 | HULIGANI | 5.18% | 739.7 | 10 |
+| 8 | shiro | Vici Gaming | 5.12% | 716.1 | 15 |
 
 ### 补刀(仅last hits)
 
 | 排名 | 选手 | 战队 | 夺得全场最高的概率 | 每局期望值 | 预计参赛局数 |
 |---|---|---|---|---|---|
-| 1 | Yatoro | Team Spirit | 7.93% | 486.4 | 21 |
-| 2 | Satanic | TEAM VISION | 7.66% | 498.2 | 19 |
-| 3 | Pure | Iron Wing | 6.14% | 467.5 | 19 |
-| 4 | Nightfall | Aurora Gaming | 6.02% | 451.7 | 21 |
-| 5 | shiro | Vici Gaming | 5.71% | 464.6 | 18 |
-| 6 | Kiritych~ | BoomBoys | 5.65% | 456.2 | 19 |
-| 7 | m1CKe | Team Liquid | 5.47% | 439.7 | 20 |
-| 8 | skiter | Team Falcons | 5.27% | 434.3 | 20 |
+| 1 | Yatoro | Team Spirit | 8.58% | 486.4 | 24 |
+| 2 | Satanic | TEAM VISION | 7.69% | 498.2 | 19 |
+| 3 | Pure | Iron Wing | 7.17% | 467.5 | 23 |
+| 4 | Kiritych~ | BoomBoys | 6.55% | 456.2 | 23 |
+| 5 | skiter | Team Falcons | 6.25% | 434.3 | 24 |
+| 6 | watson | Team Yandex | 5.83% | 420.1 | 24 |
+| 7 | m1CKe | Team Liquid | 5.70% | 439.7 | 21 |
+| 8 | shiro | Vici Gaming | 4.53% | 464.6 | 15 |
 
 ### 眩晕时长(秒)
 
 | 排名 | 选手 | 战队 | 夺得全场最高的概率 | 每局期望值 | 预计参赛局数 |
 |---|---|---|---|---|---|
-| 1 | Mira | Aurora Gaming | 4.33% | 60.4 | 21 |
-| 2 | Ari | Iron Wing | 3.75% | 57.7 | 20 |
-| 3 | not me | Team Spirit | 3.45% | 46.4 | 21 |
-| 4 | Cr1t- | Team Falcons | 3.45% | 44.9 | 21 |
-| 5 | Boxi | Team Liquid | 3.33% | 48.3 | 20 |
-| 6 | OmaR | Nigma Galaxy | 3.29% | 55.4 | 18 |
-| 7 | 9Class | TEAM VISION | 3.23% | 44.3 | 19 |
-| 8 | Save- | BoomBoys | 3.21% | 51.0 | 19 |
+| 1 | Ari | Iron Wing | 4.20% | 57.7 | 23 |
+| 2 | not me | Team Spirit | 4.11% | 46.4 | 23 |
+| 3 | Cr1t- | Team Falcons | 3.98% | 44.9 | 24 |
+| 4 | Saksa | Team Yandex | 3.82% | 42.4 | 24 |
+| 5 | OmaR | Nigma Galaxy | 3.74% | 55.4 | 19 |
+| 6 | Save- | BoomBoys | 3.65% | 51.0 | 22 |
+| 7 | Boxi | Team Liquid | 3.52% | 48.3 | 21 |
+| 8 | Mira | Aurora Gaming | 3.05% | 60.4 | 15 |
 
 ## 完整数据
 

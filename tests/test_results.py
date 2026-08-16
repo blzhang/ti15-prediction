@@ -324,6 +324,154 @@ def test_known_pairings_in_a_partial_round_are_still_honoured(tmp_path):
         assert rec[2][1] >= 1, "已知对阵的败者在半轮里没被照抄"
 
 
+# ---------- 附加淘汰轮：选人制对阵当事实，不用规则近似 ----------
+#
+# 附加轮的实际配对是选人制（最高排位的 3-2 队先挑 2-3 的对手），与模拟器里
+# 「hi[k] vs lo[4-k]」的规则近似不是一回事。所以一旦对阵公布就必须当事实录入，
+# 这组测试钉住：校验从严（资格、战绩档、重复），以及 replay 真的按实际对阵走。
+
+def _full_swiss():
+    """一套打完的 5 轮瑞士轮（全部 2-0），战绩分档恰为 1/2/5/5/2/1：
+    4-0: T00；4-1: T08,T02；3-2: T04,T01,T12,T09,T05；
+    2-3: T10,T06,T03,T14,T11；1-4: T13,T07；0-4: T15。"""
+    S = lambda pairs: [{"a": TEAMS[i], "b": TEAMS[j], "score": [2, 0]} for i, j in pairs]
+    return [
+        {"round": 1, "series": S([(0, 1), (2, 3), (4, 5), (6, 7),
+                                  (8, 9), (10, 11), (12, 13), (14, 15)])},
+        {"round": 2, "series": S([(0, 2), (4, 6), (1, 3), (5, 7),
+                                  (8, 10), (12, 14), (9, 11), (13, 15)])},
+        {"round": 3, "series": S([(0, 4), (2, 6), (1, 5), (3, 7),
+                                  (8, 12), (10, 14), (9, 13), (11, 15)])},
+        {"round": 4, "series": S([(0, 8), (4, 12), (2, 10), (1, 9),
+                                  (6, 14), (5, 13), (3, 11), (7, 15)])},
+        {"round": 5, "series": S([(8, 4), (2, 1), (12, 10), (9, 6),
+                                  (5, 3), (14, 13), (11, 7)])},
+    ]
+
+
+# 与规则近似刻意不同的选人制对阵（3-2 在前）：T01 还爆冷输给了 T10
+ELIM = [
+    {"a": TEAMS[4], "b": TEAMS[3], "score": [2, 0]},
+    {"a": TEAMS[1], "b": TEAMS[10], "score": [0, 2]},
+    {"a": TEAMS[12], "b": TEAMS[6], "score": [2, 1]},
+    {"a": TEAMS[9], "b": TEAMS[14], "score": [2, 0]},
+    {"a": TEAMS[5], "b": TEAMS[11], "score": [2, 1]},
+]
+
+
+def test_elimination_loads_and_counts(tmp_path):
+    obs = res_mod.load(TEAMS, write(tmp_path, rounds=_full_swiss(), elimination=ELIM))
+    assert len(obs["elim"]) == 5
+    assert obs["n_done"] == 39 + 5 and obs["n_scheduled"] == 0
+    # records 只算瑞士轮：附加轮的胜负不改小组赛战绩
+    rec = res_mod.records(obs, TEAMS)
+    assert rec[TEAMS[4]] == (3, 2) and rec[TEAMS[10]] == (2, 3)
+
+
+def test_elimination_requires_finished_swiss(tmp_path):
+    with pytest.raises(res_mod.ResultsError) as e:
+        res_mod.load(TEAMS, write(tmp_path, elimination=ELIM))
+    assert "瑞士轮还没打完" in str(e.value)
+
+
+def test_elimination_must_pair_three_two_against_two_three(tmp_path):
+    bad = [{"a": TEAMS[4], "b": TEAMS[1], "score": [2, 0]}]     # 3-2 对 3-2
+    with pytest.raises(res_mod.ResultsError) as e:
+        res_mod.load(TEAMS, write(tmp_path, rounds=_full_swiss(), elimination=bad))
+    assert "3-2 对 2-3" in str(e.value)
+
+
+def test_elimination_team_twice_raises(tmp_path):
+    dup = [{"a": TEAMS[4], "b": TEAMS[3], "score": [2, 0]},
+           {"a": TEAMS[4], "b": TEAMS[10], "score": [2, 0]}]
+    with pytest.raises(res_mod.ResultsError) as e:
+        res_mod.load(TEAMS, write(tmp_path, rounds=_full_swiss(), elimination=dup))
+    assert "不止一次" in str(e.value)
+
+
+def test_observed_elimination_is_replayed_verbatim_every_simulation(tmp_path):
+    """附加轮 5 场都有结果时，晋级八强的集合在每次模拟里都必须一模一样——
+    包括 T10 爆冷淘汰 T01 这种规则近似绝不会配出来的结果。"""
+    from l2_simulate import run_one
+    obs = res_mod.load(TEAMS, write(tmp_path, rounds=_full_swiss(), elimination=ELIM))
+    expect = {0, 8, 2} | {4, 10, 12, 9, 5}       # 直通三队 + 实际附加轮胜者
+    rng = np.random.default_rng(7)
+    for _ in range(30):
+        _, _, _, advanced, _, _, ew, el = run_one(rng.standard_normal(16), rng, None, obs)
+        assert advanced == expect
+        assert ew == {4, 10, 12, 9, 5} and el == {3, 1, 6, 14, 11}
+
+
+def test_partial_elimination_pairs_the_rest_by_rule(tmp_path):
+    """只公布了一部分选人结果时：已知对阵照用，其余队伍退回规则近似——
+    附加轮 10 队每队仍然恰好打 1 场，谁都不缺席。"""
+    from l2_simulate import run_one
+    obs = res_mod.load(TEAMS, write(tmp_path, rounds=_full_swiss(),
+                                    elimination=ELIM[:2]))
+    pool = {4, 1, 12, 9, 5, 10, 6, 3, 14, 11}
+    rng = np.random.default_rng(9)
+    for _ in range(30):
+        _, _, _, advanced, _, _, ew, el = run_one(rng.standard_normal(16), rng, None, obs)
+        assert ew | el == pool and not (ew & el)
+        assert 4 in ew and 3 in el          # 已打完的照抄
+        assert 10 in ew and 1 in el         # 爆冷也照抄，不被规则近似冲掉
+
+
+# ---------- 八强真实对阵：槽位顺序编码 + 校验 ----------
+
+UBQF = [[TEAMS[4], TEAMS[0]], [TEAMS[8], TEAMS[10]],
+        [TEAMS[2], TEAMS[9]], [TEAMS[12], TEAMS[5]]]     # 刻意打乱，不按名次
+
+
+def test_seeds_from_ubqf_round_trips_through_bracket_slot_order():
+    """seeds 编码展开成 bracket.py 的 QF 构造顺序后，必须逐场还原输入——
+    这是槽位映射唯一的真值来源，错一位败者组交叉连法就全串。"""
+    from l2_simulate import seeds_from_ubqf
+    pairs = [(10, 17), (23, 14), (11, 16), (12, 15)]
+    s = seeds_from_ubqf(pairs)
+    assert [(s[0], s[7]), (s[3], s[4]), (s[1], s[6]), (s[2], s[5])] == pairs
+
+
+def test_playoffs_load_and_seed_the_bracket_verbatim(tmp_path):
+    """八强对阵录入后，每次模拟的 QF 对阵都必须是官方公布的那四场。"""
+    from l2_simulate import run_one, seeds_from_ubqf
+    obs = res_mod.load(TEAMS, write(tmp_path, rounds=_full_swiss(),
+                                    elimination=ELIM, playoffs={"ubqf": UBQF}))
+    assert [(TEAMS[i], TEAMS[j]) for i, j in obs["ubqf"]] == \
+        [tuple(p) for p in UBQF]
+    # 结构校验：8 支八强队每次都拿到主赛事名次（1/2/3/4/5/5/7/7——
+    # 5-6 与 7-8 是并列名次，bracket.py 只记 5 和 7）。
+    rng = np.random.default_rng(13)
+    for _ in range(20):
+        _, _, place, advanced, _, _, ew, _ = run_one(rng.standard_normal(16), rng, None, obs)
+        assert sorted(place[t] for t in advanced) == [1, 2, 3, 4, 5, 5, 7, 7]
+
+
+def test_playoffs_require_finished_elimination(tmp_path):
+    with pytest.raises(res_mod.ResultsError) as e:
+        res_mod.load(TEAMS, write(tmp_path, rounds=_full_swiss(),
+                                  elimination=ELIM[:3], playoffs={"ubqf": UBQF}))
+    assert "附加轮还没打完" in str(e.value)
+
+
+def test_playoffs_reject_unqualified_team(tmp_path):
+    bad = [[TEAMS[4], TEAMS[15]]] + UBQF[1:]      # T15 是 0-4，早出局了
+    with pytest.raises(res_mod.ResultsError) as e:
+        res_mod.load(TEAMS, write(tmp_path, rounds=_full_swiss(),
+                                  elimination=ELIM, playoffs={"ubqf": bad}))
+    assert "没有晋级八强" in str(e.value)
+
+
+def test_shipped_results_playoff_bracket_matches_qualifiers():
+    """仓库真实数据：八强对阵里的 8 支队必须恰好是直通 3 队 + 附加轮 5 胜者。"""
+    teams = list(json.load(open(os.path.join(HERE, "..", "model", "l1_rating.json")))["rating"])
+    obs = res_mod.load(teams)
+    if obs is None or not obs.get("ubqf"):
+        pytest.skip("八强对阵还没录入")
+    in_bracket = {t for pair in obs["ubqf"] for t in pair}
+    assert len(in_bracket) == 8
+
+
 def test_shipped_results_grouping_has_collapsed_to_a_unique_answer():
     """仓库里这份真实数据：分组应当已经由对阵唯一确定，且 R4 全部跨组。
 

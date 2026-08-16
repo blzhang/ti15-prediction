@@ -43,7 +43,11 @@ class BackfillError(ValueError):
 
 
 def finished_series(observed, teams):
-    """已完赛系列赛 -> [(队A, 队B, 胜者, "swiss_rN"), ...]，按轮次排序。"""
+    """已完赛系列赛 -> [(队A, 队B, 胜者, "swiss_rN"/"advance"), ...]，按赛程排序。
+
+    附加淘汰轮排在瑞士轮之后（赛程本来就是这个顺序），stage 记 "advance"——
+    与站点侧 STAGE_CN 的键一致。
+    """
     out = []
     for rnd, series in sorted(observed["rounds"].items()):
         for i, j, a_wins, _ in series:
@@ -51,6 +55,11 @@ def finished_series(observed, teams):
                 continue
             a, b = teams[i], teams[j]
             out.append((a, b, a if a_wins else b, "swiss_r%d" % rnd))
+    for i, j, a_wins, _ in observed.get("elim") or []:
+        if a_wins is None:
+            continue
+        a, b = teams[i], teams[j]
+        out.append((a, b, a if a_wins else b, "advance"))
     return out
 
 
@@ -59,6 +68,11 @@ def backfill(rows, observed, teams):
 
     明细里带上赛前概率与是否命中，供调用方直接打印——避免调用方再查一遍表
     而两边口径不一致。
+
+    **二次相遇**（瑞士轮打过、附加轮又碰上）按 emit_match_table.py 的说明处理：
+    同一对队伍的第二场**追加一行**，p_a_wins_series 与 frozen_at 照抄第一行——
+    赛前概率是对这对队伍的唯一承诺，不为第二次相遇重新估计。匹配按 stage 区分：
+    先找已标了本阶段的行（幂等重跑），再找还空着的行，都没有才追加。
     """
     index = {}
     for r in rows:
@@ -72,19 +86,25 @@ def backfill(rows, observed, teams):
             raise BackfillError(
                 "对账表里找不到 %s vs %s 这一行——赛前那张表本应覆盖全部 120 组配对，"
                 "找不到说明队名对不上或表被改过。" % (a, b))
-        if len(cand) > 1:
-            raise BackfillError(
-                "%s vs %s 在对账表里有 %d 行。同一对队伍二次相遇要按 emit_match_table.py "
-                "的说明追加行并逐行区分，本脚本不做这个判断，请人工处理。"
-                % (a, b, len(cand)))
-        row = cand[0]
+        row = next((r for r in cand if (r.get("stage") or "") == stage), None)
+        if row is None:
+            row = next((r for r in cand
+                        if not (r.get("result_a_wins") or "").strip()), None)
+        if row is None:
+            # 这对队伍的所有行都已被别的阶段占用 → 真正的二次相遇，追加一行。
+            base = cand[0]
+            row = {"stage": "", "team_a": base["team_a"], "team_b": base["team_b"],
+                   "p_a_wins_series": base["p_a_wins_series"],
+                   "frozen_at": base["frozen_at"], "result_a_wins": ""}
+            rows.append(row)
+            cand.append(row)
         want = "1" if winner == row["team_a"] else "0"
         have = (row.get("result_a_wins") or "").strip()
         if have and have != want:
             raise BackfillError(
-                "%s vs %s 的结果对不上：表里是 result_a_wins=%s，results.json 说赢的是 %s"
+                "%s vs %s（%s）的结果对不上：表里是 result_a_wins=%s，results.json 说赢的是 %s"
                 "（应为 %s）。两边有一处抄错了，请先查清楚，不要覆盖。"
-                % (a, b, have, winner, want))
+                % (a, b, stage, have, winner, want))
         p_a = float(row["p_a_wins_series"])
         detail.append({
             "stage": stage, "team_a": row["team_a"], "team_b": row["team_b"],
