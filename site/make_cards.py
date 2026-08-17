@@ -96,6 +96,7 @@ li b{color:#fff}
 .mbar .ma{background:#3987e5}.mbar .mb{background:#eb6834}
 .msub{color:#898781;font-size:%(fs_note)dpx;margin-top:10px;padding-top:10px;
       border-top:1px solid #2c2c2a}
+svg{width:100%%;height:auto;display:block}
 .badge{display:inline-block;background:#1a1a19;border:1px solid #3987e5;color:#3987e5;
        border-radius:999px;padding:7px 18px;font-size:%(fs_note)dpx;margin-bottom:20px}
 """
@@ -104,6 +105,12 @@ SIZES_LONG = dict(W=1080, H=0, PAD=64, fs_eye=22, fs_h1=62, fs_sub=27, fs_tag=22
                   fs_row=25, fs_big=64, fs_note=22, fs_li=25, fs_tile=48, fs_url=34,
                   namew=210, valw=105, barh=22, gap=54, gap2=20, boxpad=26, kvpad=13)
 SIZES_COVER = dict(W=1920, H=1080, PAD=0, fs_eye=26, fs_h1=104, fs_sub=34, fs_tag=24, fs_h2=48, fs_row=30, fs_big=80, fs_note=26, fs_li=29, fs_tile=64, fs_url=36, namew=230, valw=120, barh=28, gap=48, gap2=24, boxpad=32, kvpad=16)
+# 对阵表那张单独放宽：图本身 1300 单位宽，页宽给窄了会把它压成小字，
+# 而这张图的全部用途就是「看得清、照着点」。
+SIZES_BRACKET = dict(W=1400, H=0, PAD=56, fs_eye=22, fs_h1=58, fs_sub=27, fs_tag=21,
+                     fs_h2=40, fs_row=25, fs_big=64, fs_note=23, fs_li=25, fs_tile=48,
+                     fs_url=34, namew=210, valw=105, barh=22, gap=44, gap2=20,
+                     boxpad=26, kvpad=13)
 SIZES_CARD = dict(W=1242, H=1656, PAD=76, fs_eye=24, fs_h1=76, fs_sub=32, fs_tag=25, fs_h2=48,
                   fs_row=30, fs_big=80, fs_note=25, fs_li=29, fs_tile=60, fs_url=38,
                   namew=250, valw=125, barh=26, gap=56, gap2=24, boxpad=32, kvpad=16)
@@ -176,6 +183,34 @@ def qf_block(p):
     out = [o.replace('<b>%s</b>' % m["a"], '<b>八强 · %d</b>' % (i + 1))
            for i, (o, m) in enumerate(zip(out, p["playoffs"]["ubqf"]))]
     return '<div class="hwgrid">%s</div>' % "".join(out)
+
+
+def bracket_card(p):
+    """主赛事对阵表单独出一张 PNG，方便直接发群里/贴帖子。
+
+    与网页上那张同源（site/bracket_svg.py），所以两处永远一致——
+    重画一遍必然有一天两边对不上。
+    """
+    import bracket_svg
+    pl = json.load(open(os.path.join(ROOT, "reports", "p8_playoffs.json")))
+    st = pl["bracket_homework"]["stats"]
+    body = """
+<div class="eyebrow">THE INTERNATIONAL 2026 · 主赛事预测面板建议填法</div>
+<h1>TI15 抄作业<br><em>国际邀请赛那张对阵表</em></h1>
+<div class="sub">游戏内「赛事预测 → 国际邀请赛」，14 场逐场点胜者，<b>8/20 10:00 锁定</b>。<br>
+实心圆点 = 建议点亮的那一边；右侧百分比 = 它赢下这一场的概率。</div>
+<div class="tagline">在 %s 种自洽填法里穷举出来的最优解 · 期望答对 %.2f / 14 场（乱填 %.2f）</div>
+%s
+<div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6;margin-top:28px">
+<b style="color:#fff">注意后面几轮的候选是被前面锁死的。</b>你要是在 A 格改填别人，
+E 格的候选也跟着变，这份就不能照抄了。越往后的格子概率越低（败者组中段只剩百分之十几），
+不是模型不行，是那时候「你押的队有没有走到那一场」本身就很不确定。</div>
+<div class="foot"><div class="url">%s</div>
+<div class="promise">逐格概率、完整名次分布、以及这份填法怎么算出来的，都在站上。<br>
+<b style="color:#fff">8月23日打完会公布这14格实际对了几格，好看不好看都发。</b></div></div>
+""" % ("{:,}".format(st["n_brackets"]), st["expected"], st["random"],
+       bracket_svg.render(pl, "card"), SIZES_BRACKET["fs_note"], URL)
+    return html(body, SIZES_BRACKET)
 
 
 def bracket_block(p):
@@ -620,6 +655,8 @@ def main():
     made = []
     made.append(shoot(cover(p), "ti15-cover.png", 1920, min_h=1080))
     made.append(shoot(long_image(p), "ti15-long.png", 1080))
+    # 对阵表单独一张：抄作业的人只要这一张，不该逼他们下 8000px 的长图
+    made.append(shoot(bracket_card(p), "ti15-bracket.png", 1400, min_h=600))
     for i, c in enumerate(cards(p), 1):
         made.append(shoot(c, "ti15-card-%d.png" % i, 1242, min_h=1656))
     print("产出 %s：" % OUT)

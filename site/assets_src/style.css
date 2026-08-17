@@ -378,3 +378,13 @@ table.rv tr.gap { background: color-mix(in srgb, var(--s2) 10%, transparent); }
 .bk-drop path { stroke: var(--crit); stroke-width: 1.1; fill: none;
                 stroke-dasharray: 4 3; opacity: .75; }
 .bk-drop text { fill: var(--crit); font-size: 11.5px; opacity: .9; }
+
+/* 主赛事对阵表：照客户端版式画的可填图。窄屏横向滚动，不压缩——
+   压扁了就没法逐格对照着点，那这张图就白画了。 */
+.bkwrap { margin: 18px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.bkwrap svg { width: 100%; min-width: 900px; height: auto;
+              font-family: inherit; display: block; }
+@media (max-width: 940px) {
+  .bkwrap::after { content: "← 左右滑动看完整对阵表"; display: block;
+                   color: var(--ink-muted); font-size: 12.5px; padding: 6px 2px 0; }
+}

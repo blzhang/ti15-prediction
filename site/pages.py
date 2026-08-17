@@ -22,8 +22,18 @@ QR_EXPIRY = "2026-08-20"
 # 这一版之前站上写的正是「23:00 北京时间」，比本判定晚 13 小时。
 # 取更早的时间兜底：判错了只是让人提前填（无损失），判对了能救回错过锁定的人。
 # 若在客户端里看到确切倒计时与此不符，改这两行即可，全站自动跟随。
-PANEL_DEADLINE_UTC = "2026-08-13T02:00:00Z"
-PANEL_DEADLINE_CN = "8 月 13 日 10:00（北京时间）"
+# —— 小组赛那一组（已于 2026-08-13 锁定并揭晓，保留作历史与对账用）
+GROUP_DEADLINE_CN = "8 月 13 日 10:00（北京时间）"
+
+# —— 主赛事那一组「国际邀请赛」：**当前还能填**，倒计时指向它。
+# 三条独立证据一致指向 8/20：
+#   1. 用户 2026-08-17 凌晨的客户端截图，页签上写「3 天后锁定」→ 落在 8/20；
+#   2. 主赛事首场（Iron Wing vs Team Spirit）是 8/20 10:00 CST，而小组赛那一组
+#      正是「该阶段首场开打前」锁定的，同一条规则；
+#   3. 公开报道亦称 draft 于 8 月 20 日锁定。
+# CST 判定为中国标准时间，理由与下面小组赛那次相同（TI 在上海，历届首场当地 10:00）。
+PANEL_DEADLINE_UTC = "2026-08-20T02:00:00Z"
+PANEL_DEADLINE_CN = "8 月 20 日 10:00（北京时间）"
 
 
 PLACEHOLDER_QR = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 522">
@@ -62,8 +72,8 @@ def countdown(base, cur):
     return """
 <div class="cd" data-deadline="%s"%s>
   <div class="cd-txt">
-    <b class="cd-head">官方预测面板锁定倒计时</b>
-    <span class="cd-sub">%s截止 · 锁定后不能再改</span>
+    <b class="cd-head">游戏内「国际邀请赛」预测锁定倒计时</b>
+    <span class="cd-sub">%s截止 · 主赛事开打前，锁定后不能再改</span>
   </div>
   <div class="cd-clock" aria-live="polite">%s</div>
   %s
@@ -75,10 +85,9 @@ def countdown(base, cur):
         "" if on_hw else '<a class="cd-btn" href="%s/homework.html">看建议填法 →</a>' % base)
 
 
-# 倒计时只挂在抄作业页。8/13 面板已锁定，横幅早已切成「已锁定」态——
-# 一条讲「小组赛那 16 格来不及改了」的横幅，挂在讲未来 14 场的首页上是纯噪音，
-# 挂在抄作业页上才有意义（那一页正是讲这 16 格的）。
-CD_PAGES = ("homework.html",)
+# 倒计时挂在抄作业页和首页。8/17 起它指向的不再是已经过期的小组赛那一组，
+# 而是**还能填**的「国际邀请赛」对阵表（8/20 锁定）——这时候挂在首页才有意义。
+CD_PAGES = ("homework.html", "index.html")
 
 
 def shell(base, cur, title, body, extra_js=""):

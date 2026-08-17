@@ -10,6 +10,7 @@ import os
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+import bracket_svg
 import pages
 from pages import esc
 
@@ -277,9 +278,13 @@ def bracket_section(base, pl):
             "<b>整个权重范围内 %d 格填法完全一致</b>——这个判断怎么选都不影响结论。" % len(rows))
 
     return """
-<h2>二、主赛事那张对阵表（14 场，还没锁）</h2>
-<p class="lede">游戏内「赛事预测」里还有<b>第二个页签：国际邀请赛</b>。它和小组赛那 16 格不是一道题——
-<b>它是一整张双败对阵表，14 场逐场点胜者</b>，8 月 20 日主赛事开打前锁定。这一节就是它的建议填法。</p>
+<h2>一、照着这张图填（14 场，%s 锁定）</h2>
+<p>版式与客户端里那张表一致——列的位置、格子编号 A–G、日期、队伍简称都照抄，
+可以逐格平移着点。<b>实心圆点就是建议点亮的那一边</b>，右边的百分比是它赢下这一场的概率。</p>
+%s
+<p class="hint">客户端里后面几轮显示「?」，这里填的是模型的推荐——那正是这张图的用处。
+<b>注意后面几轮的候选是被前面的选择锁死的</b>：你如果在 A 格改填 Iron Wing，
+E 格的候选也会跟着变，不能照抄下面这份了。</p>
 
 <div class="pkbar">
   <div class="pkstats">
@@ -317,7 +322,9 @@ def bracket_section(base, pl):
 八强那四场 Polymarket 开了<b>单场盘</b>，是对这四场的直接定价；再往后没有盘口，
 靠反解出的隐含实力展开。两个市场（冠军盘、单场盘）互相不完全一致，
 调和时给单场盘多少权重是个判断——%s</div>
-""" % (st["expected"], st["random"], st["greedy_upper"],
+""" % (pages.PANEL_DEADLINE_CN,
+       '<div class="bkwrap">%s</div>' % bracket_svg.render(pl, "page"),
+       st["expected"], st["random"], st["greedy_upper"],
        st["expected"] / st["n_matches"] * 100, "{:,}".format(st["n_brackets"]),
        st["greedy_upper"], st["expected"], st["greedy_upper"] - st["expected"],
        block("ub", {"UBQF1", "UBQF2", "UBQF3", "UBQF4", "UBSF1", "UBSF2", "UBF"}),
@@ -373,49 +380,51 @@ def render_settled(base, score, fan, fan_rec, pl=None):
             % (esc(cn), esc(desc), esc(best["team"]), alts))
 
     beat = score["hits"] - score["expected"]
-    return """
+    return ("""
 <h1>抄作业</h1>
-<p class="lede">游戏内「赛事预测」有<b>两个页签</b>，这一页两个都管：<br>
-<b>「小组赛」那 16 格已经锁定并全部揭晓</b>——下面公布标准答案，并给我赛前那一版打分（%d/16）；<br>
-<b>「国际邀请赛」那张对阵表还没锁</b>，8/20 主赛事开打前截止——第二节是它的建议填法。</p>
-<p class="meta">小组赛部分已于 %s 锁定 · 主赛事部分 8/20 开打前锁定 ·
-想看完整预测去<a href="%s/">八强前瞻</a></p>
+<p class="lede"><b>现在要填的是游戏内「赛事预测 → 国际邀请赛」那张对阵表</b>——
+14 场逐场点胜者，<b>%(deadline)s 锁定</b>。下面第一张图就是照着客户端版式画的，
+可以直接对着填；再往下是每一格的概率和理由。</p>
+<p class="meta">另一个页签「小组赛」那 16 格已于 %(group_deadline)s 锁定并全部揭晓，
+本页第三节公布标准答案并给我赛前那一版打分（%(hits_head)d/16）·
+想看完整预测去<a href="%(base_head)s/">八强前瞻</a></p>
 
+%(bracket)s
+
+<h2>三、另一个页签：小组赛那 16 格，答案已经揭晓</h2>
 <div class="pkbar">
   <div class="pkstats">
-    <div><span class="pklab">赛前那版实际答对</span><span class="pkbig">%d</span><span class="pkunit">/ %d 格</span></div>
-    <div><span class="pklab">它当时自称的期望</span><span class="pkbig">%.2f</span><span class="pkunit">格</span></div>
-    <div><span class="pklab">闭眼乱填</span><span class="pkbig">%.2f</span><span class="pkunit">格</span></div>
+    <div><span class="pklab">赛前那版实际答对</span><span class="pkbig">%(hits)d</span><span class="pkunit">/ %(total)d 格</span></div>
+    <div><span class="pklab">它当时自称的期望</span><span class="pkbig">%(expected).2f</span><span class="pkunit">格</span></div>
+    <div><span class="pklab">闭眼乱填</span><span class="pkbig">%(random).2f</span><span class="pkunit">格</span></div>
   </div>
-  <div class="pkmeter"><div style="width:%.1f%%"></div></div>
-  <div class="pkbtns"><span class="pkstat ok">比自己的期望多 %.2f 格，比乱填多 %.2f 格</span></div>
+  <div class="pkmeter"><div style="width:%(pct).1f%%"></div></div>
+  <div class="pkbtns"><span class="pkstat ok">比自己的期望多 %(beat).2f 格，比乱填多 %(over_random).2f 格</span></div>
 </div>
 
-<div class="note %s"><b>这个成绩比期望好，但别当成本事。</b><br>
-16 格里押中 %d 格，而赛前这一版自己算出来的期望是 %.2f 格——<b>超出了 %.2f 格</b>。
-超出的部分主要是运气：每一格的命中概率赛前都写在下面，<b>最高的一格也只有 %.1f%%</b>——
+<div class="note %(tone)s"><b>这个成绩比期望好，但别当成本事。</b><br>
+16 格里押中 %(hits2)d 格，而赛前这一版自己算出来的期望是 %(expected2).2f 格——<b>超出了 %(beat2).2f 格</b>。
+超出的部分主要是运气：每一格的命中概率赛前都写在下面，<b>最高的一格也只有 %(maxp).1f%%</b>——
 没有哪一格是稳的，押中的每一格都是在赌一件多半不会发生的事。<br>
-<span class="hint">要判断这套方法有没有用，该看的是<a href="%s/review.html">复盘页</a>那 44 场系列赛的
+<span class="hint">要判断这套方法有没有用，该看的是<a href="%(base_review)s/review.html">复盘页</a>那 44 场系列赛的
 Brier 分解，不是这 16 格的命中数。</span></div>
 
-<h2>一、小组赛 16 格的标准答案</h2>
+<h3>标准答案</h3>
 <div class="tbl-wrap"><table class="rv">
 <thead><tr><th class=lft>格子</th><th class=lft>实际是谁</th></tr></thead>
-<tbody>%s</tbody></table></div>
+<tbody>%(key_rows)s</tbody></table></div>
 
-%s
-
-<h2>三、我赛前是怎么填的，对了几格</h2>
+<h3>我赛前是怎么填的，对了几格</h3>
 <p>下面是 <b>8 月 13 日面板锁定前</b>挂在站上的那一版建议填法，逐格对答案。
 用的是当时的冻结件，不是现在的产物——<b>拿知道答案之后的模型去算「赛前建议」，那是开卷考试。</b></p>
-<div class="hwgrid">%s</div>
+<div class="hwgrid">%(cards)s</div>
 
 <h2>四、梦幻挑战还在计分</h2>
 <p>梦幻挑战算的是<b>整届赛事</b>，淘汰赛这 14 场还在往里加分，所以这三格现在依然有效。</p>
-<div class="hwgrid">%s</div>
+<div class="hwgrid">%(fslots)s</div>
 <div class="note"><b>决定分数的不是选谁打得好，而是选的队能走多远。</b>
 小组赛就回家的队大概打 6 个系列赛，一路杀进决赛的能打 9 个以上——
-这个差距比选手之间的每局表现差距大得多。<b>八支队各自能走多远，在<a href="%s/">八强前瞻</a>那页。</b></div>
+这个差距比选手之间的每局表现差距大得多。<b>八支队各自能走多远，在<a href="%(base_f)s/">八强前瞻</a>那页。</b></div>
 
 <div class="note good"><b>剩下的账还会继续对。</b>8 月 23 日打完，淘汰赛那 14 场也会逐场回填、
 连同这 16 格一起公布最终成绩——好看不好看都发。</div>
@@ -425,19 +434,26 @@ Brier 分解，不是这 16 格的命中数。</span></div>
     <b>「TI15 抄作业群」还在</b>
     <span>8/20 淘汰赛开打，群里一起看这份预测被打成什么样。</span>
   </div>
-  <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
+  <a class="cta-btn" href="%(base_cta)s/group.html">扫码进群 →</a>
 </div>
-""" % (score["hits"], pages.PANEL_DEADLINE_CN, base,
-       score["hits"], score["total"], score["expected"], score["random"],
-       score["hits"] / score["total"] * 100,
-       beat, score["hits"] - score["random"],
-       "good" if beat > 0 else "crit",
-       score["hits"], score["expected"], beat,
-       max((p for row in score["buckets"] for p in row["pre_p"].values()), default=0) * 100,
-       base,
-       key_rows,
-       bracket_section(base, pl) if pl else "",
-       "".join(cards), "".join(fslots), base, base)
+""" % {
+        "deadline": pages.PANEL_DEADLINE_CN,
+        "group_deadline": pages.GROUP_DEADLINE_CN,
+        "hits_head": score["hits"],
+        "base_head": base,
+        "bracket": bracket_section(base, pl) if pl else "",
+        "hits": score["hits"], "total": score["total"],
+        "expected": score["expected"], "random": score["random"],
+        "pct": score["hits"] / score["total"] * 100,
+        "beat": beat, "over_random": score["hits"] - score["random"],
+        "tone": "good" if beat > 0 else "crit",
+        "hits2": score["hits"], "expected2": score["expected"], "beat2": beat,
+        "maxp": max((p for row in score["buckets"] for p in row["pre_p"].values()),
+                    default=0) * 100,
+        "base_review": base,
+        "key_rows": key_rows, "cards": "".join(cards), "fslots": "".join(fslots),
+        "base_f": base, "base_cta": base,
+    })
 
 
 def render(base, hw, pred, fan, fan_rec, sens=None, banner=""):
