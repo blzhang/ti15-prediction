@@ -40,22 +40,109 @@ def _split_bar(pa, a, b):
 
 def _qf_cards(pl):
     model, blend = pl["views"]["model"], pl["views"]["blended"]
+    mkt = {r["stage"]: r for r in ((pl.get("match_market") or {}).get("rows") or [])}
     out = []
     for m in pl["ubqf"]:
         key = "%s|%s" % (m["a"], m["b"])
         pb, pm = blend["h2h"][key], model["h2h"][key]
+        mm = mkt.get(m["stage"])
+        sub = "纯模型口径 %s · %s" % (_pct(pm), _pct(1 - pm))
+        if mm:
+            sub = ("单场盘 <b>%s</b> · 纯模型 %s<br><span class=dim>盘口成交 $%s</span>"
+                   % (_pct(mm["p_market"]), _pct(pm), "{:,.0f}".format(mm["volume"])))
         out.append(
             '<div class="mcard">'
             '<div class="mhead"><span class="mstage">%s</span><span class="mtime">%s</span></div>'
             '<div class="mteams"><b>%s</b><i>vs</i><b>%s</b></div>'
             '%s'
-            '<div class="msub">纯模型口径 %s · %s</div>'
+            '<div class="msub">%s</div>'
             '</div>'
             % (esc(pl["stage_meta"][m["stage"]]["cn"]), esc(m["time_cst"]),
-               esc(m["a"]), esc(m["b"]), _split_bar(pb, m["a"], m["b"]),
-               _pct(pm), _pct(1 - pm))
+               esc(m["a"]), esc(m["b"]), _split_bar(pb, m["a"], m["b"]), sub)
         )
     return '<div class="mgrid">%s</div>' % "".join(out)
+
+
+def _market_section(pl):
+    """两个市场自己不一致——这一节把它摊开。
+
+    冠军盘只说「谁最后举盾」，要得到「这一场谁赢」必须反解隐含实力；单场盘是
+    直接价格。两者在同一件事上给出不同答案时，藏起来任何一个都不诚实。
+    """
+    mm = pl.get("match_market")
+    if not mm:
+        return ""
+    si = pl.get("implied_solve") or {}
+    rows = "".join(
+        "<tr><td class=lft>%s <span class=vs>vs</span> %s</td>"
+        "<td class='num hi'>%s</td><td class=num>%s</td><td class=num>%s</td>"
+        "<td class='num %s'>%+.1fpp</td><td class=num>$%s</td></tr>"
+        % (esc(r["a"]), esc(r["b"]), _pct(r["p_blended"]), _pct(r["p_market"]),
+           _pct(r["p_model"]),
+           "up" if r["p_market"] > r["p_model"] else "down",
+           (r["p_market"] - r["p_model"]) * 100, "{:,.0f}".format(r["volume"]))
+        for r in mm["rows"])
+
+    sens = si.get("w_match_sensitivity") or {}
+    srows = ""
+    if sens:
+        order = sorted(pl["alive"], key=lambda t: -sens["3.0"][t])
+        srows = "".join(
+            "<tr><td class=lft>%s</td><td class=num>%s</td><td class=num>%s</td>"
+            "<td class='num hi'>%s</td><td class=num>%s</td></tr>"
+            % (esc(t), _pct(sens["0.0"][t]), _pct(sens["1.0"][t]),
+               _pct(sens["3.0"][t]), _pct(sens["10.0"][t]))
+            for t in order)
+
+    return """
+<h2>八强这四场，市场直接开了盘</h2>
+<p>上面那四张卡片的条形是<b>交付值</b>，它现在有了第二个来源：Polymarket 给这四场
+各开了一个<b>单场盘</b>。这跟冠军盘是两个独立市场、两拨交易者——
+<b>而且它们并不完全同意对方。</b></p>
+<div class="tbl-wrap"><table class="rv">
+<thead><tr><th class=lft>对阵（先手队视角）</th><th>交付值</th><th>单场盘</th><th>纯模型</th>
+<th>盘口−模型</th><th>盘口成交额</th></tr></thead>
+<tbody>%s</tbody></table></div>
+
+<div class="note crit"><b>接入单场盘之后，立刻打脸了上一版的一个做法。</b><br>
+上一版没有单场盘，只能从冠军盘反解隐含实力、再让赛制展开成逐场胜率。
+现在有直接价格可以对了，那套翻译偏成这样：%s——
+<b>两个方向都错，且都不小。</b><br>
+这正是上一版写在这一页上的那条局限：<i>市场若因赛制之外的理由给某队定价，
+反解会把那部分理由强行翻译成「实力」</i>。<b>它被实测打中了，所以这一版把单场盘一起拟合进来。</b></div>
+
+<h3>但两个市场调不到完全一致，差多少写在这</h3>
+<p>现在隐含实力要同时解释<b>冠军盘</b>和<b>四场单场盘</b>：7 个自由参数对 11 个目标，
+<b>超定</b>，不可能全中。所以这不再是「恰好求解」而是最小二乘，
+<b>残差就是两个市场的分歧量</b>——冠军侧最大 %s，单场侧最大 %s。</p>
+<p>给单场盘多少权重是个判断，不是算出来的。所以把它扫了一遍：</p>
+<div class="tbl-wrap"><table class="rv">
+<thead><tr><th class=lft>队伍</th><th>只信冠军盘</th><th>等权</th>
+<th>本版采用</th><th>几乎只信单场盘</th></tr></thead>
+<tbody>%s</tbody></table></div>
+<div class="note"><b>这个判断最多能把夺冠概率挪 %.1f 个百分点</b>（VISION 那一支）。
+本版取的是偏向单场盘的一档，理由是：<b>那四个是对这四场的直接价格，
+而冠军概率是往后推演 14 场的间接量——直接价格没道理被间接量推翻。</b><br>
+<span class="hint">这也意味着<b>这一页的夺冠概率比站内其它页高一点</b>：
+其它页（结论、复盘）用的是只含冠军盘的口径 %s，这一页是 %s。
+差的这 %.1fpp 不是算错，是多用了一个市场。</span></div>
+""" % (rows,
+       "、".join(
+           "<b>%s vs %s</b> 翻译值 %s、单场盘 %s"
+           % (esc(r["a"]), esc(r["b"]),
+              _pct((si.get("w_match_h2h") or {}).get("0.0", {}).get(
+                  "%s|%s" % (r["a"], r["b"]), 0)),
+              _pct(r["p_market"]))
+           for r in mm["rows"]
+           if abs((si.get("w_match_h2h") or {}).get("0.0", {}).get(
+               "%s|%s" % (r["a"], r["b"]), 0) - r["p_market"]) > 0.05),
+       "%.1fpp" % (si.get("max_abs_champ_resid", 0) * 100),
+       "%.1fpp" % (si.get("max_abs_match_resid", 0) * 100),
+       srows, si.get("w_match_swing_pp", 0),
+       _pct(sens.get("0.0", {}).get("TEAM VISION", 0)) if sens else "—",
+       _pct(pl["views"]["blended"]["place"]["TEAM VISION"]["champion"]),
+       (pl["views"]["blended"]["place"]["TEAM VISION"]["champion"]
+        - sens.get("0.0", {}).get("TEAM VISION", 0)) * 100 if sens else 0)
 
 
 def _champ_table(pl):
@@ -78,7 +165,7 @@ def _champ_table(pl):
     return (
         '<div class="tbl-wrap"><table class="rv">'
         "<thead><tr><th class=lft>队伍</th><th>夺冠（交付值）</th><th>纯模型</th>"
-        "<th>市场</th><th>模型−市场</th><th>进决赛</th><th>进前四</th></tr></thead>"
+        "<th>冠军盘</th><th>模型−冠军盘</th><th>进决赛</th><th>进前四</th></tr></thead>"
         "<tbody>%s</tbody></table></div>" % "".join(rows)
     )
 
@@ -296,13 +383,16 @@ def render(base, p):
 <p>对阵由官方排定，<b>不是按瑞士轮名次机械排的</b>——附加轮采用「高排位队自己挑对手」的选人制，
 八强签表也随之与名次规则对不上。所以对阵本身当事实录入，模型只预测胜负。</p>
 %s
-<p class="hint">条形是<b>交付值</b>（模型与市场融合，市场占七成权重）；下面一行是纯模型口径，
-两者差得越远，说明这一场市场和模型越不同意。</p>
+<p class="hint">条形是<b>交付值</b>（模型与市场融合，市场占七成权重）。下面一行给出
+<b>市场对这一场的直接报价</b>与纯模型口径——三个数差得越远，说明这一场分歧越大。
+下一节专门讲两个市场自己也不一致这件事。</p>
+
+%s
 
 <h2>夺冠概率</h2>
 %s
-<p class="hint"><b>「模型−市场」那一列是本页信息量最大的地方。</b>标出来的几行差值超过 %d 个百分点，
-下一节专门讲它们。</p>
+<p class="hint"><b>「模型−冠军盘」那一列是本页信息量最大的地方。</b>标出来的几行差值超过 %d 个百分点，
+下一节专门讲它们。交付值比冠军盘那一列高，是因为它还并进了上面那四场的单场盘。</p>
 
 <h2>赛制：输一场还不会回家</h2>
 %s
@@ -355,6 +445,7 @@ def render(base, p):
        _pct(1 - top_p),
        _pct(gf_top["p"], 0), esc(gf_top["a"]), esc(gf_top["b"]),
        _qf_cards(pl),
+       _market_section(pl),
        _champ_table(pl), int(GAP_THRESHOLD * 100),
        _bracket_svg(pl),
        _disagreement(pl),

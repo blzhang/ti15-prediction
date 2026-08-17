@@ -691,7 +691,8 @@ def write_all(dist, base, payload):
         # 还让人点着填，是在浪费读者的时间。
         "homework.html": shell(
             base, "homework.html", "抄作业",
-            homework.render_settled(base, payload["homework_score"], fan, fan_rec)
+            homework.render_settled(base, payload["homework_score"], fan, fan_rec,
+                                    payload.get("raw_playoffs"))
             if payload.get("homework_score") else
             homework.render(base, hw, payload["raw_pred"], fan, fan_rec,
                             payload["raw_draw_sens"],

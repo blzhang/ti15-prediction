@@ -155,6 +155,7 @@ GAP_WHY_FALLBACK = "模型与市场对这支队的定价差得最远，赛后可
 def qf_block(p):
     """八强四场对阵。一场比赛只有两个结果，所以用一条分割条而不是两根独立的条。"""
     s = SIZES_LONG
+    mk = {r["a"]: r["p_market"] for r in (p["playoffs"].get("match_market") or [])}
     out = []
     for m in p["playoffs"]["ubqf"]:
         pa = m["p_blended"]
@@ -164,15 +165,29 @@ def qf_block(p):
             '<div class="mbar"><div class="ma" style="width:%.1f%%"></div>'
             '<div class="mb" style="width:%.1f%%"></div></div>'
             '<div class="mrow v"><span>%.1f%%</span><span>%.1f%%</span></div>'
-            '<div class="msub">纯模型口径 %.1f%% · %.1f%%</div></div>'
+            '<div class="msub">%s</div></div>'
             % (m["a"], m["time_cst"], m["a"], m["b"],
                pa * 100, (1 - pa) * 100, pa * 100, (1 - pa) * 100,
-               m["p_model"] * 100, (1 - m["p_model"]) * 100))
+               ("单场盘 <b style='color:#fff'>%.1f%%</b> · 纯模型 %.1f%%"
+                % (mk[m["a"]] * 100, m["p_model"] * 100)) if m["a"] in mk
+               else "纯模型口径 %.1f%% · %.1f%%" % (m["p_model"] * 100, (1 - m["p_model"]) * 100)))
     # 队名放在标题位会被截断，改成两行结构：标题只放先手队名不够清楚，
     # 所以这里标题直接写「谁 vs 谁」的时间，队名单独一行。
     out = [o.replace('<b>%s</b>' % m["a"], '<b>八强 · %d</b>' % (i + 1))
            for i, (o, m) in enumerate(zip(out, p["playoffs"]["ubqf"]))]
     return '<div class="hwgrid">%s</div>' % "".join(out)
+
+
+def bracket_block(p):
+    """主赛事对阵表的建议填法，两列排布。"""
+    rows = p["playoffs"]["bracket"]["rows"]
+    cells = "".join(
+        '<div class="hwp">%s　%s<span>%.0f%%</span></div>' % (r["panel"], r["pick"], r["p"] * 100)
+        for r in rows)
+    return ('<div class="hwb" style="margin:20px 0"><div class="hwt">'
+            '<b>建议填法（14 场）</b><span>格号 · 填谁 · 这一场它赢的概率</span></div>'
+            '<div style="columns:2;column-gap:%dpx">%s</div></div>'
+            % (SIZES_LONG["gap2"], cells))
 
 
 def hw_score_block(p):
@@ -317,6 +332,7 @@ Brier <b style="color:#fff">%(bclose).3f</b>——而<b style="color:#fff">抛�
 
     pw = p["playoffs"]
     hs = p["homework_score"]
+    bk = pw["bracket"]
     rb = pw["robustness"]
     # 分歧队**现算**，不写死队名——赛程推进时分歧会转移到别的队身上，
     # 而长图是发出去收不回来的（上一版把 Falcons/Yandex 写死过，就吃过这个亏）。
@@ -381,7 +397,23 @@ Brier <b style="color:#fff">%(bclose).3f</b>——而<b style="color:#fff">抛�
 超出的部分主要是运气——每一格赛前的命中概率都印在上面，<b style="color:#fff">最高的一格也只有 %.1f%%</b>。
 要判断这套方法有没有用，该看的是上面 03 节那 44 场的 Brier 分解，不是这 16 格的命中数。</div>
 
-<h2><span class="n">06</span>凭什么信</h2>
+<h2><span class="n">06</span>主赛事那张对阵表：14 场逐场点胜者</h2>
+<div class="h2sub">游戏内「赛事预测」第二个页签，8/20 开打前锁定——这是建议填法</div>
+<div class="tiles">
+  <div class="tile"><div class="v">%.2f</div><div class="k">这份填法<br>期望答对 / 14 场</div></div>
+  <div class="tile"><div class="v">%.2f</div><div class="k">闭眼乱填<br>的基线</div></div>
+  <div class="tile"><div class="v">%s</div><div class="k">在这么多种自洽<br>填法里穷举出来的</div></div>
+</div>
+%s
+<div class="note" style="color:#c3c2b7;font-size:%dpx;line-height:1.6">
+<b style="color:#fff">这道题不能「每场都挑赢面大的」。</b>对阵表有路径：你填进第 2 轮的队，
+必须是自己在第 1 轮推上去的那两支之一，所以「每场挑最强」通常<b style="color:#fff">根本填不出来</b>。
+那个够不着的上界是 %.2f 场，真正能填出来的最优是 <b style="color:#fff">%.2f 场</b>。<br>
+八强四场还有五到七成，到败者组中段就只剩<b style="color:#fff">百分之十几</b>——
+因为那时候「你押的队有没有走到那一场」本身就很不确定。
+<b style="color:#fff">越往后越接近碰运气，这是题目的性质，不是模型不行。</b></div>
+
+<h2><span class="n">07</span>凭什么信</h2>
 <div class="h2sub">训练只用 2026-03 之前的数据，在之后没见过的比赛上实测</div>
 <div class="tiles">
   <div class="tile"><div class="v">%.1f%%</div><div class="k">样本外准确率<br>%s 场未见过的比赛</div></div>
@@ -392,7 +424,7 @@ Brier <b style="color:#fff">%(bclose).3f</b>——而<b style="color:#fff">抛�
 赛前预测的<b>现实上限是 65–70%%</b>。所有号称 85%% 以上准确率的 Dota 预测，
 用的都是实时游戏内数据而不是赛前数据。<b>做到 85%% 一定是泄漏。</b></div>
 
-<h2><span class="n">07</span>上一次更新：读者要的功能我做了，实测是白做</h2>
+<h2><span class="n">08</span>上一次更新：读者要的功能我做了，实测是白做</h2>
 <div class="h2sub">「越老的版本权重越低」——直觉对，增量没有</div>
 <div class="split">
   <div class="box"><div class="lbl">加版本层后，验证期提升</div>
@@ -410,7 +442,7 @@ Brier <b style="color:#fff">%(bclose).3f</b>——而<b style="color:#fff">抛�
 看着少，再往上加就是变差。<b style="color:#fff">「多给近期加权」这件事，数据投的是反对票。</b><br>
 整格搜索的 %d 行结果都能下载核对——判据是事先写死的，看完结果再改判据就是自欺。</div>
 
-<h2><span class="n">08</span>我把自己的错也写上去了</h2>
+<h2><span class="n">09</span>我把自己的错也写上去了</h2>
 <ul>
 <li><b>抄作业那两格的填法说反了</b>：我写「淘汰赛胜者别填最强的」，那条只值 1.9 个百分点；真正值 24 个百分点的「别填垫底队」我没写。NGA 读者指出的。</li>
 <li><b>赛制一开始就建错了</b>：按「固定 5 轮人人打满」建模，产出了现实中不存在的 5-0。真实是打到 4 胜或 4 负即停。读者在评论区抓到的，已重写。</li>\n<li><b>算错了波动幅度</b>：以为选手每局的发挥比实际稳定得多，导致每分钟经济和补刀的<b>误差范围窄了 4–8 倍</b>。已修正。</li>
@@ -437,6 +469,10 @@ Brier <b style="color:#fff">%(bclose).3f</b>——而<b style="color:#fff">抛�
        hw_score_block(p), SIZES_LONG["fs_note"],
        hs["hits"] - hs["expected"],
        max((v for row in hs["buckets"] for v in row["pre_p"].values()), default=0) * 100,
+       bk["stats"]["expected"], bk["stats"]["random"],
+       "{:,}".format(bk["stats"]["n_brackets"]),
+       bracket_block(p), SIZES_LONG["fs_note"],
+       bk["stats"]["greedy_upper"], bk["stats"]["expected"],
        oos.get("acc", 0) * 100, "{:,}".format(oos.get("n", 0)), oos.get("brier", 0),
        SIZES_LONG["fs_note"],
        pl["delta_abs"], pl["se"], pl["se_ratio"],

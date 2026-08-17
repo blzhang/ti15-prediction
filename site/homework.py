@@ -233,7 +233,102 @@ def elim_note(ep, base):
         "、".join(pages.esc(t) for t in unreachable) or "部分队伍", base)
 
 
-def render_settled(base, score, fan, fan_rec):
+def bracket_section(base, pl):
+    """游戏内主赛事预测面板（「国际邀请赛」页签）的建议填法。
+
+    面板是一整张对阵表、14 场逐场点胜者——与小组赛那 16 格的分档填空完全不是
+    一道题。所以这里不能复用 solve()（匈牙利分配），要的是
+    model.l6_playoffs.best_bracket 在 16384 种自洽填法里搜出来的那一种。
+    """
+    bh = pl["bracket_homework"]
+    st = bh["stats"]
+    si = pl.get("implied_solve") or {}
+    rows = bh["rows"]
+
+    def block(title, keys):
+        out = []
+        for r in rows:
+            if r["stage"] not in keys:
+                continue
+            alts = "".join(
+                '<div class="pick"><span class="t">%s</span><span class="p">%.0f%%</span></div>'
+                % (esc(c["team"]), c["p"] * 100)
+                for c in r["top"][1:4] if c["team"] != r["pick"])
+            out.append(
+                '<div class="hwcard"><div class="hwhead"><b>%s</b>'
+                '<span>%s · %s</span></div>'
+                '<div class="pickbig">%s</div>'
+                '<div class="picksub">这一场它赢的概率 %.1f%%　｜　其它可能</div>%s</div>'
+                % (esc(r["panel"]), esc(r["cn"]), esc(r["time_cst"]),
+                   esc(r["pick"]), r["p_pick"] * 100, alts or
+                   '<div class="pick"><span class="t">—</span><span class="p"></span></div>'))
+        return '<div class="hwgrid">%s</div>' % "".join(out)
+
+    unstable = si.get("pick_unstable_stages") or []
+    lbl = {r["stage"]: r["panel"] for r in rows}
+    pk = {r["stage"]: r["p_pick"] for r in rows}
+    stab = ("<b>%d 格里只有 %s 会随这个判断翻面</b>（%s），而它们本来就在五五开附近；"
+            "<b>另外 %d 格在整个权重范围内一模一样</b>——也就是说这个判断怎么选，"
+            "对结论几乎没有影响。"
+            % (len(rows), "、".join(lbl.get(s, s) for s in unstable),
+               "、".join("%s %.0f%%" % (lbl.get(s, s), pk.get(s, 0) * 100) for s in unstable),
+               si.get("pick_stable_count", 0))
+            if unstable else
+            "<b>整个权重范围内 %d 格填法完全一致</b>——这个判断怎么选都不影响结论。" % len(rows))
+
+    return """
+<h2>二、主赛事那张对阵表（14 场，还没锁）</h2>
+<p class="lede">游戏内「赛事预测」里还有<b>第二个页签：国际邀请赛</b>。它和小组赛那 16 格不是一道题——
+<b>它是一整张双败对阵表，14 场逐场点胜者</b>，8 月 20 日主赛事开打前锁定。这一节就是它的建议填法。</p>
+
+<div class="pkbar">
+  <div class="pkstats">
+    <div><span class="pklab">这份填法期望答对</span><span class="pkbig">%.2f</span><span class="pkunit">/ 14 场</span></div>
+    <div><span class="pklab">闭眼乱填</span><span class="pkbig">%.2f</span><span class="pkunit">场</span></div>
+    <div><span class="pklab">理论上界</span><span class="pkbig">%.2f</span><span class="pkunit">场</span></div>
+  </div>
+  <div class="pkmeter"><div style="width:%.1f%%"></div></div>
+  <div class="pkbtns"><span class="pkstat ok">在 %s 种自洽填法里穷举出来的最优解</span></div>
+</div>
+
+<div class="note crit"><b>先说清楚这道题为什么不能「每场都挑赢面大的」。</b><br>
+对阵表是有路径的：你填进「胜者组第 2 轮」的队，<b>必须是你自己在第 1 轮推上去的那两支之一</b>。
+所以后面每一轮的可选项都被前面的选择锁死，「每场都挑最可能赢的那支」通常<b>根本填不出来</b>。<br>
+那个填法的分数是 <b>%.2f 场</b>——它是个够不着的上界，不是可选项。真正能填出来的最优是
+<b>%.2f 场</b>，中间这 <b>%.2f 场</b>就是「路径必须自洽」这条约束的代价。<br>
+<span class="hint">16384 = 2^14，14 场各二选一。这个规模可以直接穷举，不需要任何启发式，
+所以下面这份填法是<b>确定的最优解</b>，不是搜出来的近似。</span></div>
+
+<h3>胜者组（4 + 2 + 1 场）</h3>
+%s
+<h3>败者组（2 + 2 + 1 + 1 场）</h3>
+%s
+<h3>总决赛</h3>
+%s
+
+<div class="note"><b>看一眼这些概率再决定要不要照抄。</b><br>
+八强那四场还有 %.0f%%–%.0f%%，到了败者组中段就只剩<b>百分之十几</b>了——
+因为那时候「谁能走到那一场」本身就很不确定，你押的队多半根本没到场。
+<b>越往后的格子越接近碰运气，这是题目的性质，不是模型不行。</b><br>
+<span class="hint">这也是为什么期望只有 %.2f/14：比乱填多 %.2f 场，
+但离「全对」差得远。跟小组赛那 16 格一样，它能帮你够保底，冲榜不够。</span></div>
+
+<div class="note"><b>一个口径说明：这份填法用的是融合口径（模型 ⊕ 市场）。</b><br>
+八强那四场 Polymarket 开了<b>单场盘</b>，是对这四场的直接定价；再往后没有盘口，
+靠反解出的隐含实力展开。两个市场（冠军盘、单场盘）互相不完全一致，
+调和时给单场盘多少权重是个判断——%s</div>
+""" % (st["expected"], st["random"], st["greedy_upper"],
+       st["expected"] / st["n_matches"] * 100, "{:,}".format(st["n_brackets"]),
+       st["greedy_upper"], st["expected"], st["greedy_upper"] - st["expected"],
+       block("ub", {"UBQF1", "UBQF2", "UBQF3", "UBQF4", "UBSF1", "UBSF2", "UBF"}),
+       block("lb", {"LBR1-1", "LBR1-2", "LBQF-1", "LBQF-2", "LBSF", "LBF"}),
+       block("gf", {"GF"}),
+       min(r["p_pick"] for r in rows if r["stage"].startswith("UBQF")) * 100,
+       max(r["p_pick"] for r in rows if r["stage"].startswith("UBQF")) * 100,
+       st["expected"], st["expected"] - st["random"], stab)
+
+
+def render_settled(base, score, fan, fan_rec, pl=None):
     """小组赛 16 格已全部揭晓时的版本：公布答案 + 给赛前那一版打分。
 
     为什么必须换一套渲染：揭晓之后 record_dist 退化成 0/1，solve() 会原样吐出
@@ -279,11 +374,12 @@ def render_settled(base, score, fan, fan_rec):
 
     beat = score["hits"] - score["expected"]
     return """
-<h1>抄作业 · 小组赛这 16 格已经揭晓了</h1>
-<p class="lede">这一页原本是给游戏里「赛事预测」那 16 个格子准备的建议填法。
-小组赛已经打完，<b>16 格的答案全部揭晓</b>——所以这一页现在的任务不是帮你填，
-而是<b>公布答案，并且给我自己赛前那一版打分</b>。</p>
-<p class="meta">面板已于 %s 锁定 · 想看还没打的那 14 场，去<a href="%s/">八强前瞻</a></p>
+<h1>抄作业</h1>
+<p class="lede">游戏内「赛事预测」有<b>两个页签</b>，这一页两个都管：<br>
+<b>「小组赛」那 16 格已经锁定并全部揭晓</b>——下面公布标准答案，并给我赛前那一版打分（%d/16）；<br>
+<b>「国际邀请赛」那张对阵表还没锁</b>，8/20 主赛事开打前截止——第二节是它的建议填法。</p>
+<p class="meta">小组赛部分已于 %s 锁定 · 主赛事部分 8/20 开打前锁定 ·
+想看完整预测去<a href="%s/">八强前瞻</a></p>
 
 <div class="pkbar">
   <div class="pkstats">
@@ -302,17 +398,19 @@ def render_settled(base, score, fan, fan_rec):
 <span class="hint">要判断这套方法有没有用，该看的是<a href="%s/review.html">复盘页</a>那 44 场系列赛的
 Brier 分解，不是这 16 格的命中数。</span></div>
 
-<h2>一、标准答案</h2>
+<h2>一、小组赛 16 格的标准答案</h2>
 <div class="tbl-wrap"><table class="rv">
 <thead><tr><th class=lft>格子</th><th class=lft>实际是谁</th></tr></thead>
 <tbody>%s</tbody></table></div>
 
-<h2>二、我赛前是怎么填的，对了几格</h2>
+%s
+
+<h2>三、我赛前是怎么填的，对了几格</h2>
 <p>下面是 <b>8 月 13 日面板锁定前</b>挂在站上的那一版建议填法，逐格对答案。
 用的是当时的冻结件，不是现在的产物——<b>拿知道答案之后的模型去算「赛前建议」，那是开卷考试。</b></p>
 <div class="hwgrid">%s</div>
 
-<h2>三、梦幻挑战还在计分</h2>
+<h2>四、梦幻挑战还在计分</h2>
 <p>梦幻挑战算的是<b>整届赛事</b>，淘汰赛这 14 场还在往里加分，所以这三格现在依然有效。</p>
 <div class="hwgrid">%s</div>
 <div class="note"><b>决定分数的不是选谁打得好，而是选的队能走多远。</b>
@@ -329,7 +427,7 @@ Brier 分解，不是这 16 格的命中数。</span></div>
   </div>
   <a class="cta-btn" href="%s/group.html">扫码进群 →</a>
 </div>
-""" % (pages.PANEL_DEADLINE_CN, base,
+""" % (score["hits"], pages.PANEL_DEADLINE_CN, base,
        score["hits"], score["total"], score["expected"], score["random"],
        score["hits"] / score["total"] * 100,
        beat, score["hits"] - score["random"],
@@ -337,7 +435,9 @@ Brier 分解，不是这 16 格的命中数。</span></div>
        score["hits"], score["expected"], beat,
        max((p for row in score["buckets"] for p in row["pre_p"].values()), default=0) * 100,
        base,
-       key_rows, "".join(cards), "".join(fslots), base, base)
+       key_rows,
+       bracket_section(base, pl) if pl else "",
+       "".join(cards), "".join(fslots), base, base)
 
 
 def render(base, hw, pred, fan, fan_rec, sens=None, banner=""):

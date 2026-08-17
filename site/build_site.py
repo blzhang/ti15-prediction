@@ -204,6 +204,16 @@ def playoffs_summary(pl):
               "market_delta": ti[t] - th[t], "data_delta": dth[t]}
              for t in alive),
             key=lambda r: -r["blended"]),
+        "match_market": [
+            {"a": r["a"], "b": r["b"], "p_market": r["p_market"],
+             "p_model": r["p_model"], "p_blended": r["p_blended"], "volume": r["volume"]}
+            for r in ((pl.get("match_market") or {}).get("rows") or [])],
+        "bracket": {
+            "stats": pl["bracket_homework"]["stats"],
+            "rows": [{"panel": r["panel"], "cn": r["cn"], "time_cst": r["time_cst"],
+                      "pick": r["pick"], "p": r["p_pick"]}
+                     for r in pl["bracket_homework"]["rows"]],
+        },
         "gf_top": pl["views"]["blended"]["stage_pairs"]["GF"][0],
         "gf_n": len(pl["views"]["blended"]["stage_pairs"]["GF"]),
         "robustness": {k: pl["robustness"][k]

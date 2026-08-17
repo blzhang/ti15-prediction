@@ -51,7 +51,7 @@ import os
 import sys
 
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import least_squares, minimize
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -81,9 +81,23 @@ STAGE_CN = {
     "LBQF-1": "败者组八强 1", "LBQF-2": "败者组八强 2",
     "LBSF": "败者组四强", "LBF": "败者组决赛", "GF": "总决赛（BO5）",
 }
-# 枚举里累计对阵概率的阶段（UBQF 是已知事实，不需要概率）
+# 枚举里累计**对阵**概率的阶段（UBQF 的对阵是已知事实，不需要概率）
 STAGES = ("UBSF1", "UBSF2", "LBR1-1", "LBR1-2", "UBF",
           "LBQF-1", "LBQF-2", "LBSF", "LBF", "GF")
+# 累计**胜者**概率的阶段 = 全部 14 场。游戏内主赛事预测面板要逐场点胜者，
+# 八强那四场也要填，所以它们必须在内。
+ALL_STAGES = ("UBQF1", "UBQF2", "UBQF3", "UBQF4") + STAGES
+
+# 游戏内面板给每场比赛的字母编号（2026-08-17 由用户客户端截图核对）。
+# 面板结构：胜者组第1轮 A-D、第2轮 E-F、胜者组决赛 G、总决赛；
+# 败者组第1轮两场、第2轮两场（「F的败者」「E的败者」各配一场）、第3轮、败者组决赛。
+PANEL_LABEL = {
+    "UBQF1": "A", "UBQF2": "B", "UBQF3": "C", "UBQF4": "D",
+    "UBSF1": "E", "UBSF2": "F", "UBF": "G", "GF": "总决赛",
+    "LBR1-1": "败1上", "LBR1-2": "败1下",
+    "LBQF-1": "败2上", "LBQF-2": "败2下",
+    "LBSF": "败3", "LBF": "败决",
+}
 
 
 # ---------------------------------------------------------------- 枚举
@@ -93,9 +107,10 @@ def enumerate_bracket(qf, p3, p5, D):
     qf: [(a, b), (c, d), (e, f), (g, h)]，队伍索引；前两场进 UBSF1，后两场进 UBSF2。
     p3[i, j] / p5[i, j] 形状 (D,)：第 d 次抽样下 i 赢 j 的 BO3 / BO5 概率。
 
-    返回 (place, pairs)：
-      place[t] 形状 (9, D)，place[t][k] = 该队拿第 k 名的概率（k=1..8）
-      pairs[stage] = {(队, 队): 形状 (D,) 的概率}
+    返回 (place, pairs, winners)：
+      place[t]        形状 (9, D)，place[t][k] = 该队拿第 k 名的概率（k=1..8）
+      pairs[stage]    {(队, 队): 形状 (D,) 的概率}，该阶段由这两队相遇的概率
+      winners[stage]  {队: 形状 (D,) 的概率}，该队赢下这一阶段那场比赛的概率
 
     ⚠️ 每个名次只在「该场胜负被决定的那一层」累加一次。写成嵌套循环时极易在外层
     多套一圈导致重复计数（本模块第一版就是这么错的：LBR1 的 7-8 名写在了 UBSF
@@ -105,17 +120,26 @@ def enumerate_bracket(qf, p3, p5, D):
     teams = [t for pair in qf for t in pair]
     place = {t: np.zeros((9, D)) for t in teams}
     pairs = {s: {} for s in STAGES}
+    # winners[stage][team] = P(该队赢下这一阶段的那场比赛)。抄作业要的就是它：
+    # 游戏内的主赛事预测面板是一张对阵表，逐场点胜者，所以要回答的是
+    # 「这一场谁赢」而不是「谁最后夺冠」。
+    winners = {s: {t: np.zeros(D) for t in teams} for s in ALL_STAGES}
 
     def add(stage, a, b, w):
         key = (a, b) if a <= b else (b, a)
         cur = pairs[stage].get(key)
         pairs[stage][key] = w.copy() if cur is None else cur + w
 
+    def win(stage, t, w):
+        winners[stage][t] += w
+
     for mq in itertools.product((0, 1), repeat=4):          # 4 场 UBQF
         wq, lq, pq = [], [], np.ones(D)
         for k, (a, b) in enumerate(qf):
             hi, lo = (a, b) if mq[k] == 0 else (b, a)
             wq.append(hi); lq.append(lo); pq = pq * p3[hi, lo]
+        for k in range(4):
+            win("UBQF%d" % (k + 1), wq[k], pq)      # 只依赖 UBQF 这一层
         # 只依赖 UBQF
         add("UBSF1", wq[0], wq[1], pq)
         add("UBSF2", wq[2], wq[3], pq)
@@ -125,17 +149,20 @@ def enumerate_bracket(qf, p3, p5, D):
         # 7-8 名只依赖 UBQF + LBR1 —— 必须在 UBSF 循环之外结清
         for mr in itertools.product((0, 1), repeat=2):
             pr = pq.copy()
+            lb1 = []
             for k, (a, b) in enumerate(((lq[0], lq[1]), (lq[2], lq[3]))):
                 hi, lo = (a, b) if mr[k] == 0 else (b, a)
-                pr = pr * p3[hi, lo]
+                lb1.append(hi); pr = pr * p3[hi, lo]
             for k, (a, b) in enumerate(((lq[0], lq[1]), (lq[2], lq[3]))):
                 place[b if mr[k] == 0 else a][7] += pr
+            win("LBR1-1", lb1[0], pr); win("LBR1-2", lb1[1], pr)
 
         for ms in itertools.product((0, 1), repeat=2):      # 2 场 UBSF
             sfw, sfl, ps = [], [], pq.copy()
             for k, (a, b) in enumerate(((wq[0], wq[1]), (wq[2], wq[3]))):
                 hi, lo = (a, b) if ms[k] == 0 else (b, a)
                 sfw.append(hi); sfl.append(lo); ps = ps * p3[hi, lo]
+            win("UBSF1", sfw[0], ps); win("UBSF2", sfw[1], ps)
             add("UBF", sfw[0], sfw[1], ps)                  # 依赖 UBQF+UBSF
 
             for mr in itertools.product((0, 1), repeat=2):  # 2 场 LBR1
@@ -155,22 +182,26 @@ def enumerate_bracket(qf, p3, p5, D):
                         lb2w.append(hi); p2 = p2 * p3[hi, lo]
                     for k, (a, b) in enumerate(lbqf):
                         place[b if m2[k] == 0 else a][5] += p2
+                    win("LBQF-1", lb2w[0], p2); win("LBQF-2", lb2w[1], p2)
                     add("LBSF", lb2w[0], lb2w[1], p2)
 
                     for mv in (0, 1):                            # LBSF → 第 4 名
                         hi, lo = (lb2w[0], lb2w[1]) if mv == 0 else (lb2w[1], lb2w[0])
                         pv = p2 * p3[hi, lo]
                         place[lo][4] += pv
+                        win("LBSF", hi, pv)
 
                         for mu in (0, 1):                        # UBF
                             ubfw, ubfl = (sfw[0], sfw[1]) if mu == 0 else (sfw[1], sfw[0])
                             pu = pv * p3[ubfw, ubfl]
+                            win("UBF", ubfw, pu)
                             add("LBF", hi, ubfl, pu)
 
                             for mf in (0, 1):                    # LBF → 第 3 名
                                 lbfw, lbfl = (hi, ubfl) if mf == 0 else (ubfl, hi)
                                 pf = pu * p3[lbfw, lbfl]
                                 place[lbfl][3] += pf
+                                win("LBF", lbfw, pf)
                                 add("GF", ubfw, lbfw, pf)
                                 # 总决赛 BO5，无 bracket reset：两个结果一次结清
                                 pw = p5[ubfw, lbfw]
@@ -178,7 +209,9 @@ def enumerate_bracket(qf, p3, p5, D):
                                 place[lbfw][2] += pf * pw
                                 place[lbfw][1] += pf * (1 - pw)
                                 place[ubfw][2] += pf * (1 - pw)
-    return place, pairs
+                                win("GF", ubfw, pf * pw)
+                                win("GF", lbfw, pf * (1 - pw))
+    return place, pairs, winners
 
 
 def probs_from_theta(th):
@@ -200,10 +233,11 @@ def integrate(qf, th_hat, se, n_draw=N_DRAW, seed=SEED):
     rng = np.random.default_rng(seed)
     th = th_hat[None, :] + se[None, :] * rng.standard_normal((n_draw, len(th_hat)))
     p1, p3, p5 = probs_from_theta(th)
-    place, pairs = enumerate_bracket(qf, p3, p5, n_draw)
+    place, pairs, winners = enumerate_bracket(qf, p3, p5, n_draw)
     return ({t: place[t].mean(axis=1) for t in place},
             {s: {k: float(v.mean()) for k, v in d.items()} for s, d in pairs.items()},
-            p3.mean(axis=2))
+            p3.mean(axis=2),
+            {s: {t: float(v.mean()) for t, v in d.items()} for s, d in winners.items()})
 
 
 # ---------------------------------------------------------------- 自检
@@ -255,11 +289,14 @@ def solve_implied(qf, th_hat, se, target, alive_idx, n_draw=N_DRAW, seed=SEED,
 
     收敛失败直接抛错，不返回一个没收敛的结果：没收敛意味着页面上「逐场胜率」和
     「冠军概率」对不上，而这正是引入隐含实力要解决的问题。
+
+    ⚠️ 这个函数只拟合冠军盘。有单场盘时应该用 solve_implied_joint——
+    2026-08-17 实测证明只拟合冠军盘会在单场上错得很远（见那个函数的说明）。
     """
     th = th_hat.copy()
     anchor = th_hat[alive_idx].mean()
     for it in range(1, max_iter + 1):
-        place, _, _ = integrate(qf, th, se, n_draw=n_draw, seed=seed)
+        place, _, _, _ = integrate(qf, th, se, n_draw=n_draw, seed=seed)
         tot = sum(place[t][1] for t in alive_idx)
         cur = {t: place[t][1] / tot for t in alive_idx}
         err = max(abs(cur[t] - target[t]) for t in alive_idx)
@@ -272,6 +309,76 @@ def solve_implied(qf, th_hat, se, target, alive_idx, n_draw=N_DRAW, seed=SEED,
         "隐含实力反解在 %d 轮内没收敛（最大偏差 %.6f > %.6f）。"
         "不返回未收敛的结果——那会让页面上的逐场胜率与冠军概率对不上。"
         % (max_iter, err, tol))
+
+
+def solve_implied_joint(qf, th_hat, se, champ_target, match_target, alive_idx,
+                        n_draw=2000, seed=SEED, w_match=3.0):
+    """同时拟合**冠军盘**与**八强单场盘**的隐含实力（最小二乘）。
+
+    为什么必须这么改（2026-08-17 实测）
+    ----------------------------------
+    只拟合冠军盘时，反解出的隐含实力在单场上错得很远：
+        VISION vs BoomBoys   反解 65.4%，单场盘直接报 80.5%（低 15.1pp）
+        Nigma  vs Falcons    反解 41.1%，单场盘直接报 34.5%（高  6.6pp）
+    两个方向都错。原因正是这一版之前就写在页面上的那条局限——冠军盘里
+    「市场给某队定价」的理由未必是实力（可能是对签表软硬的判断），把它硬翻译
+    成实力，就会在单场上系统性偏掉。单场盘是**直接价格**，不需要翻译。
+
+    所以现在两个市场一起拟合：7 个自由参数（8 队锚定均值）对 7+4=11 个目标，
+    **超定**，只能最小二乘。这本身是个诚实的结构——**残差就是两个市场的分歧量**，
+    落盘后写在页面上，而不是假装能同时满足。
+
+    w_match：单场盘目标的权重。默认 **3.0**，理由是这四个是对**这四场**的直接价格，
+    而冠军概率是往后推演 14 场的**间接**量；直接价格没道理被间接量推翻。
+    实测 w=3 时单场残差降到 3.3pp，代价是冠军残差 6.0pp——两个市场就是差这么多，
+    这个差本身要写在页面上，不能靠调权重藏起来。
+
+    ⚠️ 这个权重是判断，不是算出来的。所以 build() 会扫一遍 w∈{0,1,3,10} 落盘，
+    并且**检查建议填法在整个范围内稳不稳**。2026-08-17 实测：14 格里只有
+    「C：Liquid vs Yandex」会翻，而那格本来就是 49.9% vs 50.1% 的抛硬币——
+    也就是说这个权重怎么选，对抄作业的结论几乎没有影响。这条比权重本身更值得写。
+
+    返回 (theta, info)，info 含逐目标残差（概率尺度，便于人读）。
+    """
+    idx = list(alive_idx)
+    anchor = th_hat[idx].mean()
+
+    def unpack(x):
+        """7 个自由参数 → 8 队实力（第 8 个由均值锚定确定）。"""
+        th = th_hat.copy()
+        full = np.append(x, 0.0)
+        full = full - full.mean() + anchor
+        th[idx] = full
+        return th
+
+    def residuals(x):
+        th = unpack(x)
+        place, _, p3, _ = integrate(qf, th, se, n_draw=n_draw, seed=seed)
+        tot = sum(place[t][1] for t in idx)
+        res = [_logit(place[t][1] / tot) - _logit(champ_target[t]) for t in idx]
+        for (a, b), p_a in match_target.items():
+            res.append(w_match * (_logit(p3[a, b]) - _logit(p_a)))
+        return np.array(res)
+
+    x0 = th_hat[idx][:-1] - anchor
+    sol = least_squares(residuals, x0, method="lm", xtol=1e-8, ftol=1e-8)
+    th = unpack(sol.x)
+
+    place, _, p3, _ = integrate(qf, th, se, n_draw=n_draw, seed=seed)
+    tot = sum(place[t][1] for t in idx)
+    info = {
+        "n_targets": len(idx) + len(match_target),
+        "n_free_params": len(idx) - 1,
+        "w_match": w_match,
+        "n_eval": int(sol.nfev),
+        "champ_resid": {t: float(place[t][1] / tot - champ_target[t]) for t in idx},
+        "match_resid": {"%d|%d" % (a, b): float(p3[a, b] - p_a)
+                        for (a, b), p_a in match_target.items()},
+    }
+    info["max_abs_champ_resid"] = max(abs(v) for v in info["champ_resid"].values())
+    info["max_abs_match_resid"] = (max(abs(v) for v in info["match_resid"].values())
+                                   if info["match_resid"] else 0.0)
+    return th, info
 
 
 # ---------------------------------------------------------------- 贝叶斯稳健性
@@ -322,9 +429,101 @@ def games_from_results(observed, teams):
     return out
 
 
+# ---------------------------------------------------------------- 抄作业：整张对阵表
+def best_bracket(qf, winners, teams):
+    """游戏内主赛事预测面板的最优填法。
+
+    面板长什么样（2026-08-17 由用户客户端截图核对，此前一直是未解缺口——
+    01-ti15-facts.md §3.3 记录过「题面由服务端下发，离线途径全部排除」）：
+    **它不是分档填空，是一整张对阵表，14 场逐场点胜者**，8/20 前锁定。
+
+    所以这道题的形状与小组赛那 16 格完全不同，不能照搬匈牙利算法：
+      · 小组赛那题是**分配**问题（16 队塞进 6 个档位，每档坑数固定）
+      · 这题是**路径**问题——你填进「胜者组第2轮」的队，必须是你自己在第1轮
+        推上去的那两支之一。后面每一轮的可选项都被前面的选择锁死。
+
+    因此「每场都挑赢面最大的那支」通常不可行（你挑的队可能根本没被你推上来），
+    而且即使可行也未必最优。正确做法是在**全部自洽的填法**里搜期望答对最多的一种。
+
+    自洽填法的数量：胜者组 A/B/C/D/E/F/G 各二选一 = 2^7；败者组 6 场各二选一
+    = 2^6；总决赛二选一 = 2。合计 **2^14 = 16384** 种——可以穷举，不需要启发式。
+
+    期望答对数 = Σ_场次 P(你填的那支队真的赢下这一场)，其中 P 来自精确枚举的
+    winners[阶段][队]。注意这个 P 已经包含了「这支队根本没走到这一场」的情形
+    （那种路径下它赢不了这一场，概率自然不计入），所以不需要额外乘晋级概率。
+
+    返回 (best, rows, stats)：
+      best   {阶段: 队名}
+      rows   逐场明细，含该场每个候选的命中概率
+      stats  期望答对数、随机填法基线、最优与「逐场贪心」的差距
+    """
+    a1, b1 = qf[0]; a2, b2 = qf[1]; a3, b3 = qf[2]; a4, b4 = qf[3]
+
+    def score_of(pick):
+        return sum(winners[st][pick[st]] for st in ALL_STAGES)
+
+    best, best_sc, total, n = None, -1.0, 0.0, 0
+    # 8 强四场的胜负决定了后面所有可选项，所以外层枚举它们，内层枚举其余十场
+    for m in itertools.product((0, 1), repeat=4):
+        w = [a1 if m[0] == 0 else b1, a2 if m[1] == 0 else b2,
+             a3 if m[2] == 0 else b3, a4 if m[3] == 0 else b4]
+        l = [b1 if m[0] == 0 else a1, b2 if m[1] == 0 else a2,
+             b3 if m[2] == 0 else a3, b4 if m[3] == 0 else a4]
+        for e, f in itertools.product((0, 1), repeat=2):
+            sf_w = [w[0] if e == 0 else w[1], w[2] if f == 0 else w[3]]
+            sf_l = [w[1] if e == 0 else w[0], w[3] if f == 0 else w[2]]
+            for r1, r2 in itertools.product((0, 1), repeat=2):
+                lb1 = [l[0] if r1 == 0 else l[1], l[2] if r2 == 0 else l[3]]
+                # 败者组交叉：败2上 = 败1上胜者 vs F 的败者；败2下 = 败1下胜者 vs E 的败者
+                q1_opts = (lb1[0], sf_l[1])
+                q2_opts = (lb1[1], sf_l[0])
+                for c1, c2 in itertools.product((0, 1), repeat=2):
+                    lb2 = [q1_opts[c1], q2_opts[c2]]
+                    for v in (0, 1):
+                        lb3 = lb2[v]
+                        for g in (0, 1):
+                            ubf_w, ubf_l = (sf_w[0], sf_w[1]) if g == 0 else (sf_w[1], sf_w[0])
+                            for lf in (0, 1):
+                                lbf = lb3 if lf == 0 else ubf_l
+                                for gf in (0, 1):
+                                    champ = ubf_w if gf == 0 else lbf
+                                    pick = {
+                                        "UBQF1": w[0], "UBQF2": w[1],
+                                        "UBQF3": w[2], "UBQF4": w[3],
+                                        "UBSF1": sf_w[0], "UBSF2": sf_w[1],
+                                        "LBR1-1": lb1[0], "LBR1-2": lb1[1],
+                                        "LBQF-1": lb2[0], "LBQF-2": lb2[1],
+                                        "LBSF": lb3, "UBF": ubf_w,
+                                        "LBF": lbf, "GF": champ,
+                                    }
+                                    sc = score_of(pick)
+                                    total += sc; n += 1
+                                    if sc > best_sc:
+                                        best_sc, best = sc, pick
+    assert n == 16384, "自洽填法应恰好 16384 种，实为 %d" % n
+
+    # 「逐场贪心」对照：每一场都无视自洽性、直接挑该场赢面最大的队。
+    # 它给出的是**上界**（通常填不出来，因为路径对不上），用来说明约束值多少分。
+    greedy = sum(max(winners[st].values()) for st in ALL_STAGES)
+
+    rows = []
+    for st in ALL_STAGES:
+        cand = sorted(winners[st].items(), key=lambda kv: -kv[1])
+        rows.append({
+            "stage": st, "cn": STAGE_CN[st], "panel": PANEL_LABEL[st],
+            "time_cst": STAGE_TIME[st],
+            "pick": teams[best[st]],
+            "p_pick": winners[st][best[st]],
+            "top": [{"team": teams[t], "p": p} for t, p in cand[:4] if p > 0.005],
+        })
+    return ({st: teams[t] for st, t in best.items()}, rows,
+            {"expected": best_sc, "random": total / n, "greedy_upper": greedy,
+             "n_brackets": n, "n_matches": len(ALL_STAGES)})
+
+
 # ---------------------------------------------------------------- 组装
 def view(qf, th, se, teams, alive, n_draw=N_DRAW):
-    place, pairs, p3 = integrate(qf, th, se, n_draw=n_draw)
+    place, pairs, p3, winners = integrate(qf, th, se, n_draw=n_draw)
     check_coherent(place)
     out = {"place": {}, "stage_pairs": {}, "h2h": {}}
     for t, row in place.items():
@@ -375,24 +574,100 @@ def build(n_draw=N_DRAW):
     tot = sum(champ_blend[t] for t in alive)
     target = {idx[t]: champ_blend[t] / tot for t in alive}
 
+    # 八强单场盘（model/polymarket_matches.json）。有就把它一起拟合进隐含实力——
+    # 只拟合冠军盘会在单场上系统性偏掉，见 solve_implied_joint 的说明。
+    mpath = os.path.join(HERE, "polymarket_matches.json")
+    mkt_matches = json.load(open(mpath)) if os.path.exists(mpath) else None
+
     # 三套口径
     v_model = view(qf, th_hat, se, teams, alive, n_draw)
     th_upd = bayesian_update(th_hat, se, games_from_results(observed, teams), idx)
     v_upd = view(qf, th_upd, se, teams, alive, n_draw)
-    th_imp, n_iter, err = solve_implied(qf, th_hat, se, target, alive_idx, n_draw=n_draw)
+
+    w_mkt = blended.get("w_market") or 0.7
+    match_target, match_rows = {}, []
+    if mkt_matches:
+        for r in mkt_matches["matches"]:
+            a, b = idx[r["a"]], idx[r["b"]]
+            if (a, b) not in [(x, y) for x, y in qf]:
+                raise SystemExit(
+                    "单场盘里的 %s vs %s 不在已公布的八强对阵里——"
+                    "polymarket_matches.json 与 results.json 的 ubqf 不同步。"
+                    % (r["a"], r["b"]))
+            p_model = v_model["h2h"]["%s|%s" % (r["a"], r["b"])]
+            # 与冠军盘同一套融合规则：log-odds 空间按 w_market 加权
+            p_blend = 1.0 / (1.0 + np.exp(
+                -((1 - w_mkt) * _logit(p_model) + w_mkt * _logit(r["p_a"]))))
+            match_target[(a, b)] = float(p_blend)
+            match_rows.append({
+                "stage": r["stage"], "a": r["a"], "b": r["b"],
+                "p_market": r["p_a"], "p_model": p_model, "p_blended": float(p_blend),
+                "volume": r["volume"], "best_bid": r["best_bid"], "best_ask": r["best_ask"],
+            })
+
+    if match_target:
+        nd_fit = max(1500, n_draw // 4)
+        th_imp, solve_info = solve_implied_joint(
+            qf, th_hat, se, target, match_target, alive_idx, n_draw=nd_fit)
+        solve_info["mode"] = "joint（冠军盘 + 八强单场盘，最小二乘）"
+        # w_match 是个判断，不是算出来的。所以把它扫一遍，把「这个判断值多少
+        # 个百分点」直接落盘——w=0 就是只信冠军盘，w 越大越偏向单场盘。
+        sens, sens_pick, sens_h2h = {}, {}, {}
+        for w in (0.0, 1.0, 3.0, 10.0):
+            th_w, _ = solve_implied_joint(qf, th_hat, se, target, match_target,
+                                          alive_idx, n_draw=nd_fit, w_match=w)
+            pl_w, _, _, _ = integrate(qf, th_w, se, n_draw=nd_fit)
+            tot_w = sum(pl_w[t][1] for t in alive_idx)
+            sens["%.1f" % w] = {teams[t]: float(pl_w[t][1] / tot_w) for t in alive_idx}
+            _, _, p3_w, win_w = integrate(qf, th_w, se, n_draw=nd_fit)
+            sens_pick["%.1f" % w] = best_bracket(qf, win_w, teams)[0]
+            # 逐场胜率也存一份：w=0 那一档就是「只从冠军盘翻译」的结果，
+            # 页面要拿它跟单场盘的直接报价对比，说明上一版偏了多少。
+            sens_h2h["%.1f" % w] = {
+                "%s|%s" % (teams[a], teams[b]): float(p3_w[a, b]) for a, b in qf}
+        solve_info["w_match_sensitivity"] = sens
+        solve_info["w_match_h2h"] = sens_h2h
+        solve_info["w_match_swing_pp"] = max(
+            abs(sens["10.0"][t] - sens["0.0"][t]) for t in alive) * 100
+        # 权重怎么选，对**建议填法**有没有影响——这比概率摆动更决定读者要不要在意
+        base = sens_pick["3.0"]
+        solve_info["pick_unstable_stages"] = sorted(
+            st for st in ALL_STAGES
+            if len({sens_pick[k][st] for k in sens_pick}) > 1)
+        solve_info["pick_stable_count"] = len(ALL_STAGES) - len(solve_info["pick_unstable_stages"])
+    else:
+        th_imp, n_iter, err = solve_implied(qf, th_hat, se, target, alive_idx, n_draw=n_draw)
+        solve_info = {"mode": "champion-only（无单场盘，恰好可辨识）",
+                      "iterations": n_iter, "max_abs_err": float(err),
+                      "max_abs_champ_resid": float(err), "max_abs_match_resid": 0.0}
     v_blend = view(qf, th_imp, se, teams, alive, n_draw)
 
-    # 反解之后必须真的对上——这是引入隐含实力的全部理由，不能只在迭代里检查
+    # 拟合完之后逐项复核。联合拟合是**超定**的，不可能全中——所以这里不是断言
+    # 「必须相等」，而是断言「偏差不至于大到让页面上的数字自相矛盾」，
+    # 并把逐项残差原样落盘（那就是两个市场的分歧量，页面上要写出来）。
     for t in alive:
         got = v_blend["place"][t]["champion"]
-        if abs(got - target[idx[t]]) > 1e-3:
+        if abs(got - target[idx[t]]) > 0.12:
             raise AssertionError(
-                "隐含实力反解后 %s 的冠军概率 %.6f 与融合目标 %.6f 不符"
-                % (t, got, target[idx[t]]))
+                "隐含实力拟合后 %s 的冠军概率 %.4f 与冠军盘目标 %.4f 差了 %.4f，"
+                "超过 12pp。这个阈值不是「必须相等」——联合拟合是超定的，残差"
+                "本来就该有（它就是两个市场的分歧量，页面上会写出来）。但超过 12pp"
+                "说明两个市场已经在讲两件不同的事，需要人工看一眼再决定怎么呈现。"
+                % (t, got, target[idx[t]], abs(got - target[idx[t]])))
+    for r in match_rows:
+        r["p_implied"] = v_blend["h2h"]["%s|%s" % (r["a"], r["b"])]
+        r["resid"] = r["p_implied"] - r["p_blended"]
 
     pm = json.load(open(os.path.join(HERE, "polymarket_odds.json")))
     mid = {t: pm["prices"][t]["mid"] for t in alive}
     mtot = sum(mid.values())
+
+    # 抄作业：游戏内主赛事预测面板的最优填法。用**融合口径**的逐场胜者概率
+    # （既然交付值是融合值，抄作业也该基于同一套口径，而不是纯模型）。
+    _, _, _, win_blend = integrate(qf, th_imp, se, n_draw=n_draw)
+    _, _, _, win_model = integrate(qf, th_hat, se, n_draw=n_draw)
+    bracket_pick, bracket_rows, bracket_stats = best_bracket(qf, win_blend, teams)
+    model_pick, _, model_stats = best_bracket(qf, win_model, teams)
 
     return {
         "generated_from": "model/l6_playoffs.py",
@@ -416,7 +691,26 @@ def build(n_draw=N_DRAW):
         "theta_se": {t: float(se[idx[t]]) for t in teams},
         "theta_updated": {t: float(th_upd[idx[t]]) for t in teams},
         "theta_implied": {t: float(th_imp[idx[t]]) for t in alive},
-        "implied_solve": {"iterations": n_iter, "max_abs_err": float(err)},
+        "implied_solve": solve_info,
+        # 八强单场盘：市场对这四场的**直接**定价，不需要经过隐含实力翻译。
+        # p_market/p_model/p_blended/p_implied 四列并排，读者可以自己看
+        # 「从冠军盘翻译出来的」和「单场盘直接报的」差多少。
+        "match_market": {
+            "source": "Polymarket 单场盘（与冠军盘是两个独立市场）",
+            "captured_utc": (mkt_matches or {}).get("captured_utc", ""),
+            "rows": match_rows,
+        } if match_rows else None,
+        # 游戏内主赛事预测面板的建议填法（面板是一整张对阵表，14 场逐场点胜者）
+        "bracket_homework": {
+            "panel": "游戏内「赛事预测 → 国际邀请赛」页签，8/20 主赛事开打前锁定",
+            "pick": bracket_pick,
+            "rows": bracket_rows,
+            "stats": bracket_stats,
+            "model_only_pick": model_pick,
+            "model_only_stats": model_stats,
+            "differs_from_model": sorted(
+                st for st in ALL_STAGES if bracket_pick[st] != model_pick[st]),
+        },
         "views": {"model": v_model, "blended": v_blend, "updated": v_upd},
         "robustness": {
             "note": ("把 TI15 已完赛的 109 小局按贝叶斯折进实力分（先验=赛前后验），"
@@ -458,12 +752,29 @@ def main(argv=None):
               % (t, m["place"][t]["champion"] * 100, mk[t] * 100,
                  b["place"][t]["champion"] * 100,
                  out["views"]["updated"]["place"][t]["champion"] * 100))
+    if out.get("match_market"):
+        print("\n八强单场盘对照（Polymarket 直接报价 vs 从冠军盘翻译出来的）")
+        print("%-30s %8s %8s %8s %8s" % ("对阵", "单场盘", "纯模型", "融合目标", "隐含实力"))
+        for r in out["match_market"]["rows"]:
+            print("%-30s %7.1f%% %7.1f%% %7.1f%% %7.1f%%"
+                  % ("%s vs %s" % (r["a"], r["b"]), r["p_market"] * 100,
+                     r["p_model"] * 100, r["p_blended"] * 100, r["p_implied"] * 100))
+    si = out["implied_solve"]
+    print("\n隐含实力拟合：%s | 冠军残差最大 %.4f，单场残差最大 %.4f"
+          % (si["mode"], si.get("max_abs_champ_resid", 0), si.get("max_abs_match_resid", 0)))
     rb = out["robustness"]
-    print("\n稳健性：把 TI15 的 %d 小局折进实力分，实力分最大位移 %.3f，"
+    print("稳健性：把 TI15 的 %d 小局折进实力分，实力分最大位移 %.3f，"
           "夺冠概率最大位移 %.1fpp"
           % (rb["n_games"], rb["max_abs_dtheta"], rb["max_abs_dchampion"] * 100))
-    print("隐含实力反解：%d 轮收敛，最大偏差 %.6f"
-          % (out["implied_solve"]["iterations"], out["implied_solve"]["max_abs_err"]))
+
+    bh = out["bracket_homework"]
+    st = bh["stats"]
+    print("\n游戏内主赛事预测面板 · 建议填法（%d 种自洽填法里搜出来的最优）" % st["n_brackets"])
+    print("期望答对 %.2f / %d 场 · 随机填 %.2f · 逐场贪心上界 %.2f（那个填法通常不自洽）"
+          % (st["expected"], st["n_matches"], st["random"], st["greedy_upper"]))
+    for r in bh["rows"]:
+        print("  %-5s %-12s %-13s → %-16s %5.1f%%"
+              % (r["panel"], r["time_cst"], r["cn"], r["pick"], r["p_pick"] * 100))
     print("→ %s" % args.out)
 
 

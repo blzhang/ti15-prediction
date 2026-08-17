@@ -1,0 +1,85 @@
+{
+ "source": "Polymarket Gamma API（单场盘，与冠军盘是两个独立市场）",
+ "captured_utc": "2026-08-17T01:01:59Z",
+ "matches": [
+  {
+   "stage": "UBQF1",
+   "a": "Iron Wing",
+   "b": "Team Spirit",
+   "slug": "dota2-ironwi-ts8-2026-08-19",
+   "question": "Dota 2: Iron Wing vs Team Spirit (BO3) - The International Playoffs",
+   "p_a": 0.485,
+   "mid": {
+    "Iron Wing": 0.485,
+    "Team Spirit": 0.515
+   },
+   "best_bid": 0.48,
+   "best_ask": 0.49,
+   "last": 0.49,
+   "volume": 6119.47461,
+   "event_liquidity": 34374.3307,
+   "event_volume": 6119.47461,
+   "end_date": "2026-08-20T08:00:00Z"
+  },
+  {
+   "stage": "UBQF2",
+   "a": "TEAM VISION",
+   "b": "BoomBoys",
+   "slug": "dota2-vsn2-boombo-2026-08-20",
+   "question": "Dota 2: TEAM VISION vs BoomBoys (BO3) - The International Playoffs",
+   "p_a": 0.805,
+   "mid": {
+    "TEAM VISION": 0.805,
+    "BoomBoys": 0.195
+   },
+   "best_bid": 0.8,
+   "best_ask": 0.81,
+   "last": 0.81,
+   "volume": 37857.399444,
+   "event_liquidity": 97135.5769,
+   "event_volume": 49081.420962,
+   "end_date": "2026-08-20T11:00:00Z"
+  },
+  {
+   "stage": "UBQF3",
+   "a": "Team Liquid",
+   "b": "Team Yandex",
+   "slug": "dota2-liquid-ty-2026-08-20",
+   "question": "Dota 2: Team Liquid vs Team Yandex (BO3) - The International Playoffs",
+   "p_a": 0.545,
+   "mid": {
+    "Team Liquid": 0.545,
+    "Team Yandex": 0.455
+   },
+   "best_bid": 0.54,
+   "best_ask": 0.55,
+   "last": 0.56,
+   "volume": 35825.939038,
+   "event_liquidity": 24173.8055,
+   "event_volume": 35839.441604,
+   "end_date": "2026-08-20T14:00:00Z"
+  },
+  {
+   "stage": "UBQF4",
+   "a": "Nigma Galaxy",
+   "b": "Team Falcons",
+   "slug": "dota2-ngx-flc-2026-08-20",
+   "question": "Dota 2: Nigma Galaxy vs Team Falcons (BO3) - The International Playoffs",
+   "p_a": 0.345,
+   "mid": {
+    "Nigma Galaxy": 0.345,
+    "Team Falcons": 0.655
+   },
+   "best_bid": 0.34,
+   "best_ask": 0.35,
+   "last": 0.36,
+   "volume": 24531.09548,
+   "event_liquidity": 36954.804,
+   "event_volume": 78906.583011,
+   "end_date": "2026-08-20T17:00:00Z"
+  }
+ ],
+ "name_map_applied": {
+  "1w Team": "Iron Wing"
+ }
+}
