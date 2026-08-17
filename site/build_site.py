@@ -24,6 +24,7 @@ BASE = "/dota2"
 ASSETS = [
     ("model/l2_blended.json", "l2_blended.json", "最终夺冠概率（已与市场共识融合：Polymarket ✕ 庄家赔率，市场占七成权重）"),
     ("model/polymarket_odds.json", "polymarket_odds.json", "Polymarket 冠军盘价格快照（16 队，含买卖价与成交价）"),
+    ("model/polymarket_matches.json", "polymarket_matches.json", "Polymarket 八强单场盘快照（四场 BO3 的直接报价，与冠军盘是两个独立市场）"),
     ("model/l2_predictions.json", "l2_predictions.json", "模拟的全部结果：夺冠、进前四、晋级、各队小组赛战绩分布、最终名次分布"),
     ("model/l1_rating.json", "l1_rating.json", "16 支队的实力分与误差范围，以及模型在没见过的比赛上的实测成绩"),
     ("model/lineage.json", "lineage.json", "每支队的\"前世今生\"：用现役五人反查出来的历史队名与场次"),
