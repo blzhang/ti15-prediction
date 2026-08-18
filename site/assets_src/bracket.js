@@ -313,11 +313,21 @@
   function pick(stage, side) {
     if (!editable) return;
     var team = derive(D.qf, bits).pairs[stage][side];
-    var kept = [];
+    var already = null;
     for (var i = 0; i < pins.length; i++) {
-      if (pins[i].stage !== stage) kept.push(pins[i]);
+      if (pins[i].stage === stage) { already = pins[i]; break; }
     }
-    kept.push({ stage: stage, team: team });      // 本次点击永远排在最后
+    var kept = [];
+    for (var j = 0; j < pins.length; j++) {
+      if (pins[j].stage !== stage) kept.push(pins[j]);
+    }
+    // 再点一次已经钉住、且钉的正是当前点的这支队 = 解钉，这一格交还给自动重搜；
+    // 否则（这格原本没钉，或钉的是另一侧）照旧钉住这支队，且这次点击永远排在
+    // 最后——resolve() 靠 pins 数组末尾是本次点击来保「最近点的一下永远生效」。
+    // 解钉是纯删除，不新增约束，不会让剩下那些钉变得无解，不需要走这条保护。
+    if (!(already && already.team === team)) {
+      kept.push({ stage: stage, team: team });
+    }
     var r = resolve(D.qf, D.win_p, kept);
     bits = r.bits;
     pins = r.pins;

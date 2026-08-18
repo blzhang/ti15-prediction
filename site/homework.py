@@ -325,7 +325,7 @@ def bracket_section(base, pl):
   <div class="pkmeter"><div id="bk-bar" style="width:%.1f%%"></div></div>
   <div class="pkbtns">
     <span class="pkstat ok" id="bk-status">在 %s 种自洽填法里穷举出来的最优解</span>
-    <button id="bk-reset" class="wide-only">恢复模型推荐</button>
+    <button id="bk-reset">恢复模型推荐</button>
     <button id="bk-share" class="pri wide-only">复制我的填法链接</button>
   </div>
 </div>
