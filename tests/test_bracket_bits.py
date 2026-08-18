@@ -7,8 +7,11 @@ Python 与前端 site/assets_src/bracket.js 各有一份实现，两份必须逐
 位定义表在 docs/superpowers/specs/2026-08-18-bracket-editor-design.md 决定一。
 """
 import itertools
+import json
+import os
 
 import numpy as np
+import pytest
 
 from model.l6_playoffs import (
     ALL_STAGES, BIT_STAGE, N_BITS, best_bracket, enumerate_bracket, expand,
@@ -152,3 +155,36 @@ def test_stats_里的_pick_bits_展开回同一份最优填法():
     w = _winners()
     pick, _, stats = best_bracket(QF, w, teams)
     assert expand(QF, stats["pick_bits"]) == {st: teams.index(t) for st, t in pick.items()}
+
+
+REPORT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                      "reports", "p8_playoffs.json")
+
+
+def _report():
+    """读真实产物。测的就是**导出环节**——内存里的 winners 一直是全表，
+    在序列化那一步被截断才是真正会发生的事故。"""
+    if not os.path.exists(REPORT):
+        pytest.skip("需要先跑 python3 model/l6_playoffs.py 生成产物")
+    with open(REPORT) as fh:
+        return json.load(fh)
+
+
+def test_导出的_win_p_是全表而不是被截断的_top4():
+    """前端算分靠查这张表，缺一支队就会把它算成 0 分。
+
+    rows[].top 那份为了显示做了截断（top4 且 p>0.005），交互版必须用没截断的。
+    """
+    d = _report()["bracket_homework"]
+    assert set(d["win_p"]) == set(ALL_STAGES)
+    for st in ALL_STAGES:
+        assert len(d["win_p"][st]) == 8, "%s 少了队：%s" % (st, sorted(d["win_p"][st]))
+        assert abs(sum(d["win_p"][st].values()) - 1.0) < 1e-9, "%s 概率和不为 1" % st
+
+
+def test_导出的_pick_bits_展开回同一份_pick():
+    """前端拿它当初始状态。展不回去就意味着读者一进页面看到的填法与模型的不是同一份。"""
+    r = _report()
+    qf = [(m["a"], m["b"]) for m in r["ubqf"]]
+    d = r["bracket_homework"]
+    assert expand(qf, d["pick_bits"]) == d["pick"]

@@ -719,6 +719,12 @@ def build(n_draw=N_DRAW):
             "pick": bracket_pick,
             "rows": bracket_rows,
             "stats": bracket_stats,
+            # 抄作业页的前端编辑器要用的两项。
+            # win_p 必须是**没截断**的全表：rows[].top 为了显示只留了 top4 且 p>0.005，
+            # 而读者在编辑器里可以选到被截掉的那些队，查不到就会被算成 0 分。
+            "win_p": {st: {teams[t]: p for t, p in win_blend[st].items()}
+                      for st in ALL_STAGES},
+            "pick_bits": bracket_stats["pick_bits"],
             "model_only_pick": model_pick,
             "model_only_stats": model_stats,
             "differs_from_model": sorted(
