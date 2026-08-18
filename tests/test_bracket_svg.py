@@ -60,6 +60,15 @@ def test_未选中那一行的百分比元素照样存在只是内容为空():
     assert off and off.group(1) == "", "未选中那行该是空的，但元素必须在"
 
 
+def test_交互版每行只输出一个百分比元素不会重复():
+    """靠 render() 里 if interactive / elif show_prob and won 这一组 if/elif
+    保证每行只出一个 class="pb" 元素。哪天 elif 被错改成独立的 if，
+    选中那行就会重复输出两个——id 撞车，前端 JS 按 id 更新时也分不清改哪个，
+    视觉上还会叠成两行数字。"""
+    svg = bracket_svg.render(_pl(), "page", interactive=True)
+    assert svg.count('class="pb"') == 28, "14 格 × 2 行 = 28 个百分比元素，一个都不能多"
+
+
 def test_卡片版没有任何交互痕迹():
     """长图是 PNG，热区与 id 对它毫无用处，只会让产物变大、diff 变脏。"""
     svg = bracket_svg.render(_pl(), "card")
