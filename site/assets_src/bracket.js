@@ -108,13 +108,157 @@
     return { bits: bestGiven(qf, winP, {}), pins: [] };
   }
 
+  /* ---------- 状态 ---------- */
+  var D = null;          // bracket_data() 给的那个对象
+  var bits = 0;          // 当前填法
+  var pins = [];         // [{stage, team}]，按点击时间从老到新
+  var editable = false;  // 窄屏只读（见 Task 7）
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  function $(id) { return document.getElementById(id); }
+
+  function pinnedMap() {
+    var m = {};
+    for (var i = 0; i < pins.length; i++) m[pins[i].stage] = pins[i].team;
+    return m;
+  }
+
+  /* ---------- 渲染：SVG ---------- */
+
+  /* 只改文本与属性，不重建 SVG。连线、坐标、列头都不随填法变，重建它们是白费；
+     而且构建时 Python 输出的那一份正好当无 JS 回退。 */
+  function paintSvg(picks, pairs, pinMap) {
+    for (var i = 0; i < N_BITS; i++) {
+      var st = BIT_STAGE[i], pair = pairs[st], isPinned = pinMap[st] !== undefined;
+      for (var side = 0; side < 2; side++) {
+        var nm = $("bk-" + st + "-" + side + "-nm");
+        if (!nm) continue;                       // 非交互版渲染，什么都不做
+        var dot = $("bk-" + st + "-" + side + "-dot");
+        var pv = $("bk-" + st + "-" + side + "-p");
+        var team = pair[side], on = team === picks[st];
+        nm.textContent = D.short[team] || team;
+        nm.setAttribute("class", on ? "tm on" : "tm");
+        dot.setAttribute("fill", on ? "var(--s1)" : "none");
+        dot.setAttribute("stroke", on ? "var(--s1)" : "var(--ink-muted)");
+        // 钉住的那一格描粗一圈，与「它替我算的」区分开
+        dot.setAttribute("stroke-width", on && isPinned ? "3.2" : "1.4");
+        pv.textContent = on ? (D.win_p[st][team] * 100).toFixed(0) + "%" : "";
+      }
+    }
+  }
+
+  /* ---------- 渲染：逐场卡片 ---------- */
+
+  /* 「这一格还可能出现」列的是与填法无关的全表 top——它是卡片相对于图的增量信息。
+     八强那四场对阵固定，其余队概率为 0，这一段自然不显示。 */
+  function alsoPossible(st, pair) {
+    var rows = [], t;
+    for (t in D.win_p[st]) {
+      if (D.win_p[st].hasOwnProperty(t) && pair.indexOf(t) < 0 && D.win_p[st][t] > 0.005) {
+        rows.push([t, D.win_p[st][t]]);
+      }
+    }
+    rows.sort(function (a, b) { return b[1] - a[1]; });
+    return rows.slice(0, 3);
+  }
+
+  function cardHtml(st, picks, pairs, pinMap) {
+    var pair = pairs[st], pick = picks[st];
+    var other = pair[0] === pick ? pair[1] : pair[0];
+    var meta = D.meta[st];
+    var also = alsoPossible(st, pair);
+    var alsoHtml = also.length
+      ? '<div class="picksub">这一格还可能出现</div>' + also.map(function (r) {
+          return '<div class="pick"><span class="t">' + esc(r[0]) +
+                 '</span><span class="p">' + (r[1] * 100).toFixed(0) + "%</span></div>";
+        }).join("")
+      : "";
+    return '<div class="hwcard' + (pinMap[st] !== undefined ? " pinned" : "") + '">' +
+           '<div class="hwhead"><b>' + esc(meta.panel) + "</b><span>" +
+           esc(meta.cn) + " · " + esc(meta.time) +
+           (pinMap[st] !== undefined ? ' · <i class="pinlab">你钉的</i>' : "") +
+           "</span></div>" +
+           '<div class="pickbig">' + esc(pick) + "</div>" +
+           '<div class="picksub">这一场它赢的概率 ' +
+           (D.win_p[st][pick] * 100).toFixed(1) + "%　｜　另一个候选</div>" +
+           '<div class="pick"><span class="t">' + esc(other) + '</span><span class="p">' +
+           (D.win_p[st][other] * 100).toFixed(1) + "%</span></div>" + alsoHtml + "</div>";
+  }
+
+  /* ⚠️ 分组标题与 site/homework.py:bracket_section 里那三个 <h3> 是重复的一份：
+     JS 覆盖 #bkcards 的全部内容，所以两处都要写。改一处必须改另一处，
+     否则读者在 JS 加载前后会看到两套不同的小标题。 */
+  function paintCards(picks, pairs, pinMap) {
+    var wrap = $("bkcards");
+    if (!wrap) return;
+    var groups = [
+      ["胜者组（4 + 2 + 1 场）", ["UBQF1", "UBQF2", "UBQF3", "UBQF4", "UBSF1", "UBSF2", "UBF"]],
+      ["败者组（2 + 2 + 1 + 1 场）", ["LBR1-1", "LBR1-2", "LBQF-1", "LBQF-2", "LBSF", "LBF"]],
+      ["总决赛", ["GF"]]
+    ];
+    var html = "";
+    for (var g = 0; g < groups.length; g++) {
+      html += "<h3>" + groups[g][0] + '</h3><div class="hwgrid">';
+      for (var i = 0; i < groups[g][1].length; i++) {
+        html += cardHtml(groups[g][1][i], picks, pairs, pinMap);
+      }
+      html += "</div>";
+    }
+    wrap.innerHTML = html;
+  }
+
+  /* ---------- 渲染：分数条 ---------- */
+  function paintStats(picks) {
+    var mine = score(D.win_p, picks), best = D.stats.expected;
+    var set = function (id, txt) { var el = $(id); if (el) el.textContent = txt; };
+    set("bk-exp", mine.toFixed(2));
+    set("bk-best", best.toFixed(2));
+    set("bk-delta", (mine - D.stats.random).toFixed(2));
+    var bar = $("bk-bar");
+    if (bar) bar.style.width = Math.max(0, Math.min(100, mine / 14 * 100)).toFixed(1) + "%";
+    var st = $("bk-status");
+    if (!st) return;
+    if (!pins.length) {
+      st.textContent = "这是模型算出来的最优填法";
+      st.className = "pkstat ok";
+    } else if (mine >= best - 1e-9) {
+      st.textContent = "钉了 " + pins.length + " 格，仍然是最优填法";
+      st.className = "pkstat ok";
+    } else {
+      st.textContent = "钉了 " + pins.length + " 格，期望少了 " +
+                       (best - mine).toFixed(2) + " 场";
+      st.className = "pkstat warn";
+    }
+  }
+
+  function paint() {
+    var d = derive(D.qf, bits), pinMap = pinnedMap();
+    paintSvg(d.picks, d.pairs, pinMap);
+    paintCards(d.picks, d.pairs, pinMap);
+    paintStats(d.picks);
+  }
+
+  /* ---------- 入口 ---------- */
+  function init(data) {
+    D = data;
+    bits = data.bits;
+    pins = [];
+    paint();
+  }
+
   var API = {
     BIT_STAGE: BIT_STAGE, N_BITS: N_BITS, N_BRACKETS: N_BRACKETS,
     derive: derive, expand: expand, score: score,
-    bestGiven: bestGiven, resolve: resolve
+    bestGiven: bestGiven, resolve: resolve, init: init
   };
 
   // 浏览器里挂 window，node 里（跨语言对照测试）走 module.exports
   root.BracketEditor = API;
+  root.initBracket = init;
   if (typeof module !== "undefined" && module.exports) module.exports = API;
 })(typeof window !== "undefined" ? window : this);
