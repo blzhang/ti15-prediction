@@ -98,6 +98,33 @@ def picker_data(pred, hw, fan_rec):
     }
 
 
+def bracket_data(pl):
+    """喂给主赛事对阵表编辑器的数据：一次性给全，前端不再回头找服务端。
+
+    与 picker_data 对称。区别在于这道题不是分配问题而是路径问题，
+    所以给的不是「每格每队的命中概率 + 一份预设」，而是
+    「逐场胜率全表 + 八强对阵 + 一个 14 位整数的初始填法」——
+    有这三样，前端就能自己在 16384 种自洽填法里重搜。
+
+    qf 的元素顺序（a 在前）就是 bit 取 0 时选中的那一方，
+    与 model/l6_playoffs.py 的 expand() 是同一个约定。
+    """
+    bh = pl["bracket_homework"]
+    return {
+        "qf": [[m["a"], m["b"]] for m in pl["ubqf"]],
+        "win_p": bh["win_p"],
+        "bits": bh["pick_bits"],
+        "short": dict(bracket_svg.SHORT),
+        "meta": {r["stage"]: {"panel": r["panel"], "cn": r["cn"],
+                              "time": r["time_cst"]}
+                 for r in bh["rows"]},
+        # 只给前端真的会用的两项。greedy_upper 与填法无关（它解释的是「为什么不能
+        # 每场都挑赢面大的」），留在服务端渲染的静态文案里。
+        "stats": {"expected": bh["stats"]["expected"],
+                  "random": bh["stats"]["random"]},
+    }
+
+
 def elim_pitfalls(pred, strength):
     """「淘汰赛胜者 / 败者」两格的真实落差。
 
