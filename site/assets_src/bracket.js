@@ -243,12 +243,127 @@
     paintStats(d.picks);
   }
 
+  /* ---------- 分享链接 ---------- */
+
+  /* 编码 = 14 位填法 + 14 位钉住掩码，各 3 个 base36 字符（36^3 = 46656 > 16384）。
+
+     钉住掩码必须一起编：只编填法的话，别人打开你的链接看到的是一份「全部由模型
+     算出来的」填法，分不出哪几格是你自己的判断——而那恰恰是你想分享的东西。
+
+     顺序不编码。pins 的先后只在冲突解钉时起作用，而接收方拿到的状态本身是自洽的，
+     他继续点时按位序恢复的顺序照样能工作。为 6 个字符再加一段顺序编码不划算。 */
+  function pad3(n) {
+    var s = n.toString(36);
+    return "000".slice(s.length) + s;
+  }
+
+  function encode() {
+    var mask = 0, pinMap = pinnedMap();
+    for (var i = 0; i < N_BITS; i++) {
+      if (pinMap[BIT_STAGE[i]] !== undefined) mask |= (1 << i);
+    }
+    return pad3(bits) + pad3(mask);
+  }
+
+  function readHash() {
+    var m = /(?:^|[#&])b=([0-9a-z]{6})(?:&|$)/.exec(location.hash || "");
+    if (!m) return false;
+    var v = parseInt(m[1].slice(0, 3), 36), mask = parseInt(m[1].slice(3), 36);
+    if (isNaN(v) || isNaN(mask) || v < 0 || v >= N_BRACKETS || mask < 0 ||
+        mask >= N_BRACKETS) return false;
+    var picks = expand(D.qf, v), p = [];
+    for (var i = 0; i < N_BITS; i++) {
+      if (mask & (1 << i)) p.push({ stage: BIT_STAGE[i], team: picks[BIT_STAGE[i]] });
+    }
+    // 走一遍 resolve 而不是直接采信：链接可以被手改，非法的钉在这里被丢掉，
+    // 页面退回到一份合法填法，而不是渲染出一张自相矛盾的表。
+    var r = resolve(D.qf, D.win_p, p);
+    bits = r.bits;
+    pins = r.pins;
+    return true;
+  }
+
+  function writeHash() {
+    try { history.replaceState(null, "", "#b=" + encode()); } catch (e) {}
+  }
+
+  function share(btn) {
+    var url = location.origin + location.pathname + "#b=" + encode();
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = "已复制链接 ✓";
+      setTimeout(function () { btn.textContent = old; }, 1800);
+    };
+    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, done);
+    else window.prompt("复制这个链接分享给别人：", url);
+  }
+
+  /* ---------- 交互 ---------- */
+
+  /* 点某格的某一侧 = 钉住「这支队赢下这一格」。
+
+     钉的是**队伍**不是位置：位置（「上面那一行」）的含义随前面的选择变化，
+     钉位置会让读者看到「我明明钉了这一格，怎么队伍自己变了」。 */
+  function pick(stage, side) {
+    if (!editable) return;
+    var team = derive(D.qf, bits).pairs[stage][side];
+    var kept = [];
+    for (var i = 0; i < pins.length; i++) {
+      if (pins[i].stage !== stage) kept.push(pins[i]);
+    }
+    kept.push({ stage: stage, team: team });      // 本次点击永远排在最后
+    var r = resolve(D.qf, D.win_p, kept);
+    bits = r.bits;
+    pins = r.pins;
+    paint();
+    writeHash();
+  }
+
+  function reset() {
+    pins = [];
+    bits = D.bits;
+    paint();
+    writeHash();
+  }
+
+  /* 窄屏只读（设计文档决定五）。
+
+     每行热区在窄屏约 159×21 CSS px，且要横向滚动才能找到格子——在手机上这是个
+     **会点错**的功能，不是个不好用的功能：任何一次点击都产生一份合法填法，
+     点错不报错。所以窄屏干脆不绑。
+
+     断点复用 style.css 里 SVG 开始横滚的那一个（940px），不引入第二个阈值。
+     用 change 事件跟随窗口变化，而不是只在加载时判一次——否则读者把窗口拉宽后
+     会发现还是点不动。 */
+  function watchWidth() {
+    var mq = window.matchMedia("(min-width: 940px)");
+    var apply = function () {
+      editable = mq.matches;
+      var wrap = $("bkwrap");
+      if (wrap) wrap.className = "bkwrap" + (editable ? " editable" : "");
+    };
+    apply();
+    if (mq.addEventListener) mq.addEventListener("change", apply);
+    else if (mq.addListener) mq.addListener(apply);      // Safari < 14
+  }
+
   /* ---------- 入口 ---------- */
   function init(data) {
     D = data;
     bits = data.bits;
     pins = [];
+    watchWidth();
+    if (!readHash()) { bits = data.bits; pins = []; }
     paint();
+
+    document.addEventListener("click", function (ev) {
+      var hit = ev.target.closest && ev.target.closest(".bkhit");
+      if (hit) { pick(hit.getAttribute("data-stage"), +hit.getAttribute("data-side")); return; }
+      if (ev.target.id === "bk-reset") reset();
+      if (ev.target.id === "bk-share") share(ev.target);
+    });
+
+    window.addEventListener("hashchange", function () { if (readHash()) paint(); });
   }
 
   var API = {
