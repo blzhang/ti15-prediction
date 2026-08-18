@@ -388,3 +388,17 @@ table.rv tr.gap { background: color-mix(in srgb, var(--s2) 10%, transparent); }
   .bkwrap::after { content: "← 左右滑动看完整对阵表"; display: block;
                    color: var(--ink-muted); font-size: 12.5px; padding: 6px 2px 0; }
 }
+
+/* 对阵表编辑器：热区只在宽屏可点（见 bracket.js 的 watchWidth） */
+.bkwrap .bkhit { cursor: default; }
+.bkwrap.editable .bkhit { cursor: pointer; }
+.bkwrap.editable .bkhit:hover { fill: var(--s1); fill-opacity: .10; }
+.hwcard.pinned { border-color: var(--s1); }
+.pinlab { font-style: normal; color: var(--s1); font-weight: 700; }
+.wide-only { display: inline; }
+.narrow-only { display: none; }
+button.wide-only { display: inline-block; }
+@media (max-width: 940px) {
+  .wide-only, button.wide-only { display: none; }
+  .narrow-only { display: inline; }
+}

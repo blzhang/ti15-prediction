@@ -310,17 +310,24 @@ def bracket_section(base, pl):
 可以逐格平移着点。<b>实心圆点就是建议点亮的那一边</b>，右边的百分比是它赢下这一场的概率。</p>
 %s
 <p class="hint">客户端里后面几轮显示「?」，这里填的是模型的推荐——那正是这张图的用处。
-<b>注意后面几轮的候选是被前面的选择锁死的</b>：你如果在 A 格改填 Iron Wing，
-E 格的候选也会跟着变，不能照抄下面这份了。</p>
+<span class="wide-only"><b>不同意哪一格，直接点图上那支队就能改</b>：
+你在 A 格改填 Iron Wing，E 格的候选会跟着变，剩下没被你钉住的格子会重新算一遍最优，
+上面的期望答对数实时更新。</span>
+<span class="narrow-only"><b>这张表可以自己改</b>——后面几轮的候选被前面的选择锁死，
+改一格后面就得跟着重算，所以编辑功能只在电脑上开。换电脑打开就能点。</span></p>
 
 <div class="pkbar">
   <div class="pkstats">
-    <div><span class="pklab">这份填法期望答对</span><span class="pkbig">%.2f</span><span class="pkunit">/ 14 场</span></div>
-    <div><span class="pklab">闭眼乱填</span><span class="pkbig">%.2f</span><span class="pkunit">场</span></div>
-    <div><span class="pklab">理论上界</span><span class="pkbig">%.2f</span><span class="pkunit">场</span></div>
+    <div><span class="pklab">这份填法期望答对</span><span class="pkbig" id="bk-exp">%.2f</span><span class="pkunit">/ 14 场</span></div>
+    <div><span class="pklab">模型最优</span><span class="pkbig" id="bk-best">%.2f</span><span class="pkunit">场</span></div>
+    <div><span class="pklab">比乱填多</span><span class="pkbig" id="bk-delta">%.2f</span><span class="pkunit">场</span></div>
   </div>
-  <div class="pkmeter"><div style="width:%.1f%%"></div></div>
-  <div class="pkbtns"><span class="pkstat ok">在 %s 种自洽填法里穷举出来的最优解</span></div>
+  <div class="pkmeter"><div id="bk-bar" style="width:%.1f%%"></div></div>
+  <div class="pkbtns">
+    <span class="pkstat ok" id="bk-status">在 %s 种自洽填法里穷举出来的最优解</span>
+    <button id="bk-reset" class="wide-only">恢复模型推荐</button>
+    <button id="bk-share" class="pri wide-only">复制我的填法链接</button>
+  </div>
 </div>
 
 <div class="note crit"><b>先说清楚这道题为什么不能「每场都挑赢面大的」。</b><br>
@@ -328,15 +335,18 @@ E 格的候选也会跟着变，不能照抄下面这份了。</p>
 所以后面每一轮的可选项都被前面的选择锁死，「每场都挑最可能赢的那支」通常<b>根本填不出来</b>。<br>
 那个填法的分数是 <b>%.2f 场</b>——它是个够不着的上界，不是可选项。真正能填出来的最优是
 <b>%.2f 场</b>，中间这 <b>%.2f 场</b>就是「路径必须自洽」这条约束的代价。<br>
+闭眼乱填是 <b>%.2f 场</b>——这两个数都与你怎么填无关，是题目本身的性质，所以不跟着上面的填法变。<br>
 <span class="hint">16384 = 2^14，14 场各二选一。这个规模可以直接穷举，不需要任何启发式，
 所以下面这份填法是<b>确定的最优解</b>，不是搜出来的近似。</span></div>
 
+<div id="bkcards">
 <h3>胜者组（4 + 2 + 1 场）</h3>
 %s
 <h3>败者组（2 + 2 + 1 + 1 场）</h3>
 %s
 <h3>总决赛</h3>
 %s
+</div>
 
 <div class="note"><b>看一眼这些概率再决定要不要照抄。</b><br>
 八强那四场还有 %.0f%%–%.0f%%，到了败者组中段就只剩<b>百分之十几</b>了——
@@ -350,10 +360,12 @@ E 格的候选也会跟着变，不能照抄下面这份了。</p>
 靠反解出的隐含实力展开。两个市场（冠军盘、单场盘）互相不完全一致，
 调和时给单场盘多少权重是个判断——%s</div>
 """ % (pages.PANEL_DEADLINE_CN,
-       '<div class="bkwrap">%s</div>' % bracket_svg.render(pl, "page"),
-       st["expected"], st["random"], st["greedy_upper"],
+       '<div class="bkwrap" id="bkwrap">%s</div>'
+       % bracket_svg.render(pl, "page", interactive=True),
+       st["expected"], st["expected"], st["expected"] - st["random"],
        st["expected"] / st["n_matches"] * 100, "{:,}".format(st["n_brackets"]),
        st["greedy_upper"], st["expected"], st["greedy_upper"] - st["expected"],
+       st["random"],
        block("ub", {"UBQF1", "UBQF2", "UBQF3", "UBQF4", "UBSF1", "UBSF2", "UBF"}),
        block("lb", {"LBR1-1", "LBR1-2", "LBQF-1", "LBQF-2", "LBSF", "LBF"}),
        block("gf", {"GF"}),

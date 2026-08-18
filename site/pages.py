@@ -668,7 +668,7 @@ def _sz(b):
 
 def write_all(dist, base, payload):
     src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets_src")
-    for f in ("style.css", "app.js", "px.js", "picker.js"):
+    for f in ("style.css", "app.js", "px.js", "picker.js", "bracket.js"):
         shutil.copyfile(os.path.join(src, f), os.path.join(dist, "assets", f))
     qr = qr_asset(src, os.path.join(dist, "assets"))
     import homework
@@ -706,12 +706,20 @@ def write_all(dist, base, payload):
             homework.render(base, hw, payload["raw_pred"], fan, fan_rec,
                             payload["raw_draw_sens"],
                             banner=draw_banner(payload, base)),
-            extra_js="" if payload.get("homework_score") else
-                     '<script src="%s/assets/picker.js"></script>'
-                     '<script>initPicker(%s);</script>'
-                     % (base, __import__("json").dumps(
-                         homework.picker_data(payload["raw_pred"], hw, fan_rec),
-                         ensure_ascii=False, separators=(",", ":")))),
+            # 小组赛揭晓后 picker.js 撤掉（答案都出来了还让人点着填是浪费读者时间），
+            # 但主赛事那张对阵表还没打完，它的编辑器要挂上。
+            extra_js=(
+                '<script src="%s/assets/bracket.js"></script>'
+                '<script>initBracket(%s);</script>'
+                % (base, __import__("json").dumps(
+                    homework.bracket_data(payload["raw_playoffs"]),
+                    ensure_ascii=False, separators=(",", ":")))
+                if payload.get("homework_score") and payload.get("raw_playoffs") else
+                '<script src="%s/assets/picker.js"></script>'
+                '<script>initPicker(%s);</script>'
+                % (base, __import__("json").dumps(
+                    homework.picker_data(payload["raw_pred"], hw, fan_rec),
+                    ensure_ascii=False, separators=(",", ":"))))),
         "predictions.html": page_pred(base, payload),
         "methodology.html": page_method(base, payload),
         "data.html": page_data(base, payload),
