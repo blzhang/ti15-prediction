@@ -214,7 +214,10 @@
 
   /* ---------- 渲染：分数条 ---------- */
   function paintStats(picks) {
-    var mine = score(D.win_p, picks), best = D.stats.expected;
+    // best 与 mine 现在同源：都是查 D.win_p 表算出来的，不再有一个来自 Python
+    // 一个来自 JS 的两条独立路径——D.bits 是模型给的、无任何钉住的原始推荐，
+    // 从没被本文件改写过，恒等于「模型最优那份填法」。
+    var mine = score(D.win_p, picks), best = score(D.win_p, expand(D.qf, D.bits));
     var set = function (id, txt) { var el = $(id); if (el) el.textContent = txt; };
     set("bk-exp", mine.toFixed(2));
     set("bk-best", best.toFixed(2));
@@ -294,8 +297,11 @@
       btn.textContent = "已复制链接 ✓";
       setTimeout(function () { btn.textContent = old; }, 1800);
     };
-    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, done);
-    else window.prompt("复制这个链接分享给别人：", url);
+    // 文档失焦、权限被拒都会让 writeText 走拒绝分支——那时候剪贴板里其实还是
+    // 旧内容，不能照样显示「已复制」，得落回 prompt 让读者自己复制。
+    var fallback = function () { window.prompt("复制这个链接分享给别人：", url); };
+    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, fallback);
+    else fallback();
   }
 
   /* ---------- 交互 ---------- */
