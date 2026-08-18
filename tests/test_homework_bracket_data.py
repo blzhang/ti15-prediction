@@ -27,7 +27,7 @@ def _pl():
                  for k, (a, b) in enumerate(qf)],
         "bracket_homework": {
             "pick": {st: TEAMS[0] for st in STAGES},
-            "pick_bits": 0,
+            "pick_bits": 5753,
             "win_p": win_p,
             "rows": [{"stage": st, "cn": "第%s场" % st, "panel": st,
                       "time_cst": "8/2x", "pick": TEAMS[0], "p_pick": 0.125,
@@ -53,11 +53,17 @@ def test_win_p_是全表且每格八支队():
 
 
 def test_每格都有面板编号与时间():
-    """图上和卡片上都要印它们；缺了就会渲染出「undefined · undefined」。"""
+    """图上和卡片上都要印它们；缺了就会渲染出「undefined · undefined」。
+
+    只断真值抓不住 panel 与 cn 被接反的情况——fixture 里两个字段都是非空
+    字符串，接反了照样非空。改成断言具体值，两个字段本身就取不同的串
+    （panel=st，cn="第{st}场"），接反了会立刻不相等。"""
     d = homework.bracket_data(_pl())
     assert set(d["meta"]) == set(STAGES)
     for st in STAGES:
-        assert d["meta"][st]["panel"] and d["meta"][st]["cn"] and d["meta"][st]["time"]
+        assert d["meta"][st]["panel"] == st
+        assert d["meta"][st]["cn"] == "第%s场" % st
+        assert d["meta"][st]["time"] == "8/2x"
 
 
 def test_简称表覆盖全部八支队():
@@ -74,4 +80,7 @@ def test_统计只带前端真的会用的两项():
 
 
 def test_bits_原样带出():
-    assert homework.bracket_data(_pl())["bits"] == 0
+    """fixture 里 pick_bits 若是 0，这条测试连「转发 bh['pick_bits']」与
+    「硬编码 'bits': 0」都区分不开——换成一个非零值（真实产物里是 5753）
+    才能确认这里是真的原样带出，不是巧合。"""
+    assert homework.bracket_data(_pl())["bits"] == 5753

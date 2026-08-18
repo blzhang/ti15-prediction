@@ -62,9 +62,10 @@ def test_未选中那一行的百分比元素照样存在只是内容为空():
 
 def test_交互版每行只输出一个百分比元素不会重复():
     """靠 render() 里 if interactive / elif show_prob and won 这一组 if/elif
-    保证每行只出一个 class="pb" 元素。哪天 elif 被错改成独立的 if，
-    选中那行就会重复输出两个——id 撞车，前端 JS 按 id 更新时也分不清改哪个，
-    视觉上还会叠成两行数字。"""
+    保证每行只出一个 class="pb" 元素。哪天 elif 被错改成独立的 if，选中那行
+    就会额外多出一个 <text class="pb">——但那个多出来的元素走的正是 elif
+    分支，那个分支根本不带 id，所以不是 id 撞车，是纯视觉上的重叠：
+    两个数字叠在同一个坐标上。"""
     svg = bracket_svg.render(_pl(), "page", interactive=True)
     assert svg.count('class="pb"') == 28, "14 格 × 2 行 = 28 个百分比元素，一个都不能多"
 
@@ -82,3 +83,4 @@ def test_不开交互时输出与开交互前完全一致():
     b = bracket_svg.render(_pl(), "page", interactive=False)
     assert a == b
     assert "bkhit" not in a
+    assert 'id="bk-' not in a
