@@ -91,7 +91,13 @@ def _esc(s):
     return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
-def render(pl, theme="page", show_prob=True):
+def render(pl, theme="page", show_prob=True, interactive=False):
+    """interactive=True 时给每一行加透明热区与稳定 id，供 site/assets_src/bracket.js 更新。
+
+    JS 只改这些节点的文本与属性，不重建整个 SVG——连线、坐标、列头都不随填法变，
+    重建它们是白费；而且构建时输出的这一份正好当无 JS 回退。
+    卡片路径（theme="card"）不传这个参数：长图是 PNG，热区对它毫无用处。
+    """
     c = PALETTE[theme]
     cells = _layout(pl)
     by = {x["stage"]: x for x in cells}
@@ -110,20 +116,38 @@ def render(pl, theme="page", show_prob=True):
                     "1.8" if is_gf else "1"))
         g.append('<line x1="%d" y1="%d" x2="%d" y2="%d" stroke="%s" stroke-width="1"/>'
                  % (X, y + HEADH + SLOTH, X + BOXW, y + HEADH + SLOTH, c["line"]))
+        hits = []
         for i, team in enumerate(x["pair"]):
             ty = y + HEADH + SLOTH * i + SLOTH / 2
             won = team == x["win"]
+            ids = ((' id="bk-%s-%d-dot"' % (x["stage"], i),
+                    ' id="bk-%s-%d-nm"' % (x["stage"], i),
+                    ' id="bk-%s-%d-p"' % (x["stage"], i))
+                   if interactive else ("", "", ""))
             # 单选钮：被推荐的一方点亮，对应客户端里你要点的那个圆点
-            g.append('<circle cx="%d" cy="%.1f" r="6.5" fill="%s" stroke="%s" '
+            g.append('<circle%s cx="%d" cy="%.1f" r="6.5" fill="%s" stroke="%s" '
                      'stroke-width="1.4"/>'
-                     % (X + 18, ty, c["pick"] if won else "none",
+                     % (ids[0], X + 18, ty, c["pick"] if won else "none",
                         c["pick"] if won else c["dim"]))
-            g.append('<text x="%d" y="%.1f" class="%s">%s</text>'
-                     % (X + 33, ty + 4.5, "tm on" if won else "tm",
+            g.append('<text%s x="%d" y="%.1f" class="%s">%s</text>'
+                     % (ids[1], X + 33, ty + 4.5, "tm on" if won else "tm",
                         _esc(SHORT.get(team, team))))
-            if show_prob and won:
+            # 交互版里两行都要有百分比元素：换选之后 JS 得把数字挪到另一行，
+            # 元素若不存在就得插节点，那会破掉「只改属性、不动版式」的约定。
+            if interactive:
+                g.append('<text%s x="%d" y="%.1f" class="pb">%s</text>'
+                         % (ids[2], X + BOXW - 10, ty + 4.5,
+                            ("%.0f%%" % (x["p"] * 100)) if (show_prob and won) else ""))
+                hits.append('<rect class="bkhit" x="%d" y="%d" width="%d" height="%d" '
+                            'fill="transparent" data-stage="%s" data-side="%d"/>'
+                            % (X, y + HEADH + SLOTH * i, BOXW, SLOTH,
+                               _esc(x["stage"]), i))
+            elif show_prob and won:
                 g.append('<text x="%d" y="%.1f" class="pb">%.0f%%</text>'
                          % (X + BOXW - 10, ty + 4.5, x["p"] * 100))
+        # 热区放在最后：SVG 里后面的元素在上层，压在文字之上才接得到点击。
+        # fill="transparent" 而不是 "none"——后者不接收指针事件。
+        g.extend(hits)
         g.append('</g>')
         return "".join(g)
 
