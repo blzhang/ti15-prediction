@@ -1391,18 +1391,85 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 7: 交互与窄屏门控
+### Task 7: 交互、窄屏门控与分享链接
+
+交互与分享放在一个任务里：`init` 在启动时就要读 hash、每次点击后要写 hash，拆开做会让前一半带着三个什么都不做的空函数交付。
 
 **Files:**
-- Modify: `site/assets_src/bracket.js`（`init` 内补事件绑定与 `matchMedia`）
+- Modify: `site/assets_src/bracket.js`（在 `function paint() {` 与 `/* ---------- 入口 ---------- */` 之间插入交互层与分享层，并替换 Task 6 的最小 `init`）
 
 **Interfaces:**
-- Consumes: Task 5 的 `resolve`、Task 6 的 `paint`
-- Produces: 点击热区 → 钉住 → 重搜 → 重绘；`#bk-reset` 按钮清空全部钉；窄屏（<940px）不绑点击
+- Consumes: Task 5 的 `resolve`/`expand`/`derive`、Task 6 的 `paint`/`pinnedMap`/`$`
+- Produces:
+  - 点击热区 → 钉住该队 → 重搜 → 重绘 → 写 hash
+  - `#bk-reset` 清空全部钉；`#bk-share` 复制链接
+  - hash 格式 `#b=` + 3 位 base36 的填法 + 3 位 base36 的钉住掩码
+  - 窄屏（<940px）不绑点击，但**照常渲染**——别人在电脑上改好发来的链接，手机上要能读
 
-- [ ] **Step 1: 实现交互**
+- [ ] **Step 1: 实现分享链接的编解码**
 
-把 `site/assets_src/bracket.js` 的 `init` 替换为：
+在 `site/assets_src/bracket.js` 的 `function paint() {` 那一段之后、`/* ---------- 入口 ---------- */` 之前插入：
+
+```js
+  /* ---------- 分享链接 ---------- */
+
+  /* 编码 = 14 位填法 + 14 位钉住掩码，各 3 个 base36 字符（36^3 = 46656 > 16384）。
+
+     钉住掩码必须一起编：只编填法的话，别人打开你的链接看到的是一份「全部由模型
+     算出来的」填法，分不出哪几格是你自己的判断——而那恰恰是你想分享的东西。
+
+     顺序不编码。pins 的先后只在冲突解钉时起作用，而接收方拿到的状态本身是自洽的，
+     他继续点时按位序恢复的顺序照样能工作。为 6 个字符再加一段顺序编码不划算。 */
+  function pad3(n) {
+    var s = n.toString(36);
+    return "000".slice(s.length) + s;
+  }
+
+  function encode() {
+    var mask = 0, pinMap = pinnedMap();
+    for (var i = 0; i < N_BITS; i++) {
+      if (pinMap[BIT_STAGE[i]] !== undefined) mask |= (1 << i);
+    }
+    return pad3(bits) + pad3(mask);
+  }
+
+  function readHash() {
+    var m = /(?:^|[#&])b=([0-9a-z]{6})(?:&|$)/.exec(location.hash || "");
+    if (!m) return false;
+    var v = parseInt(m[1].slice(0, 3), 36), mask = parseInt(m[1].slice(3), 36);
+    if (isNaN(v) || isNaN(mask) || v < 0 || v >= N_BRACKETS || mask < 0 ||
+        mask >= N_BRACKETS) return false;
+    var picks = expand(D.qf, v), p = [];
+    for (var i = 0; i < N_BITS; i++) {
+      if (mask & (1 << i)) p.push({ stage: BIT_STAGE[i], team: picks[BIT_STAGE[i]] });
+    }
+    // 走一遍 resolve 而不是直接采信：链接可以被手改，非法的钉在这里被丢掉，
+    // 页面退回到一份合法填法，而不是渲染出一张自相矛盾的表。
+    var r = resolve(D.qf, D.win_p, p);
+    bits = r.bits;
+    pins = r.pins;
+    return true;
+  }
+
+  function writeHash() {
+    try { history.replaceState(null, "", "#b=" + encode()); } catch (e) {}
+  }
+
+  function share(btn) {
+    var url = location.origin + location.pathname + "#b=" + encode();
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = "已复制链接 ✓";
+      setTimeout(function () { btn.textContent = old; }, 1800);
+    };
+    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, done);
+    else window.prompt("复制这个链接分享给别人：", url);
+  }
+```
+
+- [ ] **Step 2: 实现交互，并把 Task 6 的最小 `init` 换成完整版**
+
+紧接着 Step 1 插入的代码之后插入：
 
 ```js
   /* ---------- 交互 ---------- */
@@ -1473,20 +1540,40 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
   }
 ```
 
-- [ ] **Step 2: 加 `readHash`/`writeHash`/`share` 的占位实现（Task 8 补全）**
-
-在 `function pick(` 之前插入：
+然后把 Task 6 加的那个最小 `init` 整个删掉——它已被上面这一版取代：
 
 ```js
-  /* 分享链接的编解码在 Task 8 实现；先给出空实现，让 Task 7 可以独立跑起来。 */
-  function readHash() { return false; }
-  function writeHash() {}
-  function share() {}
+  /* ---------- 入口 ---------- */
+  function init(data) {
+    D = data;
+    bits = data.bits;
+    pins = [];
+    paint();
+  }
 ```
 
-- [ ] **Step 3: 手工验证交互（需要 Task 9 接线后才能在页面上点）**
+（文件末尾的 `root.initBracket = init;` 与 `API` 里的 `init: init` 保持不动。）
 
-此时页面还没挂上脚本，先用 node 验证 `pick` 的钉住语义等价物：
+- [ ] **Step 3: 用 node 验证 base36 编码的边界**
+
+Run:
+```bash
+node -e '
+const M = require("./site/assets_src/bracket.js");
+// pad3 与掩码逻辑是纯算术，这里直接复演一遍验证边界
+const pad3 = n => ("000" + n.toString(36)).slice(-3);
+for (const v of [0, 1, 35, 36, 16383]) {
+  const s = pad3(v);
+  if (s.length !== 3 || parseInt(s, 36) !== v) { console.log("FAIL", v, s); process.exit(1); }
+}
+console.log("pad3 往返 OK（含 0 / 35 / 36 / 16383 边界）");
+'
+```
+Expected: `pad3 往返 OK（含 0 / 35 / 36 / 16383 边界）`
+
+- [ ] **Step 4: 用 node 验证「钉住 A 格之后 E 格候选跟着变」**
+
+这是整个功能的核心行为，在接线之前先用纯逻辑验一遍——页面上点不出来的话，先怀疑渲染，不必怀疑这一层。
 
 Run:
 ```bash
@@ -1505,133 +1592,29 @@ console.log("钉 A 格 =", team, "后 A 格 =", M.expand(qf, r.bits)["UBQF1"], "
 ```
 Expected: 第二行的「E 格候选」里出现被钉住的那支队——这就是"A 格改了，E 格跟着变"
 
-- [ ] **Step 4: 运行全部测试**
+- [ ] **Step 5: 运行全部测试**
 
 Run: `python3 -m pytest -q`
 Expected: PASS
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 6: 提交**
 
 ```bash
-git add site/assets_src/bracket.js && git commit -m "feat: 编辑器的点击、钉住与窄屏门控
+git add site/assets_src/bracket.js && git commit -m "feat: 编辑器的点击、钉住、窄屏门控与填法分享
 
 钉的是队伍不是位置——位置的含义随前面的选择变化，钉位置会让人看到
 「我明明钉了这一格，怎么队伍自己变了」。
-窄屏不绑点击：每行热区约 159×21px 且要横滚，那是个会点错的功能，
+窄屏不绑点击：每行热区约 159x21px 且要横滚，那是个会点错的功能，
 而点错不报错（任何一次点击都产生合法填法）。断点跟随窗口变化，不是只判一次。
+分享链接把钉住掩码一起编码——只编填法的话，别人打开看到的是一份「全是模型算的」
+填法，分不出哪几格是你自己的判断，而那正是你想分享的东西。
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
 
 ---
 
-### Task 8: 分享链接
-
-**Files:**
-- Modify: `site/assets_src/bracket.js`（替换 Task 7 的三个占位实现）
-
-**Interfaces:**
-- Consumes: Task 5 的 `resolve`、Task 6 的 `paint`
-- Produces: hash 格式 `#b=` + 3 位 base36 的 bits + 3 位 base36 的钉住掩码
-
-- [ ] **Step 1: 实现编解码**
-
-把 Task 7 加的三个占位实现替换为：
-
-```js
-  /* ---------- 分享链接 ---------- */
-
-  /* 编码 = 14 位填法 + 14 位钉住掩码，各 3 个 base36 字符（36^3 = 46656 > 16384）。
-
-     钉住掩码必须一起编：只编填法的话，别人打开你的链接看到的是一份「全部由模型
-     算出来的」填法，分不出哪几格是你自己的判断——而那恰恰是你想分享的东西。
-
-     顺序不编码。pins 的先后只在冲突解钉时起作用，而接收方拿到的状态本身是自洽的，
-     他继续点时按位序恢复的顺序照样能工作。为 6 个字符再加一段顺序编码不划算。 */
-  function pad3(n) {
-    var s = n.toString(36);
-    return "000".slice(s.length) + s;
-  }
-
-  function encode() {
-    var mask = 0, pinMap = pinnedMap();
-    for (var i = 0; i < N_BITS; i++) {
-      if (pinMap[BIT_STAGE[i]] !== undefined) mask |= (1 << i);
-    }
-    return pad3(bits) + pad3(mask);
-  }
-
-  function readHash() {
-    var m = /(?:^|[#&])b=([0-9a-z]{6})(?:&|$)/.exec(location.hash || "");
-    if (!m) return false;
-    var v = parseInt(m[1].slice(0, 3), 36), mask = parseInt(m[1].slice(3), 36);
-    if (isNaN(v) || isNaN(mask) || v < 0 || v >= N_BRACKETS || mask < 0 ||
-        mask >= N_BRACKETS) return false;
-    var picks = expand(D.qf, v), p = [];
-    for (var i = 0; i < N_BITS; i++) {
-      if (mask & (1 << i)) p.push({ stage: BIT_STAGE[i], team: picks[BIT_STAGE[i]] });
-    }
-    // 走一遍 resolve 而不是直接采信：链接可以被手改，非法的钉在这里被丢掉，
-    // 页面退回到一份合法填法，而不是渲染出一张自相矛盾的表。
-    var r = resolve(D.qf, D.win_p, p);
-    bits = r.bits;
-    pins = r.pins;
-    return true;
-  }
-
-  function writeHash() {
-    try { history.replaceState(null, "", "#b=" + encode()); } catch (e) {}
-  }
-
-  function share(btn) {
-    var url = location.origin + location.pathname + "#b=" + encode();
-    var done = function () {
-      var old = btn.textContent;
-      btn.textContent = "已复制链接 ✓";
-      setTimeout(function () { btn.textContent = old; }, 1800);
-    };
-    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, done);
-    else window.prompt("复制这个链接分享给别人：", url);
-  }
-```
-
-- [ ] **Step 2: 用 node 验证编解码往返**
-
-Run:
-```bash
-node -e '
-const M = require("./site/assets_src/bracket.js");
-// pad3 与掩码逻辑是纯算术，这里直接复演一遍验证边界
-const pad3 = n => ("000" + n.toString(36)).slice(-3);
-for (const v of [0, 1, 35, 36, 16383]) {
-  const s = pad3(v);
-  if (s.length !== 3 || parseInt(s, 36) !== v) { console.log("FAIL", v, s); process.exit(1); }
-}
-console.log("pad3 往返 OK（含 0 / 35 / 36 / 16383 边界）");
-'
-```
-Expected: `pad3 往返 OK（含 0 / 35 / 36 / 16383 边界）`
-
-- [ ] **Step 3: 运行全部测试**
-
-Run: `python3 -m pytest -q`
-Expected: PASS
-
-- [ ] **Step 4: 提交**
-
-```bash
-git add site/assets_src/bracket.js && git commit -m "feat: 编辑器填法的分享链接（6 个字符，无账号无 cookie）
-
-钉住掩码一起编码：只编填法的话，别人打开看到的是一份「全都是模型算的」填法，
-分不出哪几格是你自己的判断——而那正是你想分享的东西。
-解析后走一遍 resolve 而不是直接采信，手改的链接会被退回到一份合法填法。
-
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
-```
-
----
-
-### Task 9: 接线、文案与样式，端到端跑通
+### Task 8: 接线、文案与样式，端到端跑通
 
 **Files:**
 - Modify: `site/homework.py:bracket_section`（分数条、卡片容器、提示文案、SVG 开交互）
@@ -1900,7 +1883,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ## 完成后
 
-全部 9 个任务通过后，本分支的改动是自洽的、可部署的。部署命令（**需用户确认后再执行**）：
+全部 8 个任务通过后，本分支的改动是自洽的、可部署的。部署命令（**需用户确认后再执行**）：
 
 ```bash
 bash site/deploy.sh
