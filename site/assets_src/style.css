@@ -398,7 +398,10 @@ table.rv tr.gap { background: color-mix(in srgb, var(--s2) 10%, transparent); }
 .wide-only { display: inline; }
 .narrow-only { display: none; }
 button.wide-only { display: inline-block; }
-@media (max-width: 940px) {
+/* 严格互补于 JS 那句 matchMedia("(min-width: 940px)")：写成 max-width: 940px
+   会让 940px 整数值两边同时成立（按钮不可见但热区仍可点）。not all and
+   (min-width: 940px) 是它的精确补集，不引入第二个数字常数。 */
+@media not all and (min-width: 940px) {
   .wide-only, button.wide-only { display: none; }
   .narrow-only { display: inline; }
 }

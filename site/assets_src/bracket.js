@@ -223,7 +223,7 @@
     set("bk-best", best.toFixed(2));
     set("bk-delta", (mine - D.stats.random).toFixed(2));
     var bar = $("bk-bar");
-    if (bar) bar.style.width = Math.max(0, Math.min(100, mine / 14 * 100)).toFixed(1) + "%";
+    if (bar) bar.style.width = Math.max(0, Math.min(100, mine / N_BITS * 100)).toFixed(1) + "%";
     var st = $("bk-status");
     if (!st) return;
     if (!pins.length) {
@@ -365,8 +365,13 @@
     document.addEventListener("click", function (ev) {
       var hit = ev.target.closest && ev.target.closest(".bkhit");
       if (hit) { pick(hit.getAttribute("data-stage"), +hit.getAttribute("data-side")); return; }
-      if (ev.target.id === "bk-reset") reset();
-      if (ev.target.id === "bk-share") share(ev.target);
+      // 用 closest() 而不是 ev.target.id：按钮里将来加个图标或 <span>，
+      // 点在子元素上不该静默失效。share() 要拿到按钮本身（它要改按钮文字），
+      // 所以传 closest() 找到的那个元素，不是 ev.target。
+      var resetBtn = ev.target.closest && ev.target.closest("#bk-reset");
+      if (resetBtn) { reset(); return; }
+      var shareBtn = ev.target.closest && ev.target.closest("#bk-share");
+      if (shareBtn) { share(shareBtn); return; }
     });
 
     window.addEventListener("hashchange", function () { if (readHash()) paint(); });
