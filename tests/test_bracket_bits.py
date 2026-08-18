@@ -9,6 +9,8 @@ Python 与前端 site/assets_src/bracket.js 各有一份实现，两份必须逐
 import itertools
 import json
 import os
+import shutil
+import subprocess
 
 import numpy as np
 import pytest
@@ -188,3 +190,126 @@ def test_导出的_pick_bits_展开回同一份_pick():
     qf = [(m["a"], m["b"]) for m in r["ubqf"]]
     d = r["bracket_homework"]
     assert expand(qf, d["pick_bits"]) == d["pick"]
+
+
+JS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                  "site", "assets_src", "bracket.js")
+NO_NODE = shutil.which("node") is None
+
+
+def _run_js(body):
+    """在 node 里 require bracket.js 并跑一段脚本，取回 JSON。
+
+    node 只是**测试**依赖，不是运行时依赖——站点没有构建步骤，
+    bracket.js 是浏览器直接加载的普通脚本。所以 node 缺席时跳过而不是失败。
+    """
+    src = "const M = require(%s);\n%s" % (json.dumps(JS), body)
+    r = subprocess.run(["node", "-e", src], capture_output=True, text=True)
+    assert r.returncode == 0, "node 执行失败：\n%s" % r.stderr
+    return json.loads(r.stdout)
+
+
+@pytest.mark.skipif(NO_NODE, reason="需要 node 才能跑 JS 侧对照")
+def test_js_的_expand_与_python_逐位一致():
+    """两侧展开 16384 种 bits，逐项比对。
+
+    这是设计文档决定一那条赌注的兑现处：漂移不会崩溃，只会让页面印出一个
+    跟模型对不上的期望答对数——所以必须有一条会变红的断言盯着它。
+    """
+    got = _run_js("""
+      const qf = [[0,7],[1,6],[2,5],[3,4]];
+      const out = [];
+      for (var b = 0; b < 16384; b++) out.push(M.expand(qf, b));
+      process.stdout.write(JSON.stringify(out));
+    """)
+    assert len(got) == 16384
+    for bits in range(1 << N_BITS):
+        want = {k: v for k, v in expand(QF, bits).items()}
+        assert got[bits] == want, "bits=%d 两侧展开不一致" % bits
+
+
+@pytest.mark.skipif(NO_NODE, reason="需要 node 才能跑 JS 侧对照")
+def test_js_排候选的顺序与_svg_画上下两行的顺序一致():
+    """SVG 里「上面那一行」必须就是 pairs[st][0]。
+
+    不一致的话，读者点上面一行会选中下面那支队——而且不报错、不崩溃，
+    因为两个候选都是合法的。这种 bug 只能靠这条断言抓。
+
+    Python 侧的基准是 site/bracket_svg.py 的 _layout()，它从 pick 反推每格候选，
+    是 SVG 上下两行的实际来源。
+    """
+    import sys
+    sys.path.insert(0, os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "site"))
+    import bracket_svg
+
+    teams = ["T%d" % i for i in range(8)]
+    qf_names = [[teams[a], teams[b]] for a, b in QF]
+    got = _run_js("""
+      const qf = %s;
+      const out = [];
+      for (var b = 0; b < 16384; b += 337) out.push([b, M.derive(qf, b).pairs]);
+      process.stdout.write(JSON.stringify(out));
+    """ % json.dumps(qf_names))
+
+    for bits, js_pairs in got:
+        pick = {st: teams[t] for st, t in expand(QF, bits).items()}
+        pl = {"ubqf": [{"stage": "UBQF%d" % (k + 1), "a": a, "b": b}
+                       for k, (a, b) in enumerate(qf_names)],
+              "bracket_homework": {"pick": pick,
+                                   "rows": [{"stage": st, "p_pick": 0.5}
+                                            for st in BIT_STAGE]}}
+        for cell in bracket_svg._layout(pl):
+            assert list(cell["pair"]) == js_pairs[cell["stage"]], (
+                "bits=%d 的 %s 格：SVG 画的是 %s，JS 认为是 %s"
+                % (bits, cell["stage"], list(cell["pair"]), js_pairs[cell["stage"]]))
+
+
+@pytest.mark.skipif(NO_NODE, reason="需要 node 才能跑 JS 侧对照")
+def test_js_的_bestGiven_在无约束时给出与_python_相同的最优填法():
+    teams = [str(i) for i in range(8)]
+    w = _winners()
+    _, _, stats = best_bracket(QF, w, teams)
+    win_p = {st: {str(t): p for t, p in w[st].items()} for st in ALL_STAGES}
+    got = _run_js("""
+      const qf = [["0","7"],["1","6"],["2","5"],["3","4"]];
+      const winP = %s;
+      process.stdout.write(JSON.stringify(M.bestGiven(qf, winP, {})));
+    """ % json.dumps(win_p))
+    assert got == stats["pick_bits"]
+
+
+@pytest.mark.skipif(NO_NODE, reason="需要 node 才能跑 JS 侧对照")
+def test_js_的_bestGiven_尊重钉住的格子():
+    """钉住一支队之后，重搜出来的填法那一格必须真的是它。"""
+    w = _winners()
+    win_p = {st: {str(t): p for t, p in w[st].items()} for st in ALL_STAGES}
+    got = _run_js("""
+      const qf = [["0","7"],["1","6"],["2","5"],["3","4"]];
+      const winP = %s;
+      const bits = M.bestGiven(qf, winP, {"UBQF1": "7"});
+      process.stdout.write(JSON.stringify([bits, M.expand(qf, bits)]));
+    """ % json.dumps(win_p))
+    bits, picks = got
+    assert bits >= 0
+    assert picks["UBQF1"] == "7"
+
+
+@pytest.mark.skipif(NO_NODE, reason="需要 node 才能跑 JS 侧对照")
+def test_js_的_resolve_丢掉互相矛盾的旧钉但保住最后点的那一下():
+    """A 格钉 0 号、E 格也钉 0 号，随后把 A 格改钉 7 号（0 号已被淘汰）。
+
+    设计文档决定二：你最近点的那一下永远生效，被丢的是更老的那个钉。
+    """
+    w = _winners()
+    win_p = {st: {str(t): p for t, p in w[st].items()} for st in ALL_STAGES}
+    got = _run_js("""
+      const qf = [["0","7"],["1","6"],["2","5"],["3","4"]];
+      const winP = %s;
+      const pins = [{stage:"UBSF1", team:"0"}, {stage:"UBQF1", team:"7"}];
+      const r = M.resolve(qf, winP, pins);
+      process.stdout.write(JSON.stringify([M.expand(qf, r.bits), r.pins]));
+    """ % json.dumps(win_p))
+    picks, pins = got
+    assert picks["UBQF1"] == "7", "最后点的那一下没生效"
+    assert [p["stage"] for p in pins] == ["UBQF1"], "该被丢的是更老的 UBSF1 那个钉"
