@@ -31,7 +31,10 @@ def fetch(path=None):
     if path:
         return open(path, encoding="utf-8", errors="replace").read().splitlines()
     out = subprocess.run(["ssh", "-o", "ConnectTimeout=25", HOST,
-                          "cat %s 2>/dev/null; zcat -f %s-*.gz 2>/dev/null || true" % (REMOTE, REMOTE)],
+                          # 轮转文件用 -* 而非 -*.gz：logrotate 转出的当天文件要到
+                          # 下一轮才压缩，只匹配 .gz 会把它整天的数据漏掉
+                          # （2026-08-17 就这么被漏成了"低谷"）。zcat -f 对未压缩文件等于 cat。
+                          "cat %s 2>/dev/null; zcat -f %s-* 2>/dev/null || true" % (REMOTE, REMOTE)],
                          capture_output=True, text=True)
     if out.returncode != 0 and not out.stdout:
         raise SystemExit("拉取失败：%s" % out.stderr.strip()[:200])
