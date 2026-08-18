@@ -429,6 +429,45 @@ def games_from_results(observed, teams):
     return out
 
 
+# ---------------------------------------------------------------- bit 编码
+# 一份自洽填法 = 一个 14 位整数，每一位是一场比赛的二选一，0 表示「上面那个候选」。
+#
+# 这是路径规则的**唯一权威实现**：抄作业页的前端编辑器要的正是同一个展开函数
+# （site/assets_src/bracket.js 的 expand），两边各写一份迟早会漂移，
+# 而漂移的表现不是崩溃，是页面静静印出一个跟本模块对不上的期望答对数。
+# tests/test_bracket_bits.py 用 node 跑 JS 那一份，与本函数逐位比对 16384 种展开。
+#
+# 完整的位定义表：docs/superpowers/specs/2026-08-18-bracket-editor-design.md 决定一。
+BIT_STAGE = ("UBQF1", "UBQF2", "UBQF3", "UBQF4", "UBSF1", "UBSF2",
+             "LBR1-1", "LBR1-2", "LBQF-1", "LBQF-2", "LBSF", "UBF", "LBF", "GF")
+N_BITS = len(BIT_STAGE)
+
+
+def expand(qf, bits):
+    """把 14 位整数展开成一份完整且自洽的填法 {阶段: 该阶段你选的那一方}。
+
+    qf 的元素类型不限（队索引或队名都行，原样返回）——正是这一点让
+    tests/test_bracket_bits.py 能拿同一份 qf 同时喂给 Python 和 JS 做对照。
+    """
+    b = [(bits >> k) & 1 for k in range(N_BITS)]
+    w = [qf[k][b[k]] for k in range(4)]            # 四场八强的胜者
+    l = [qf[k][1 - b[k]] for k in range(4)]        # 四场八强的败者
+    e, f = b[4], b[5]
+    sf_w = [w[e], w[2 + f]]                        # E / F 的胜者
+    sf_l = [w[1 - e], w[3 - f]]                    # E / F 的败者
+    lb1 = [l[b[6]], l[2 + b[7]]]                   # 败1上 / 败1下的胜者
+    # 败者组交叉：败2上 = 败1上胜者 vs F 的败者；败2下 = 败1下胜者 vs E 的败者。
+    # 这两行是整套规则里唯一容易写错的地方，改动前先看设计文档决定一那张表。
+    lb2 = [(lb1[0], sf_l[1])[b[8]], (lb1[1], sf_l[0])[b[9]]]
+    lb3 = lb2[b[10]]                               # 败3 的胜者
+    ubf_w, ubf_l = sf_w[b[11]], sf_w[1 - b[11]]
+    lbf = (lb3, ubf_l)[b[12]]                      # 败决的胜者
+    champ = (ubf_w, lbf)[b[13]]
+    return dict(zip(BIT_STAGE,
+                    (w[0], w[1], w[2], w[3], sf_w[0], sf_w[1],
+                     lb1[0], lb1[1], lb2[0], lb2[1], lb3, ubf_w, lbf, champ)))
+
+
 # ---------------------------------------------------------------- 抄作业：整张对阵表
 def best_bracket(qf, winners, teams):
     """游戏内主赛事预测面板的最优填法。
@@ -448,6 +487,10 @@ def best_bracket(qf, winners, teams):
     自洽填法的数量：胜者组 A/B/C/D/E/F/G 各二选一 = 2^7；败者组 6 场各二选一
     = 2^6；总决赛二选一 = 2。合计 **2^14 = 16384** 种——可以穷举，不需要启发式。
 
+    枚举方式是遍历 0..16383 并交给 expand() 按位展开。之所以不是显式嵌套循环
+    （2026-08-18 前是 10 层嵌套），是因为抄作业页的前端编辑器需要同一个展开函数，
+    而两边各写一份路径规则迟早会漂移。见 expand() 上方的说明。
+
     期望答对数 = Σ_场次 P(你填的那支队真的赢下这一场)，其中 P 来自精确枚举的
     winners[阶段][队]。注意这个 P 已经包含了「这支队根本没走到这一场」的情形
     （那种路径下它赢不了这一场，概率自然不计入），所以不需要额外乘晋级概率。
@@ -457,50 +500,18 @@ def best_bracket(qf, winners, teams):
       rows   逐场明细，含该场每个候选的命中概率
       stats  期望答对数、随机填法基线、最优与「逐场贪心」的差距
     """
-    a1, b1 = qf[0]; a2, b2 = qf[1]; a3, b3 = qf[2]; a4, b4 = qf[3]
-
-    def score_of(pick):
-        return sum(winners[st][pick[st]] for st in ALL_STAGES)
-
-    best, best_sc, total, n = None, -1.0, 0.0, 0
-    # 8 强四场的胜负决定了后面所有可选项，所以外层枚举它们，内层枚举其余十场
-    for m in itertools.product((0, 1), repeat=4):
-        w = [a1 if m[0] == 0 else b1, a2 if m[1] == 0 else b2,
-             a3 if m[2] == 0 else b3, a4 if m[3] == 0 else b4]
-        l = [b1 if m[0] == 0 else a1, b2 if m[1] == 0 else a2,
-             b3 if m[2] == 0 else a3, b4 if m[3] == 0 else a4]
-        for e, f in itertools.product((0, 1), repeat=2):
-            sf_w = [w[0] if e == 0 else w[1], w[2] if f == 0 else w[3]]
-            sf_l = [w[1] if e == 0 else w[0], w[3] if f == 0 else w[2]]
-            for r1, r2 in itertools.product((0, 1), repeat=2):
-                lb1 = [l[0] if r1 == 0 else l[1], l[2] if r2 == 0 else l[3]]
-                # 败者组交叉：败2上 = 败1上胜者 vs F 的败者；败2下 = 败1下胜者 vs E 的败者
-                q1_opts = (lb1[0], sf_l[1])
-                q2_opts = (lb1[1], sf_l[0])
-                for c1, c2 in itertools.product((0, 1), repeat=2):
-                    lb2 = [q1_opts[c1], q2_opts[c2]]
-                    for v in (0, 1):
-                        lb3 = lb2[v]
-                        for g in (0, 1):
-                            ubf_w, ubf_l = (sf_w[0], sf_w[1]) if g == 0 else (sf_w[1], sf_w[0])
-                            for lf in (0, 1):
-                                lbf = lb3 if lf == 0 else ubf_l
-                                for gf in (0, 1):
-                                    champ = ubf_w if gf == 0 else lbf
-                                    pick = {
-                                        "UBQF1": w[0], "UBQF2": w[1],
-                                        "UBQF3": w[2], "UBQF4": w[3],
-                                        "UBSF1": sf_w[0], "UBSF2": sf_w[1],
-                                        "LBR1-1": lb1[0], "LBR1-2": lb1[1],
-                                        "LBQF-1": lb2[0], "LBQF-2": lb2[1],
-                                        "LBSF": lb3, "UBF": ubf_w,
-                                        "LBF": lbf, "GF": champ,
-                                    }
-                                    sc = score_of(pick)
-                                    total += sc; n += 1
-                                    if sc > best_sc:
-                                        best_sc, best = sc, pick
-    assert n == 16384, "自洽填法应恰好 16384 种，实为 %d" % n
+    best_bits, best_sc, total = -1, -1.0, 0.0
+    n = 1 << N_BITS
+    for bits in range(n):
+        pick = expand(qf, bits)
+        sc = sum(winners[st][pick[st]] for st in ALL_STAGES)
+        total += sc
+        if sc > best_sc:
+            best_sc, best_bits = sc, bits
+    best = expand(qf, best_bits)
+    # 这条断言在位展开下已是同义反复；真正守住「不多不少 16384 种自洽填法」的是
+    # tests/test_bracket_bits.py 的双射检查。留着它只为让 stats 的口径一眼可见。
+    assert n == 16384, "BIT_STAGE 被改成了 %d 位" % N_BITS
 
     # 「逐场贪心」对照：每一场都无视自洽性、直接挑该场赢面最大的队。
     # 它给出的是**上界**（通常填不出来，因为路径对不上），用来说明约束值多少分。
@@ -518,7 +529,9 @@ def best_bracket(qf, winners, teams):
         })
     return ({st: teams[t] for st, t in best.items()}, rows,
             {"expected": best_sc, "random": total / n, "greedy_upper": greedy,
-             "n_brackets": n, "n_matches": len(ALL_STAGES)})
+             "n_brackets": n, "n_matches": len(ALL_STAGES),
+             # 前端编辑器的初始状态：这份最优填法对应的 14 位整数
+             "pick_bits": best_bits})
 
 
 # ---------------------------------------------------------------- 组装
